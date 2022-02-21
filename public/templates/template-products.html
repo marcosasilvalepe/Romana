@@ -1,0 +1,82 @@
+<div id="products__table-grid" class="grid">       
+    <div id="products__table">
+
+        <div class="table-header">
+            <div class="table">
+                <div class="thead">
+                    <div class="tr">
+                        <div class="th edit">EDITAR</div>
+                        <div class="th code">CODIGO</div>
+                        <div class="th type">TIPO</div>
+                        <div class="th primary-name">NOMBRE PRINCIPAL</div>
+                        <div class="th alternative-name">NOMBRE ALTERNATIVO</div>
+                        <div class="th image">IMAGEN</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="table-content">
+            <div class="table">
+                <div class="tbody"></div>
+            </div>
+        </div>
+
+    </div>
+
+    <div id="products-btns">
+        <div class="grid-column">
+
+            <button id="products__delete-product-btn" class="svg-wrapper icon-left red">
+                <svg height="45" width="160" xmlns="http://www.w3.org/2000/svg">
+                    <rect class="shape" height="45" width="160"></rect>
+                </svg>
+                <div class="desc-container">
+                    <i class="fad fa-trash"></i>
+                    <p>ELIMINAR</p>
+                </div>
+            </button>
+
+            <div id="" class="products-btn">
+                <div>
+                    <input spellcheck="false" class="input-effect" type="text" name="search-origin-entity"
+                    id="products__search-product">
+                    <label><i class="fal fa-search"></i>BUSCAR</label>
+                    <span class="focus-border"></span>
+                </div>
+            </div>
+
+            <div class="products-btn">
+                <div>
+                    <div class="select-effect">
+                        <p></p>
+                        <select id="products__type-select">
+                            <option value="" hidden></option>
+                            <option value="All">Todos</option>
+                            <option selected value="Uva">Uva</option>
+                            <option value="Pasas">Pasas</option>
+                            <option value="Otros">Otros</option>
+                        </select>
+                        <i class="far fa-chevron-down"></i>
+                        <label>TIPO</label>
+                        <span class="focus-border"></span>
+                    </div>
+                </div>
+            </div>
+
+            <button id="products__create-product-btn" class="svg-wrapper enabled green">
+                <svg height="45" width="160" xmlns="http://www.w3.org/2000/svg">
+                    <rect class="shape" height="45" width="160" />
+                </svg>
+                <div class="desc-container">
+                    <i class="far fa-layer-plus"></i>
+                    <p>CREAR</p>
+                </div>
+            </button>
+
+        </div>
+    </div>
+
+</div>
+
+<div id="products__product-template" class="hidden"></div>

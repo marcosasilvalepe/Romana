@@ -1,0 +1,47 @@
+<div id="create-weight__change-process-type-container">
+    <div id="create-weight__change-process-type">
+        <div class="create-document-absolute">
+            <div class="header">
+                <h3>PROCESO DE PESAJE</h3>
+            </div>
+            <div class="body">
+                <div id="select-process-container">
+                    <div class="select-process-type" data-process="gross" onclick="change_process_type(this)">
+                        <i class="fad fa-check"></i>
+                        <h5>PESO BRUTO</h5>
+                    </div>
+                    <div class="select-process-type" data-process="tare" onclick="change_process_type(this)">
+                        <i class="fad fa-check"></i>
+                        <h5>PESO TARA</h5>
+                    </div>
+                    <div class="select-process-description">
+                        <p data-process="gross">Proceso para pesaje de vehículos <b>cargados</b>.</p>
+                        <p data-process="tare">Proceso para pesaje de vehículos <b>vacíos</b>.</p>
+                    </div>
+                </div>
+            </div>
+            <div class="footer">
+                <div class="create-document-btns-container">
+                    <button id="create-weight__change-process__close-modal" class="svg-wrapper enabled red" data-prev-tab-selector="#create-document__origin-entity-list li:first-child">
+                        <svg height="45" width="160" xmlns="http://www.w3.org/2000/svg">
+                            <rect class="shape" height="45" width="160" />
+                        </svg>
+                        <div class="desc-container">
+                            <i class="fas fa-times-circle"></i>
+                            <p>CANCELAR</p>
+                        </div>
+                    </button>
+                    <button id="create-weight__change-process__accept-btn" class="svg-wrapper enabled green">
+                        <svg height="45" width="160" xmlns="http://www.w3.org/2000/svg">
+                            <rect class="shape" height="45" width="160" />
+                        </svg>
+                        <div class="desc-container">
+                            <i class="fas fa-check-circle"></i>
+                            <p>ACEPTAR</p>
+                        </div>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

@@ -1,0 +1,102 @@
+<div id="vehicles__table-grid">
+    <div id="vehicles-table">
+
+        <div class="table-header">
+            <div class="table">
+                <div class="thead">
+                    <div class="tr">
+                        <div class="th edit">EDITAR</div>
+                        <div class="th status">ESTADO</div>
+                        <div class="th internal">INTERNO</div>
+                        <div class="th primary-plates">PATENTE</div>
+                        <div class="th secondary-plates">ACOPLADO</div>
+                        <div class="th driver">CHOFER</div>
+                        <div class="th transport">TRANSPORTISTA</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="table-content">
+
+            <div class="table">
+                <div class="tbody"></div>
+            </div>
+
+        </div>
+    </div>
+
+    <div id="vehicles-btns">
+        <div class="grid-column">
+
+            <button id="vehicles__delete-vehicle-btn" class="svg-wrapper icon-left red">
+                <svg height="45" width="160" xmlns="http://www.w3.org/2000/svg">
+                    <rect class="shape" height="45" width="160"></rect>
+                </svg>
+                <div class="desc-container">
+                    <i class="fad fa-trash"></i>
+                    <p>ELIMINAR</p>
+                </div>
+            </button>
+
+            <div class="vehicles-btn">
+                <div>
+                    <input spellcheck="false" class="input-effect" type="text" name="search-origin-entity"
+                    id="vehicles__search-vehicle">
+                    <label><i class="fal fa-search"></i>BUSCAR</label>
+                    <span class="focus-border"></span>
+                </div>
+            </div>
+
+            <div class="vehicles-btn">
+                <div>
+                    <div class="select-effect has-content">
+                        <p>Activos</p>
+                        <select id="vehicles__status-select">
+                            <option value="" hidden></option>
+                            <option value="All">Todos</option>
+                            <option selected value="1">Activos</option>
+                            <option value="0">Inactivos</option>
+                        </select>
+                        <i class="far fa-chevron-down"></i>
+                        <label>ESTADO</label>
+                        <span class="focus-border"></span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="vehicles-btn">
+                <div>
+                    <div class="select-effect has-content">
+                        <p>Internos</p>
+                        <select id="vehicles__internal-select">
+                            <option value="" hidden></option>
+                            <option value="All">Todos</option>
+                            <option selected value="1">Internos</option>
+                            <option value="0">Externos</option>
+                        </select>
+                        <i class="far fa-chevron-down"></i>
+                        <label>TIPO</label>
+                        <span class="focus-border"></span>
+                    </div>
+                </div>
+            </div>
+
+            <button id="vehicles__create-vehicle-btn" class="svg-wrapper enabled green">
+                <svg height="45" width="160" xmlns="http://www.w3.org/2000/svg">
+                    <rect class="shape" height="45" width="160" />
+                </svg>
+                <div class="desc-container">
+                    <i class="far fa-layer-plus"></i>
+                    <p>CREAR</p>
+                </div>
+            </button>
+
+        </div>
+    </div>
+
+</div>
+
+<div id="vehicles__vehicle-template" class="hidden">
+
+</div>

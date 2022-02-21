@@ -1,0 +1,144 @@
+<div class="client-template__row">
+    <h3>CREAR ENTIDAD</h3>
+</div>
+
+<div class="client-template__row">
+    <div>
+        <div id="client-template__entity-name" class="input-effect-container">
+            <input spellcheck="false" class="input-effect" type="text" name="new-entity-name" max="128">
+            <label>Razón Social</label>
+            <span class="focus-border"></span>											
+        </div>
+        <div id="client-template__entity-rut" class="input-effect-container">
+            <div class="widget-tooltip red hidden">
+                <span></span>
+            </div>
+            <input spellcheck="false" class="input-effect" type="text" name="new-entity-rut" max="12">
+            <label>RUT</label>
+            <span class="focus-border"></span>											
+        </div>
+    </div>
+</div>
+
+<div class="client-template__row">
+    <div>
+        <div id="client-template__entity-giro" class="input-effect-container">
+            <div class="select-effect">
+                <p></p>
+                <select>
+                    <option value="" hidden></option>
+                </select>
+                <i class="far fa-chevron-down"></i>
+                <label>GIRO</label>
+                <span class="focus-border"></span>
+            </div>
+        </div>
+        <div id="client-template__entity-type" class="input-effect-container">
+            <div class="select-effect">
+                <p></p>
+                <select>
+                    <option value="" hidden></option>
+                    <option value="C">Cliente</div>
+                    <option value="P">Proveedor</div>
+                    <option value="A">Cliente y Proveedor</div>
+                    <option value="T">Transportista</div>
+                </select>
+                <label>TIPO DE ENTIDAD</label>
+                <span class="focus-border"></span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="client-template__row">
+    <div>
+        <div id="client-template__entity-phone" class="input-effect-container">
+            <input spellcheck="false" class="input-effect" type="text" name="new-entity-name" max="12">
+            <label>TELEFONO</label>
+            <span class="focus-border"></span>											
+        </div>
+        <div id="client-template__entity-email" class="input-effect-container">
+            <input spellcheck="false" class="input-effect" type="text" name="new-entity-name" max="32">
+            <label>EMAIL</label>
+            <span class="focus-border"></span>											
+        </div>
+        <div id="client-template__entity-status">
+            <div class="select-effect">
+                <p></p>
+                <select>
+                    <option value="" hidden></option>
+                    <option value="1">Activo</option>
+                    <option value="0">Inactivo</option>
+                </select>
+                <i class="far fa-chevron-down"></i>
+                <label>ESTADO</label>
+                <span class="focus-border"></span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="client-template__row">
+
+    <div id="client-template__branch-table">
+        <div class="table-header">
+            <div class="table">
+                <div class="thead">
+                    <div class="tr">
+                        <div class="th number">Nº</div>
+                        <div class="th branch">SUCURSAL</div>
+                        <div class="th address">DIRECCION</div>
+                        <div class="th comuna">COMUNA</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="table-content">
+            <div class="table">
+                <div class="tbody"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="client-template__create-branch" class="hidden"></div>
+
+</div>
+
+<div class="client-template__row">
+    <div id="client-template__btns">
+        <button id="client-template__delete-entity" class="svg-wrapper enabled icon-left red">
+            <svg height="45" width="160" xmlns="http://www.w3.org/2000/svg">
+                <rect class="shape" height="45" width="160" />
+            </svg>
+            <div class="desc-container">
+                <i class="fad fa-trash"></i>
+                <p>ELIMINAR</p>
+            </div>
+        </button>
+        <button id="cliente-template__save" class="svg-wrapper enabled icon-left green">
+            <svg height="45" width="160" xmlns="http://www.w3.org/2000/svg">
+                <rect class="shape" height="45" width="160" />
+            </svg>
+            <div class="desc-container">
+                <i class="far fa-cloud-upload"></i>
+                <p>GUARDAR</p>
+            </div>
+        </button>
+        <button id="client-template__add-branch" class="svg-wrapper enabled icon-left orange">
+            <svg height="45" width="160" xmlns="http://www.w3.org/2000/svg">
+                <rect class="shape" height="45" width="160" />
+            </svg>
+            <div class="desc-container">
+                <i class="far fa-plus-circle"></i>
+                <p>SUCURSAL</p>
+            </div>
+        </button>
+    </div>
+</div>
+
+<div class="close-btn-absolute">
+    <div>
+        <i class="fas fa-times"></i>
+    </div>
+</div>

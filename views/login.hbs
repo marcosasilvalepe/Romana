@@ -1,0 +1,53 @@
+<div class="body">
+    <div class="login">
+        <div>
+            <div class="login_title">
+                <span>Ingresar a tu cuenta</span>
+            </div>
+            <div class="login_fields">
+                <div class="login_fields__user">
+                    <div class="icon">
+                        <i class="fal fa-user"></i>
+                    </div>
+                    <input id="username" placeholder="Username" type="text" onfocus="focus_prev(this)" onblur="focus_prev(this)">
+                    <div class="validation">
+                        <i class="far fa-check"></i>
+                    </div>
+                </div>
+                <div class="login_fields__password">
+                    <div class="icon">
+                        <i class="fal fa-lock"></i>
+                    </div>
+                    <input id="userpassword" placeholder="Password" type="password" onfocus="focus_prev(this)" onblur="focus_prev(this)">
+                    <div class="validation">
+                        <i class="far fa-check"></i>
+                    </div>
+                </div>
+                <div class="login_fields__submit">
+                    <input type="submit" value="Log In">
+                    <div class="forgot">
+                        
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="success">
+            <h2>Autenticazión Exitosa</h2>
+            <p></p>
+        </div>
+        <div class="disclaimer">
+            <p></p>
+        </div>
+    </div>
+    <div class="authent">
+        <div id="ripple">
+            <div></div>
+            <div></div>
+        </div>
+        <p>Autenticando...</p>
+    </div>
+</div>
+<script defer type="text/javascript" src="js/jwt-decode.js"></script>
+<script defer type="text/javascript" src="js/purify.js"></script>
+<script defer type="text/javascript" src="js/login.js"></script>

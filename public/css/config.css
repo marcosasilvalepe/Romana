@@ -1,0 +1,182 @@
+#config > .content {
+    width: 100%;
+    height: 100%;
+}
+
+#config .close-btn-absolute {
+  right: -20px;
+}
+
+
+#config-grid {
+    width: 100%;
+    height: 100%;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    column-gap: 50px;
+    row-gap: 50px;
+}
+
+#config-grid .widget {
+    cursor: pointer;
+}
+
+#config-grid > div > div > .widget-icon {
+ width: 120px;
+ height: 120px;   
+}
+
+#config-grid > div > div > .widget-icon i {
+    transform: scale(1.5);
+    margin: auto 27px 30px auto;
+}
+
+#config-grid .widget-data:nth-child(2) {
+    margin: auto;
+}
+
+#config-grid .widget h4 {
+    font-size: 21px;
+    margin: auto;
+    font-weight: 700;
+}
+
+#config-content {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    position: relative;
+}
+
+#config .table-header {
+    height: 36px;
+    border-bottom: 2px solid rgba(255, 255, 255, .3);
+    background-color: rgba(255, 255, 255, .2);
+}
+
+#config .table-header .table {
+    width: calc(100% - 16px);
+}
+
+#config .table-header .table,
+#config .table-header .thead {
+    height: 100%;
+} 
+
+#config .table-content {
+    overflow-y: scroll;
+    height: calc(100% - 36px);
+    border-bottom: 2px solid rgba(255, 255, 255, .3);
+}
+
+#config .table {
+    width: 100%;
+}
+
+#config .tr {
+  position: relative;
+  transition: all 0.3s 0s linear;
+  display: grid;
+  grid-auto-flow: column;
+  cursor: pointer;
+}
+
+#config .table-content .tr {
+    border-bottom: 1px solid rgba(255, 255, 255, .3);
+}
+
+#config .td,
+#config .th {
+    text-align: center;
+    font-size: 14px;
+    opacity: .8;
+}
+
+#config .th {
+    padding: 0 15px;
+    line-height: 36px;
+    font-weight: 700;
+}
+
+#config .td {
+    padding:  15px;
+}
+
+#config .tr:hover .td {
+  opacity: 1;
+  font-weight: 700;
+  z-index: 3;
+  transition: 
+      opacity 250ms 0s linear,
+      font-weight 100ms 0s linear
+  ;
+}
+
+#config .tr {
+  grid-template-columns: 200px 200px 200px 1fr 1fr;
+}
+
+#config .tr::before,
+#config .tr::after {
+  position: absolute;
+  content: "";
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0)
+    linear-gradient(to right, rgba(20, 136, 204, .3), rgba(43, 50, 178, .3)) repeat scroll
+    0% 0%;
+  transform: scaleY(0);
+  transform-origin: bottom;
+  transition: transform 0.3s;
+}
+#config .tr::before {
+  z-index: 1;
+}
+#config .tr::after {
+  z-index: 2;
+  filter: blur(20px);
+}
+#config .tr:hover {
+  text-shadow: 0.5px 0.5px 1px rgba(0, 0, 0, 0.2);
+}
+
+#config .tr:hover::before,
+#config .tr:hover::after {
+  transform: scaleY(1);
+  transform-origin: top;
+}
+
+#config .tr:focus::before,
+#config .tr:focus::after {
+  position: absolute;
+  content: "";
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0)
+    linear-gradient(to right, rgba(20, 136, 204, .5), rgba(43, 50, 178, .5)) repeat scroll
+    0% 0%;
+  transform: scaleY(1);
+}
+
+#config .tr.selected {
+  font-weight: 700;
+  transition: all 0.5s 0s ease;
+}
+
+#config .tr.selected::before,
+#config .tr.selected::after {
+  position: absolute;
+  content: "";
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0)
+    linear-gradient(to right, rgb(20, 136, 204), rgb(43, 50, 178)) repeat scroll
+    0% 0%;
+  transform: scaleY(1);
+}

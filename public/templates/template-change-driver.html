@@ -1,0 +1,146 @@
+<div class="create-weight__change-driver-container">
+    <div class="create-document-absolute create-weight__change-driver active">
+        <div class="header">
+            <h3>SELECCIONAR CHOFER</h3>
+        </div>
+        <div class="body">
+            <div class="row change-driver__type-btns">
+                <div class="change-driver__select-type active" data-type="internal">
+                    <h4>Internos</h4>
+                </div>
+                <div class="change-driver__select-type" data-type="external">
+                    <h4>Externos</h4>
+                </div>
+                <div class="change-driver__select-type" data-type="active">
+                    <h4>Activos</h4>
+                </div>
+                <div class="change-driver__select-type" data-type="inactive">
+                    <h4>Inactivos</h4>
+                </div>
+                <div class="default-driver">
+                    <input class="select-driver__default-cbx" type="checkbox" />
+                    <label class="cbx"></label>
+                    <label class="lbl"></label>
+                </div>
+            </div>
+            <div class="tbl-header">
+                <table cellspacing="0" cellpadding="0" border="0">
+                    <thead>
+                        <tr>
+                            <th class="driver">NOMBRE</th>
+                            <th class="rut">RUT</th>
+                            <th class="phone">TELEFONO</th>
+                            <th class="internal">INTERNO</th>
+                            <th class="status">ACTIVO</th>
+                        </tr>
+                    </thead>
+                </table>
+            </div>
+            <div class="tbl-content">
+                <table cellspacing="0" cellpadding="0" border="0">
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+        <div class="footer">
+            <div class="create-document-btns-container">
+                <button class="svg-wrapper enabled red create-weight__change-driver__close-modal" data-prev-tab-selector="#create-document__origin-entity-list li:first-child">
+                    <svg height="45" width="160" xmlns="http://www.w3.org/2000/svg">
+                        <rect class="shape" height="45" width="160" />
+                    </svg>
+                    <div class="desc-container">
+                        <i class="fas fa-times-circle"></i>
+                        <p>CANCELAR</p>
+                    </div>
+                </button>
+                <button class="svg-wrapper enabled orange create-weight__change-driver__create-driver-btn">
+                    <svg height="45" width="160" xmlns="http://www.w3.org/2000/svg">
+                        <rect class="shape" height="45" width="160" />
+                    </svg>
+                    <div class="desc-container">
+                        <i class="fas fa-users-medical"></i>
+                        <p>CREAR</p>
+                    </div>
+                </button>
+                <div class="btn-search-container create-weight__change-driver__search-driver">
+                    <div class="input-effect-container">
+                        <input spellcheck="false" class="input-effect" type="text">
+                        <label><i class="fal fa-search"></i>BUSCAR</label>
+                        <span class="focus-border"></span>    
+                    </div>
+                </div>
+                <button class="svg-wrapper green create-weight__change-driver__set-driver">
+                    <svg height="45" width="160" xmlns="http://www.w3.org/2000/svg">
+                        <rect class="shape" height="45" width="160" />
+                    </svg>
+                    <div class="desc-container">
+                        <i class="fas fa-check-circle"></i>
+                        <p>ACEPTAR</p>
+                    </div>
+                </button>
+            </div>
+        </div>
+    </div>
+    <div id="create-weight__change-driver__create" class="create-document-absolute up hidden">
+        <div class="header">
+            <h3>CREAR CHOFER</h3>
+        </div>
+        <div class="body">
+            <div class="grid">
+                <div class="create-driver-data-container">
+                    <input spellcheck="false" id="create-weight__create-driver-name" type="text" class="input-effect" maxlength="64">
+                    <label>NOMBRE</label>
+                    <span class="focus-border"></span>
+                </div>
+                <div class="create-driver-data-container">
+                    <input spellcheck="false" id="create-weight__create-driver-rut" type="text" class="input-effect" maxlength="12" data-next-tab-selector="#create-weight__create-driver-phone">
+                    <label>RUT</label>
+                    <span class="focus-border"></span>
+                    <div class="widget-tooltip red hidden">
+                        <span>RUT inválido</span>
+                    </div>                 
+                </div>
+                <div class="create-driver-data-container">
+                    <input spellcheck="false" id="create-weight__create-driver-phone" type="text" class="input-effect" maxlength="16" data-next-tab-selector="#create-driver__internal-cbx">
+                    <label>TELEFONO</label>
+                    <span class="focus-border"></span>              
+                </div>
+                <div class="create-driver-data-container">
+                    <div class="create-driver__checkbox-container">
+                        <input id="create-driver__internal-cbx" type="checkbox" data-prev-tab-selector="#create-weight__create-driver-rut" data-next-tab-selector="#create-driver__active-cbx"/>
+                        <label class="cbx" for="create-driver__internal-cbx"></label>
+                        <label class="lbl" for="create-driver__internal-cbx">INTERNO</label>
+                    </div>
+                    <div class="create-driver__checkbox-container">
+                        <input id="create-driver__active-cbx" type="checkbox" data-prev-tab-selector="#create-driver__internal-cbx" data-next-tab-selector="#create-weight__change-driver__back-to-select-driver"/>
+                        <label class="cbx" for="create-driver__active-cbx"></label>
+                        <label class="lbl" for="create-driver__active-cbx">ACTIVO</label>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+        <div class="footer">
+            <div class="create-document-btns-container">
+                <button id="create-weight__change-driver__back-to-select-driver" class="svg-wrapper enabled red">
+                    <svg height="45" width="160" xmlns="http://www.w3.org/2000/svg">
+                        <rect class="shape" height="45" width="160" />
+                    </svg>
+                    <div class="desc-container">
+                        <i class="fas fa-times-circle"></i>
+                        <p>CANCELAR</p>
+                    </div>
+                </button>
+                <button id="create-weight__change-driver__create-driver" class="svg-wrapper enabled green">
+                    <svg height="45" width="160" xmlns="http://www.w3.org/2000/svg">
+                        <rect class="shape" height="45" width="160" />
+                    </svg>
+                    <div class="desc-container">
+                        <i class="fas fa-users-medical"></i>
+                        <p>CREAR</p>
+                    </div>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>

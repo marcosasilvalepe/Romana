@@ -1,0 +1,223 @@
+#products > .content {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    position: relative;
+}
+
+#products__table-grid {
+    margin: 0 auto auto auto;
+    width: 100%;
+    height: 100%;
+    display: grid;
+    grid-auto-flow: row;
+    grid-template-rows: 520px 1fr;
+    border: 2px solid rgba(255, 255, 255, .3);
+}
+
+#products__table .tr {
+    grid-template-columns: 90px 200px 200px 200px 1fr 1fr;
+}
+
+#products__table .td {
+    line-height: 70px;
+    padding: 0 15px;
+}
+
+#products__table .edit > div {
+    width: 100%;
+    height: 100%;
+    display: flex;
+}
+
+#products__table .edit i {
+    margin: auto;
+    font-size: 18px;
+    transition: all 250ms 0s ease;
+}
+
+#products__table .edit:hover i {
+    transform: scale(1.7);
+}
+
+#products__table .primary-name,
+#products__table .secondary-name {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+#products__table .td.image {
+    display: flex;
+}
+
+#products__table .td.image > div {
+    margin: auto;
+    width: 50px;
+    height: 50px;
+    border: 2px solid rgba(255, 255, 255, .3);
+    border-radius: 50%;
+    background-size: cover;
+    background-position: center;
+}
+
+#products__product-template {
+    position: absolute;
+    z-index: 100;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    transition: all 250ms 100ms ease;
+}
+
+@supports ((-webkit-backdrop-filter: none) or (backdrop-filter: none)) {
+    #products__product-template.active {
+      backdrop-filter: blur(10px);
+    }
+}
+
+#products__product-template.active {
+    background-color: rgba(0, 0, 0, .6);
+    transition: all 250ms 500ms ease;
+
+}
+
+#products__create-edit-product__container {
+    position: relative;
+    width: 500px;
+    height: 500px;
+    margin: auto;
+    padding: 25px 25px;
+    border: 1px solid rgba(255, 255, 255, .3)
+}
+
+#products__create-edit-product {
+    width: 100%;
+    height: 100%;
+    display: grid;
+    grid-template-rows: 50px 100px 100px 130px 1fr;
+}
+
+.create-edit-product {
+    position: relative;
+    width: 100%;
+    height: 100%;
+}
+
+.create-edit-product:first-child {
+    display: flex;
+}
+
+.create-edit-product h3 {
+    margin: auto;
+}
+
+#products__create-edit-product .select-effect p {
+    text-align: left;
+}
+
+#product__create-edit__product-image {
+    flex-direction: column;
+    cursor: pointer;
+    width: 100%;
+    height: 100%;
+}
+
+#product__create-edit__product-image > div:first-child {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    width: 110px;
+    height: 110px;
+    margin: auto;
+    border: 2px solid rgba(255, 255, 255, .6);
+    border-radius: 50%;
+    background-size: cover;
+    background-position: center;
+}
+
+#product__create-edit__product-image i {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 1;
+    color: rgba(255, 255, 255, .8);
+    font-size: 27px;
+}
+
+#product__create-edit__product-image ~ p {
+    margin: 10px auto 5px auto;
+    font-weight: 700;
+    font-size: 15px;
+    line-height: 1;
+    text-align: center;
+}
+
+#product__create-edit__product-image ~ div:last-child {
+    width: 100%;
+    height: 100%;
+    display: flex;
+}
+
+#product__create-edit__product-image ~ div:last-child > div {
+    width: 100px;
+    height: 100px;
+    border: 2px solid rgba(255, 255, 255, .6);
+    border-radius: 50%;
+    margin: auto;
+
+}
+
+.create-edit-product.grid {
+    grid-auto-flow: column;
+    grid-template-columns: repeat(2, 1fr);
+    column-gap: 25px;
+}
+
+.create-edit-product:last-child { display: flex; }
+
+.create-edit-product > div {
+    display: flex;
+}
+
+.create-edit-product:last-child > div {
+    margin: auto auto 0 auto;
+}
+
+#products-btns {
+    display: flex;
+}
+
+#products-btns .grid-column {
+    margin: auto;
+    grid-template-columns: repeat(3, 1fr);
+    column-gap: 25px;
+    width: 750px;
+}
+
+.products-btn {
+    display: flex;
+}
+
+.products-btn .select-effect p {
+    left: 50%;
+    transform: translate(-50%, -50%);
+}
+
+.products-btn > div {
+    position: relative;
+    display: flex;
+    height: 30px;
+    width: 100%;
+    margin: auto auto 7px auto;
+}
+
+#products-btns label {
+    width: 100%;
+    text-align: center;
+}
+
+#products__search-product { text-align: center }

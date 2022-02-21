@@ -1,0 +1,81 @@
+<div class="create-vehicle-container active">
+    
+    <div class="create-vehicle__vehicle-data create-document-absolute">
+        <div class="header">
+            <h3>CREAR VEHICULO</h3>
+        </div>
+        <div class="body">
+            <div class="grid">
+
+                <div class="create-vehicle-data">
+                    <div class="input-effect-container">
+                        <div class="widget-tooltip red hidden">
+                            <span></span>
+                        </div>
+                        <input spellcheck="false" type="text" class="input-effect create-vehicle__primary-plates" maxlength="8">
+                        <label>Patente Vehículo</label>
+                        <span class="focus-border"></span>    
+                    </div>
+                </div>
+
+                <div class="create-vehicle-data">
+                    <div class="input-effect-container">
+                        <input spellcheck="false"  type="text" class="input-effect create-vehicle__secondary-plates" maxlength="8">
+                        <label>Patente Acoplado</label>
+                        <span class="focus-border"></span>    
+                    </div>
+                </div>
+
+                <div class="create-vehicle-data">
+                    <div class="input-effect-container">
+                        <div class="select-effect">
+                            <p></p>
+                            <select class="create-vehicle__transport-select">
+                                <option value="none" selected hidden></option>
+                                <option value="none">Sin Especificar</option>
+                            </select>
+                            <label>TRANSPORTISTA</label>
+                            <span class="focus-border"></span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="create-vehicle-data">
+                    <div class="vehicle-data-inner">
+                        <input class="create-vehicle__internal-cbx" type="checkbox" data-prev-tab-selector="#create-vehicle__default-driver" data-next-tab-selector="#create-vehicle__active-cbx"/>
+                        <label class="cbx"></label>
+                        <label class="lbl">INTERNO</label>
+                    </div>
+                    <div class="vehicle-data-inner">
+                        <input class="create-vehicle__active-cbx" type="checkbox" data-prev-tab-selector="#create-vehicle__internal-cbx" data-next-tab-selector="#create-weight__create-vehicle__back-to-create-weight"/>
+                        <label class="cbx"></label>
+                        <label class="lbl">ACTIVO</label>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+        <div class="footer">
+            <div class="create-document-btns-container">
+                <button class="svg-wrapper enabled red create-weight__create-vehicle__back-to-create-weight">
+                    <svg height="45" width="160" xmlns="http://www.w3.org/2000/svg">
+                        <rect class="shape" height="45" width="160" />
+                    </svg>
+                    <div class="desc-container">
+                        <i class="fas fa-times-circle"></i>
+                        <p>CANCELAR</p>
+                    </div>
+                </button>
+                <button class="svg-wrapper enabled green create-weight__create-vehicle__choose-driver-btn">
+                    <svg height="45" width="160" xmlns="http://www.w3.org/2000/svg">
+                        <rect class="shape" height="45" width="160" />
+                    </svg>
+                    <div class="desc-container">
+                        <i class="fas fa-check-circle"></i>
+                        <p>CHOFER</p>
+                    </div>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>

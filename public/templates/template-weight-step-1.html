@@ -1,0 +1,94 @@
+<div id="create-weight__modal"></div>
+
+<div id="create-weight-step-1">
+    <div class="column">
+        <div class="grid" id="create-weight__cycle">
+            <div class="weight__type active" data-weight-type="1">
+                <div class="weight__type__icon">
+                    <i class="fad fa-exchange"></i>
+                </div>
+                <div class="container">
+                    <h4>Recepción</h4>
+                </div>
+            </div>
+            <div class="weight__type" data-weight-type="2">
+                <div class="weight__type__icon">
+                    <i class="fad fa-exchange"></i>
+                </div>
+                <div class="container">
+                    <h4>Despacho</h4>
+                </div>
+            </div>
+            <div class="weight__type" data-weight-type="3">
+                <div class="weight__type__icon">
+                    <i class="fad fa-exchange"></i>
+                </div>
+                <div class="container">
+                    <h4>Interno</h4>
+                </div>
+            </div>
+            <div class="weight__type" data-weight-type="4">
+                <div class="weight__type__icon">
+                    <i class="fad fa-exchange"></i>
+                </div>
+                <div class="container">
+                    <h4>Externo</h4>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="column">
+        <div class="grid" id="select-vehicle-type-container">
+            <div class="grid">
+                <div id="create-weight__search-vehicles-container" class="create-weight__vehicles-type">
+                    <input id="create-weight__search-vehicles" class="input-effect" type="text" name="search-vehicles" maxlength="8">
+                    <label>BUSCAR VEHICULO</label>
+                    <span class="focus-border"></span>
+                    <div class="icon-container">
+                        <div class="not-found"><i class="fas fa-times"></i></div>
+                        <div class="found"><i class="fas fa-check"></i></div>
+                    </div>
+                </div>
+                <div id="select-vhc-create" class="create-weight__vehicles-type">
+                    <h4>Crear</h4>
+                </div>
+                <div id="create-weight__show-vehicles-internal" class="create-weight__vehicles-type filter-vehicles active">
+                    <h4>Internos</h4>
+                </div>
+                <div id="create-weight__show-vehicles-external" class="create-weight__vehicles-type filter-vehicles">
+                    <h4>Externos</h4>
+                </div>
+                <div id="create-weight__show-vehicles-inactive" class="create-weight__vehicles-type filter-vehicles">
+                    <h4>Inactivos</h4>
+                </div>
+            </div>
+        </div>
+        <div class="column" id="create-weight__select-vehicle-table">
+            <div class="tbl-header">
+                <table cellpadding="0" cellspacing="0" border="0">
+                    <thead>
+                        <tr>
+                            <th class="primary-plates">PATENTE</th>
+                            <th class="secondary-plates">ACOPLADO</th>
+                            <th class="driver">CHOFER</th>
+                            <th class="phone">TELEFONO</th>
+                            <th class="internal">INTERNO</th>
+                            <th class="status">ACTIVO</th>
+                        </tr>
+                    </thead>
+                </table>
+            </div>
+            <div class="tbl-content">
+                <table cellpadding="0" cellspacing="0" border="0">
+                    <tbody></table>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div id="create-weight-btn">
+            <h2>CREAR PESAJE</h2>
+        </div>
+    </div>
+</div>

@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html language="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta content="text/html;charset=utf-8" http-equiv="Content-Type">
+
+    <!-- Document title -->
+    <title>{{title}}</title>
+    <link rel="icon" type="image/png" href="icon.png"/>
+
+    {{#each css}}
+        <link rel="stylesheet" href="{{this.path}}"
+            {{#each this.attributes as |css_attr|}}
+                {{css_attr.attr}}="{{css_attr.value}}" 
+            {{/each}}
+         />
+    {{/each}}
+
+    {{#each script}}
+        <script src="{{this.src}} " 
+            {{#each this.attributes as |attr|}}
+                {{attr}}
+            {{/each}}
+        >
+        </script>
+    {{/each}}
+
+</head>
+
+<body class="dark-layout">
+    {{{body}}}
+</body>
+
+</html>

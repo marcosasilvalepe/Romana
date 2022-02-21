@@ -1,0 +1,200 @@
+<div id="home-products-container">
+    <div id="home-modal">
+        <div id="home-modal__data">
+            
+        </div>
+    </div>
+
+    <div id="home-data">
+        
+        <div id="home-statistics">
+            <div id="home-statistics__cycle" class="home-statistics" data-cycle="1">
+                <div class="stats-icon">
+                    <i class="fad fa-arrow-down"></i>
+                </div>
+                <div class="stats-data">
+                    <h4>CICLO</h4>
+                    <p>RECEPCION</p>
+                </div>
+                <div class="dropdown-container">
+                    <div class="dropdown">
+                        <div class="dropdown-item" data-cycle="1">
+                            <div class="icon-container">
+                                <i class="fad fa-arrow-down"></i>
+                            </div>
+                            <p>RECEPCION</p>
+                        </div>
+                        <div class="dropdown-item" data-cycle="2">
+                            <div class="icon-container">
+                                <i class="fad fa-arrow-up"></i>
+                            </div>
+                            <p>DESPACHO</p>
+                        </div>
+                        <div class="dropdown-item" data-cycle="3">
+                            <div class="icon-container">
+                                <i class="fal fa-warehouse"></i>
+                            </div>
+                            <p>INGRESOS<br>BODEGA</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div id="home-statistics__date" class="home-statistics">
+                <div class="stats-icon">
+                    <i class="fal fa-calendar-edit"></i>
+                </div>
+                <div class="stats-data">
+                    
+                    <hr>							
+                </div>
+                <div class="dropdown-container">
+                    <div class="dropdown">
+                        <div id="home-date__today" class="dropdown-item">
+                            <p>HOY</p>
+                        </div>
+                        <div id="home-date__this-week" class="dropdown-item">
+                            <p>ESTA SEMANA</p>
+                        </div>
+                        <div id="home-date__this-month" class="dropdown-item">
+                            <p>ESTE MES</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div id="home-statistics__product" class="home-statistics">
+                <div class="stats-icon">
+                    <i class="fas fa-check"></i>
+                </div>
+                <div class="stats-data">
+                    <h4>PRODUCTO</h4>
+                    <p>UVA</p>
+                </div>
+                <div class="dropdown-container">
+                    <div class="dropdown">
+                        <div class="dropdown-item" data-type="Uva">
+                            <p>UVA</p>
+                        </div>
+                        <div class="dropdown-item" data-type="Pasas">
+                            <p>PASAS</p>
+                        </div>
+                        <div class="dropdown-item" data-type="Otros">
+                            <p>OTROS</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div id="home-statistics__total" class="home-statistics active">
+                <div class="stats-icon">
+                    <i class="fal fa-chart-line"></i>
+                </div>
+                <div class="stats-data">
+                    <h4>TOTAL</h4>
+                    <p></p>
+                </div>
+            </div>
+            <div id="home-statistics__parron" class="home-statistics">
+                <div class="stats-icon">
+                    <i class="fal fa-info"></i>
+                </div>
+                <div class="stats-data">
+                    <h4>PARRON</h4>
+                    <span></span>
+                    <p></p>
+                </div>
+            </div>
+            <div id="home-statistics__packing" class="home-statistics">
+                <div class="stats-icon">
+                    <i class="fal fa-info"></i>
+                </div>
+                <div class="stats-data">
+                    <h4>PACKING</h4>
+                    <span></span>
+                    <p></p>
+                </div>
+            </div>
+        </div>
+        <div id="home-filters-btn" style="display:none">
+            <div id="home-filters__date" class="home-filter">
+                <i class="fal fa-calendar-check"></i>
+            </div>
+            <div id="home-filters__others" class="home-filter">
+                <i class="fal fa-filter"></i>
+            </div>
+        </div>
+        <div id="home-btns" style="display:none">
+            <div id="home-btns__date-container" class="widget">
+                <div class="widget-container">
+                    <div class="widget-icon">
+                        <i class="fal fa-calendar-alt"></i>
+                    </div>
+                    <div class="home-date">
+                        <input id="home-date__start" type="date" class="input-effect has-content">
+                        <label>DESDE</label>
+                        <span class="focus-border"></span>
+                    </div>
+                    <div class="home-date">
+                        <input id="home-date__end" type="date" class="input-effect has-content">
+                        <label>HASTA</label>
+                        <span class="focus-border"></span>
+                    </div>
+                </div>
+            </div>
+            <div class="widget">
+                <div class="widget-container">
+                    <div class="widget-icon">
+                        <i class="fal fa-filter"></i>
+                    </div>
+                    <select id="home-products__period-select">
+                        <option disabled selected>PERIODO</option>
+                        <option value="1">ESTA SEMANA</option>
+                        <option value="2">ESTE MES</option>
+                        <option value="3">AÑO 2022</option>
+                        <option value="4">AÑO 2020</option>
+                        <option value="5">AÑO 2019</option>
+                    </select>
+                </div>
+            </div>
+            <div class="widget">
+                <div class="widget-container">
+                    <div class="widget-icon">
+                        <i class="fal fa-filter"></i>
+                    </div>
+                    <select id="home-products__product-select">
+                        <option disabled selected>PRODUCTOS</option>
+                        <option value="1">UVA</option>
+                        <option value="2">PASAS</option>
+                        <option value="3">OTROS</option>
+                    </select>
+                </div>
+            </div>
+            <div class="widget">
+                <div class="widget-container">
+                    <div class="widget-icon">
+                        <i class="fal fa-filter"></i>
+                    </div>
+                    <select id="home-products__type-select">
+                        <option disabled selected>TIPO</option>
+                        <option value="All">TODO</option>
+                        <option value="Packing">PACKING</option>
+                        <option value="Parron">PARRON</option>
+                    </select>
+                </div>
+            </div>
+
+        </div>
+        <div id="home-products">
+            
+        </div>
+    </div>
+</div>
+<div id="home-charts-container">
+    <div id="home-arrows-container">
+        <div id="home-arrows">
+            <i class="fas fa-caret-circle-up"></i>
+            <i class="fas fa-caret-circle-down"></i>
+        </div>
+    </div>
+    <div id="home-charts">
+
+    </div>
+</div>

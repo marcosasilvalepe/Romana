@@ -1,0 +1,11 @@
+@media print {
+    html, body {
+        display: block; 
+        font-family: "Calibri";
+        margin: 0;
+    }
+
+    @page {
+      size: 21.59cm 13.97cm;
+    }
+}

@@ -1,0 +1,97 @@
+<div id="products__create-edit-product__container">
+    <div id="products__create-edit-product">
+        
+        <div class="create-edit-product">
+            <h3>EDITAR PRODUCTO</h3>
+        </div>
+
+        <div class="create-edit-product grid">
+
+            <div>
+                <div class="input-effect-container">
+                    <input id="product__create-edit__code" spellcheck="false" class="input-effect" type="text" name="new-entity-name" max="12">
+                    <label>CODIGO</label>
+                    <span class="focus-border"></span>											
+                </div>
+            </div>
+
+            <div>
+                <div class="select-effect">
+                    <p></p>
+                    <select id="product__create-edit__type-select">
+                        <option value="" hidden></option>
+                        <option value="Uva">Uva</option>
+                        <option value="Pasas">Pasas</option>
+                        <option value="Resecado">Resecado</option>
+                        <option value="Otros">Otros</option>
+                    </select>
+                    <i class="far fa-chevron-down"></i>
+                    <label>TIPO</label>
+                    <span class="focus-border"></span>
+                </div>
+            </div>
+
+        </div>
+
+        <div class="create-edit-product grid">
+
+            <div>
+                <div class="input-effect-container">
+                    <input id="product__create-edit__primary-name" spellcheck="false" class="input-effect" type="text" name="new-entity-name" max="60">
+                    <label>NOMBRE PRINCIPAL</label>
+                    <span class="focus-border"></span>											
+                </div>
+            </div>
+
+            <div>
+                <div class="input-effect-container">
+                    <input id="product__create-edit__secondary-name" spellcheck="false" class="input-effect" type="text" name="new-entity-name" max="60">
+                    <label>NOMBRE ALTERNATIVO</label>
+                    <span class="focus-border"></span>											
+                </div>
+            </div>
+
+        </div>
+
+        <div class="create-edit-product column">
+            
+            <div id="product__create-edit__product-image">
+                <div>
+                    <i class="far fa-file-image"></i>
+                </div>
+            </div>
+            <p>SUBIR IMAGEN</p>
+
+        </div>
+
+        <div class="create-edit-product">
+            <div>
+                <button id="product-template__delete-entity" class="svg-wrapper enabled icon-left red">
+                    <svg height="45" width="160" xmlns="http://www.w3.org/2000/svg">
+                        <rect class="shape" height="45" width="160" />
+                    </svg>
+                    <div class="desc-container">
+                        <i class="fad fa-trash"></i>
+                        <p>ELIMINAR</p>
+                    </div>
+                </button>
+                <button id="product-template__save" class="svg-wrapper enabled icon-left green">
+                    <svg height="45" width="160" xmlns="http://www.w3.org/2000/svg">
+                        <rect class="shape" height="45" width="160" />
+                    </svg>
+                    <div class="desc-container">
+                        <i class="far fa-cloud-upload"></i>
+                        <p>GUARDAR</p>
+                    </div>
+                </button>    
+            </div>
+        </div>
+
+    </div>
+
+    <div class="close-btn-absolute">
+        <div>
+            <i class="fas fa-times"></i>
+        </div>
+    </div>
+</div>

@@ -1,0 +1,432 @@
+<main>
+
+	<section id="error-section">
+		<div id="error-container">
+			<h3>ERROR</h3>
+		</div>
+		<div id="close-error-div"><i class="far fa-times"></i></div>
+	</section>
+
+	<section id="left__menu">
+		<div id="left-menu__icon">
+			<i class="far fa-bars"></i>
+		</div>
+		<nav class="grid">
+			
+			<div class="menu-item" id="menu-weights">
+				<div class="menu-icon"><i class="fal fa-weight"></i></div>
+				<div class="menu-description">
+					<p>Pesajes</p>
+				</div>
+			</div>
+			
+			<div class="menu-item" id="menu-analytics">
+				<div class="menu-icon"><i class="fal fa-analytics"></i></div>
+				<div class="menu-description">
+					<p>Informes<br>Estadisticas</p>
+				</div>
+			</div>
+
+			<div class="menu-item" id="menu-documents">
+				<div class="menu-icon"><i class="fal fa-file-invoice"></i></div>
+				<div class="menu-description">
+					<p>Documentos</p>
+				</div>
+			</div>
+
+			<div class="menu-item" id="menu-clients">
+				<div class="menu-icon"><i class="fad fa-handshake"></i></div>
+				<div class="menu-description">
+					<p>Clientes<br>Proveedores</p>
+				</div>
+			</div>
+
+			<div class="menu-item" id="menu-products">
+				<div class="menu-icon"><i class="fal fa-list-ul"></i></div>
+				<div class="menu-description">
+					<p>Productos</p>
+				</div>
+			</div>
+
+			<div class="menu-item" id="menu-containers">
+				<div class="menu-icon"><i class="fal fa-cubes"></i></div>
+				<div class="menu-description">
+					<p>Envases</p>
+				</div>
+			</div>
+
+			<div class="menu-item" id="menu-vehicles">
+				<div class="menu-icon"><i class="fal fa-truck-container"></i></div>
+				<div class="menu-description">
+					<p>Vehículos</p>
+				</div>
+			</div>
+
+			<div class="menu-item" id="menu-drivers">
+				<div class="menu-icon"><i class="fal fa-users"></i></div>
+				<div class="menu-description">
+					<p>Choferes</p>
+				</div>
+			</div>
+
+			<div class="menu-item" id="menu-config">
+				<div class="menu-icon"><i class="fal fa-cogs"></i></div>
+				<div class="menu-description">
+					<p>Configuración</p>
+				</div>
+			</div>
+			
+			<div class="menu-item" id="menu-errors">
+				<div class="menu-icon"><i class="fal fa-exclamation-triangle"></i></div>
+				<div class="menu-description">
+					<p>Errores</p>
+				</div>
+			</div>
+
+
+		</nav>
+	</section>
+
+	<section id="user-profile">
+		<div id="user-profile-container">
+			<div id="user-profile-icon">
+				<i class="fad fa-user-circle"></i>
+			</div>
+			<p></p>
+		</div>
+	</section>
+
+	<section id="main__content">
+
+		<div id="loader" class="loading">
+			<div class="wrapper">
+				<div class="circle"></div>
+				<div class="circle"></div>
+				<div class="circle"></div>
+				<div class="shadow"></div>
+				<div class="shadow"></div>
+				<div class="shadow"></div>
+				<span>CARGANDO</span>
+			</div>
+		</div>
+
+		<div id="weight" class="content-container">
+
+			<nav class="breadcrumb">
+				<ul id="weight__breadcrumb">
+					<li>
+						<i class="fal fa-weight"></i>
+						<h4>PESAJES</h4>
+					</li>
+				</ul>
+			</nav>
+
+			<div id="weight-menu" class="content active">
+				<div class="grid">
+					<div id="weights-menu__create" class="card small green">
+						<h4 class="new-weight-header">CREAR</h4>
+						<div class="new-weight-icon green">
+							<i class="far fa-plus"></i>
+						</div>
+					</div>
+					<div id="weights-menu__finished" class="card small purple">
+						<h4 class="new-weight-header">TERMINADOS</h4>
+						<div class="new-weight-icon purple">
+							<i class="far fa-check"></i>
+						</div>
+					</div>
+					<div id="weights-menu__deleted" class="card small red">
+						<h4 class="new-weight-header">ANULADOS</h4>
+						<div class="new-weight-icon orange">
+							<i class="fal fa-trash-alt"></i>
+						</div>
+					</div>
+				</div>
+				<div id="pending-weights-container">
+					<div id="pending-weights">
+						<div class="pending-weights">
+							<div class="card test">
+								<h4 class="new-weight-header">EN PROCESO</h4>
+								<div class="new-weight-icon">
+									<i class="fal fa-pen"></i>
+								</div>
+								<div id="pending-weights-table">
+									<div class="table-header">
+										<table>
+											<thead>
+												<tr>
+													<th class="weight-id">PESAJE</th>
+													<th class="created">CREADO</th>
+													<th class="cycle">CICLO</th>
+													<th class="gross-brute">BRUTO</th>
+													<th class="primary-plates">VEHICULO</th>
+													<th class="driver">CHOFER</th>
+													<th class="client">CLIENTE / PROVEEDOR</th>
+												</tr>
+											</thead>
+										</table>
+									</div>
+									<div class="table-body">
+										<table>
+											<tbody>
+											</tbody>
+										</table>
+									</div>
+								</div>
+							</div>
+						</div>
+					</div>
+					
+				</div>
+			</div>
+
+			<div id="create-weight__container" class="content hidden">
+				<div id="create-weight__modal"></div>
+
+				<div id="create-weight-step-1">
+					
+					<div class="grid" id="create-weight__cycle">
+						<div class="weight__type" data-weight-type="1">
+							<div class="weight__type__icon">
+								<i class="fad fa-exchange"></i>
+							</div>
+							<div class="container">
+								<h4>RECEPCION</h4>
+							</div>
+						</div>
+						<div class="weight__type" data-weight-type="2">
+							<div class="weight__type__icon">
+								<i class="fad fa-exchange"></i>
+							</div>
+							<div class="container">
+								<h4>DESPACHO</h4>
+							</div>
+						</div>
+						<div class="weight__type" data-weight-type="3">
+							<div class="weight__type__icon">
+								<i class="fad fa-exchange"></i>
+							</div>
+							<div class="container">
+								<h4>INTERNO</h4>
+							</div>
+						</div>
+						<div class="weight__type" data-weight-type="4">
+							<div class="weight__type__icon">
+								<i class="fad fa-exchange"></i>
+							</div>
+							<div class="container">
+								<h4>SERVICIO</h4>
+							</div>
+						</div>
+					</div>
+					
+					<div class="grid">
+						<div class="grid" id="select-vehicle-type-container">
+							<div class="grid">
+								<div id="create-weight__search-vehicles-container" class="create-weight__vehicles-type">
+									<input spellcheck="false" id="create-weight__search-vehicles" class="input-effect" type="text" name="search-vehicles" maxlength="8">
+									<label>BUSCAR VEHICULO</label>
+									<span class="focus-border"></span>
+									<div class="icon-container">
+										<div class="not-found"><i class="fas fa-times"></i></div>
+										<div class="found"><i class="fas fa-check"></i></div>
+									</div>
+								</div>
+								<div id="select-vhc-create" class="create-weight__vehicles-type">
+									<h4>Crear</h4>
+								</div>
+								<div id="create-weight__show-vehicles-internal" class="create-weight__vehicles-type filter-vehicles active">
+									<h4>Internos</h4>
+								</div>
+								<div id="create-weight__show-vehicles-external" class="create-weight__vehicles-type filter-vehicles">
+									<h4>Externos</h4>
+								</div>
+								<div id="create-weight__show-vehicles-inactive" class="create-weight__vehicles-type filter-vehicles">
+									<h4>Inactivos</h4>
+								</div>
+							</div>
+						</div>
+						<div class="column" id="create-weight__select-vehicle-table">
+							<div class="tbl-header">
+								<table cellpadding="0" cellspacing="0" border="0">
+									<thead>
+										<tr>
+											<th class="primary-plates">PATENTE</th>
+											<th class="secondary-plates">ACOPLADO</th>
+											<th class="driver">CHOFER</th>
+											<th class="phone">TELEFONO</th>
+											<th class="internal">INTERNO</th>
+											<th class="status">ACTIVO</th>
+										</tr>
+									</thead>
+								</table>
+							</div>
+							<div class="tbl-content">
+								<table cellpadding="0" cellspacing="0" border="0">
+									<tbody></table>
+								</table>
+							</div>
+						</div>
+					</div>
+
+					<div class="row">
+						<div id="create-weight-btn">
+							<h2>CREAR PESAJE</h2>
+						</div>
+					</div>
+				</div>
+			</div>
+
+			<div id="finished-weight__containers" class="content hidden"></div>
+
+		</div>
+
+		<div id="documents" class="content-container"></div>
+
+		<div id="analytics" class="content-container">
+
+			
+
+		</div>
+
+		<div id="clients" class="content-container">
+
+			<nav class="breadcrumb">
+				<ul id="clients__breadcrumb">
+					<li>
+						<i class="fad fa-handshake"></i>
+						<h4>CLIENTES / PROVEEDORES</h4>
+					</li>
+				</ul>
+			</nav>
+
+			<div class="content config"></div>
+
+		</div>
+
+		<div id="products" class="content-container">
+
+			<nav class="breadcrumb">
+				<ul id="products__breadcrumb">
+					<li>
+						<i class="fal fa-list-ul"></i>
+						<h4>PRODUCTOS</h4>
+					</li>
+				</ul>
+			</nav>
+
+			<div class="content config"></div>
+
+		</div>
+
+		<div id="containers" class="content-container"></div>
+
+		<div id="vehicles" class="content-container">
+
+			<nav class="breadcrumb">
+				<ul id="vehicles__breadcrumb">
+					<li>
+						<i class="fal fa-truck-container"></i>
+						<h4>VEHICULOS</h4>
+					</li>
+				</ul>
+			</nav>
+
+			<div class="content config"></div>
+
+		</div>
+
+		<div id="drivers" class="content-container"></div>
+
+		<div id="config" class="content-container">
+			<nav class="breadcrumb">
+				<ul id="config__breadcrumb">
+					<li>
+						<i class="fal fa-cogs"></i>
+						<h4>CONFIGURACION</h4>
+					</li>
+				</ul>
+			</nav>
+
+			<div class="content">
+				<div id="config-grid">
+					
+					<div id="config__entities" class="widget">
+						<div class="widget-container">
+							<div class="widget-icon">
+								<i class="fad fa-handshake"></i>
+							</div>
+							<div class="widget-data">
+								<h4>CLIENTES<br>PROVEEDORES</h4>
+							</div>
+						</div>
+					</div>
+
+					<div class="widget">
+						<div class="widget-container">
+							<div class="widget-icon">
+								<i class="fad fa-users-cog"></i>
+							</div>
+							<div class="widget-data">
+								<h4>USUARIOS</h4>
+							</div>
+						</div>
+					</div>
+
+					<div id="config__products" class="widget">
+						<div class="widget-container">
+							<div class="widget-icon">
+								<i class="fal fa-list-ul"></i>
+							</div>
+							<div class="widget-data">
+								<h4>PRODUCTOS</h4>
+							</div>
+						</div>
+					</div>
+
+					<div class="widget">
+						<div class="widget-container">
+							<div class="widget-icon">
+								<i class="fal fa-cubes"></i>
+							</div>
+							<div class="widget-data">
+								<h4>ENVASES</h4>
+							</div>
+						</div>
+					</div>
+
+					<div class="widget">
+						<div class="widget-container">
+							<div class="widget-icon">
+								<i class="fal fa-truck-container"></i>
+							</div>
+							<div class="widget-data">
+								<h4>VEHICULOS</h4>
+							</div>
+						</div>
+					</div>
+
+					<div class="widget">
+						<div class="widget-container">
+							<div class="widget-icon">
+								<i class="fal fa-user-check"></i>
+							</div>
+							<div class="widget-data">
+								<h4>CHOFERES</h4>
+							</div>
+						</div>
+					</div>
+
+				</div>
+
+				<div id="config-content" class="hidden"></div>
+
+			</div>
+		</div>
+		
+	</section>
+
+</main>
+<script type="text/javascript" src="js/jwt-decode.js"></script>
+<script defer type="text/javascript" src="js/purify.js"></script>
+<script defer type="text/javascript" src="js/main_login.js"></script>

@@ -1,0 +1,434 @@
+<div class="container">
+    <div class="grid column-flow header">
+        <div class="widget" id="new-weight__widget__created">
+            <div class="widget-container">
+                <div class="widget-icon">
+                    <i class="fad fa-calendar-alt"></i>
+                </div>
+                <div class="widget-data">
+                    <h5>CREADO</h5>
+                    <p></p>
+                </div>
+            </div>
+        </div>
+        <div class="widget" id="new-weight__widget__created_by">
+            <div class="widget-container">
+                <div class="widget-icon">
+                    <i class="fad fa-users"></i>
+                </div>
+                <div class="widget-data">
+                    <h5>USUARIO</h5>
+                    <p></p>
+                </div>
+            </div>
+        </div>
+        <div class="widget box-shadow-animated" id="new-weight__widget__cycle-type">
+            <div class="widget-container">
+                <div class="widget-icon">
+                    <i class="fad fa-exchange"></i>
+                </div>
+                <div class="header-check">
+                    <h5>CICLO</h5>
+                    <div class="header-check-type">
+                        <i class="fad fa-check"></i>
+                        <p>RECEPCION</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="widget box-shadow-animated" id="new-weight__widget__process-type">
+            <div class="widget-container">
+                <div class="widget-icon">
+                    <i class="fal fa-sync-alt"></i>
+                </div>
+                <div class="header-check">
+                    <h5>PROCESO</h5>
+                    <div class="header-check-type">
+                        <i class="fad fa-check"></i>
+                        <p></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="widget box-shadow-animated" id="new-weight__widget__tara-type">
+            <div class="widget-container">
+                <div class="widget-icon">
+                    <i class="fad fa-weight"></i>
+                </div>
+                <div class="header-check">
+                    <h5>TARA</h5>
+                    <div class="header-check-type">
+                        <i class="fad fa-check"></i>
+                        <p>AUTOMATICA</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<div class="container">
+    <div class="grid column-flow body-truck">
+        <div class="widget" id="new-weight__widget__vehicle-data">
+            <div class="widget-container">
+                <div class="widget-icon">
+                    <i class="fal fa-truck-container"></i>
+                </div>
+                <div class="widget-data">
+                    <h5>CAMION</h5>
+                    <p></p>
+                </div>
+                <hr>
+                <div class="widget-data">
+                    <h5>ACOPLADO</h5>
+                    <input spellcheck="false" type="text" placeholder="Ingresar Patente" id="new-weight__add-secondary-plates" data-next-tab-selector="#new-weight__widget__driver-data">
+                </div>
+            </div>
+        </div>
+        <div class="widget box-shadow-animated" id="new-weight__widget__driver-data" tabindex="-1">
+            <div class="widget-container">
+                <div class="widget-icon">
+                    <i class="fad fa-users-cog"></i>
+                </div>
+                <div class="widget-data">
+                    <h5>CHOFER</h5>
+                    <p></p>
+                </div>
+                <hr>
+                <div class="widget-data">
+                    <h5>RUT</h5>
+                    <p></p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="widget box-shadow-animated" id="new-weight__widget__transport-data">
+            <div class="widget-container">
+                <div class="widget-icon">
+                    <i class="fal fa-edit"></i>
+                </div>
+                <div class="widget-data">
+                    <h5>TRANSPORTISTA</h5>
+                    <p></p>
+                </div>
+                <hr>
+                <div class="widget-data">
+                    <h5>RUT</h5>
+                    <p></p>
+                </div>
+            </div>
+        </div>
+        <div class="widget" id="new-weight__widget__vehicle-history">
+            <div class="widget-container">
+                <div class="widget-icon">
+                    <i class="far fa-history"></i>
+                </div>
+                <div class="widget-data">
+                    <h5>TARA HISTORICA</h5>
+                    <div id="tara-history-table">
+                        <div class="tbl-header">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>PESAJE</th>
+                                        <th>FECHA</th>
+                                        <th>TARA</th>
+                                    </tr>
+                                </thead>
+                            </table>
+                        </div>
+                        <div class="tbl-content">
+                            <table cellpadding="0" cellspacing="0" border="0">
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>						
+</div>
+
+<div class="container">
+    <div id="weight__gross-process__documents" class="grid column-flow body-documents">
+        <div class="widget box-shadow-animated" id="add-doc">
+            <div class="widget-container">
+                <div class="widget-icon">
+                    <i class="fal fa-file-alt"></i>
+                </div>
+                <div class="add-doc-container">
+                    <div class="icon-container">
+                        <i class="fal fa-files-medical"></i>
+                    </div>
+                    <h5>AGREGAR<br>DOCUMENTOS</h5>
+                </div>
+            </div>
+        </div>
+        
+        <div class="widget">
+            <div class="widget-container">
+                <div id="weight__documents-table">
+                    <div class="table-header">
+                        <table>
+                            <thead>
+                                <th class="line-number">Nº</th>
+                                <th class="delete">ELIMINAR</th>
+                                <th class="entity">ENTIDAD</th>
+                                <th class="date">FECHA</th>
+                                <th class="doc-number">DOC.</th>
+                                <th class="containers">ENVASES</th>
+                                <th class="kilos">KILOS</th>
+                                <th class="total">TOTAL NETO</th>
+                            </thead>
+                        </table>
+                    </div>
+                    <div class="table-body">
+                        <table>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div id="weight__empty-process__containers" class="grid">
+        <div class="widget">
+            <div class="widget-container">
+                <div class="widget-icon">
+                    <i class="fal fa-cube"></i>
+                </div>
+                <div id="weight__add-containers-btn">
+                    <div id="weight__add-containers-icon">
+                        <i class="fal fa-cubes"></i>
+                    </div>
+                    <div id="weight__add-containers-description">
+                        <h5>AGREGAR<br>ENVASES TARA</h5>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div id="weight__empty-containers-widget" class="widget">
+            <div class="widget-container">
+                <div id="weight__empty-containers-table">
+                    <div class="table-header">
+                        <table cellspacing="0" cellpadding="0" border="0">
+                            <thead>
+                                <tr>
+                                    <th class="line-number">Nº</th>
+                                    <th class="delete">ELIMINAR</th>
+                                    <th class="code">CODIGO</th>
+                                    <th class="description">DESCRIPCION</th>
+                                    <th class="weight">PESO</th>
+                                    <th class="amount">CANTIDAD</th>
+                                </tr>
+                            </thead>
+                        </table>
+                    </div>
+                    <div class="table-body">
+                        <table cellspacing="0" cellpadding="0" border="0">
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="container">
+    <div class="grid column-flow kilos">
+        <div id="weight-btns-container">
+            <div class="widget">
+                <div class="widget-container">
+                    <div class="widget-icon">
+                        <i class="fal fa-balance-scale-right"></i>
+                    </div>
+                    <div id="take-weight-btns">
+                        <div id="take-weight-container">
+                            <div class="take-weight-btn-pulse-1"></div>
+                            <div class="take-weight-btn-pulse-2"></div>
+                            <div id="take-weight-btn" class="pulse">
+                                <h5></h5>
+                            </div>
+                        </div>
+                        <div id="save-cancel-btns">
+                            <div id="cancel-weight">
+                                <div class="icon-container">
+                                    <i class="far fa-times"></i>
+                                </div>
+                                <h4>CANCELAR</h4>
+                            </div>
+                            <div id="save-weight">
+                                <div class="icon-container">
+                                    <i class="fal fa-download"></i>
+                                </div>
+                                <h4>GUARDAR</h4>
+                            </div>
+                        </div>
+                        <div id="take-weight-finalize">
+                            <div class="icon-container">
+                                <i class="fad fa-check"></i>
+                            </div>
+                            <h4>PESAJE<br>GUARDADO</h4>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="widget">
+            <div class="widget-container">
+                <div class="widget-icon">
+                    <i class="fal fa-info-circle"></i>
+                </div>
+                <div id="gross-weight__data-grid" class="active">
+                    <div class="kilos-data">
+                        <h3 id="gross-weight__containers">0 KG</h3>
+                        <h5>ENVASES BRUTO</h5>
+                    </div>
+
+                    <div class="kilos-data">
+                        <h3 id="gross-weight__brute">0 KG</h3>
+                        <h5>PESO BRUTO</h5>
+                    </div>
+
+                    <div class="kilos-data">
+                        <h3 id="gross-weight__tara-weight"></h3>
+                        <h5>TARA APROXIMADA</h5>
+                    </div>
+                    
+                    <div class="kilos-data">
+                        <h3 id="gross-weight__docs-weight">0 KG</h3>
+                        <h5>NETO DOCUMENTOS</h5>
+                    </div>
+
+                    <div class="kilos-data">
+                        <h3 id="gross-weight__net">0 KG</h3>
+                        <h5>PESO NETO BRUTO</h5>
+                    </div>
+
+                    <div class="kilos-data">
+                        <h3 id="gross__final-net-weight">0 KG</h3>
+                        <h5>NETO APROXIMADO</h5>
+                    </div>
+                    
+                </div>
+                <div id="tare-weight__data-grid">
+                    
+                    <div class="kilos-data">
+                        <h3 id="tare-weight__containers">0 KG</h3>
+                        <h5>ENVASES TARA</h5>
+                    </div>
+
+                    <div class="kilos-data">
+                        <h3 id="tare-weight__brute">0 KG</h3>
+                        <h5>PESO TARA</h5>
+                    </div>
+
+                    <div class="kilos-data">
+                        <h3 id="tare-weight__gross-weight">0 KG</h3>
+                        <h5>PESO NETO BRUTO</h5>
+                    </div>
+
+                    <div class="kilos-data">
+                        <h3 id="tare-weight__docs-weight">0 KG</h3>
+                        <h5>NETO DOCUMENTOS</h5>
+                    </div>
+
+                    <div class="kilos-data">
+                        <h3 id="tare-weight__net">0 KG</h3>
+                        <h5>PESO NETO TARA</h5>
+                    </div>
+
+                    <div class="kilos-data">
+                        <h3 id="tare__final-net-weight">0 KG</h3>
+                        <h5>PESO NETO FINAL</h5>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div id="new-weight__last-row-grid">
+            
+            <div class="widget" id="new-weight__widget__delete-weight">
+                <div class="widget-container">
+                    <div class="widget-icon">
+                        <i class="fad fa-trash-alt"></i>
+                    </div>
+                    <div class="widget-description">
+                        <p>ANULAR</p>
+                        <span>PESAJE</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="widget" id="new-weight__widget__print-weight">
+                <div class="widget-container">
+                    <div class="widget-icon">
+                        <i class="fal fa-print"></i>
+                    </div>
+                    <div class="widget-description">
+                        <p>IMPRIMIR</p>
+                        <span>PESAJE</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="container">
+                <div id="new-weight__widget__kilos-breakdown__tooltip" class="widget-tooltip red hidden">
+                    <span></span>
+                </div>
+                <div class="widget" id="new-weight__widget__kilos-breakdown">
+                    <div class="widget-container">
+                        <div class="widget-icon">
+                            <i class="fal fa-wand-magic"></i>
+                        </div>
+                        <div class="widget-description">
+                            <p>DESGLOCE</p>
+                            <span>KILOS</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="container">
+                <div id="new-weight__widget__finalize-tooltip" class="widget-tooltip red hidden">
+                    <span></span>
+                </div>
+                <div class="widget" id="new-weight__widget__finalize">
+                    <div class="widget-container">
+                        <div class="widget-icon">
+                            <i class="fal fa-clipboard-check"></i>
+                        </div>
+                        <div class="widget-description">
+                            <p>FINALIZAR</p>
+                            <span>PESAJE</span>
+                        </div>
+                    </div>
+                </div>
+    
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="container">
+    <div class="widget" id="weight__comments-container">
+        <div class="widget-container">
+            <div class="widget-icon">
+                <i class="fal fa-comment-alt-lines"></i>
+            </div>
+            <div id="new_weight__comments">
+                <textarea spellcheck="false" cols="30" rows="10"></textarea>
+                <label>Observaciones Pesaje</label>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="message-section">
+    <div id="message-close-btn">
+        <i class="far fa-times"></i>
+    </div>
+    <div id="message-container"></div>
+</div>

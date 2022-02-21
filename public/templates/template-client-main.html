@@ -1,0 +1,98 @@
+<div id="clients__table-grid" class="grid">
+					
+    <div id="clients__table">
+
+        <div class="table-header">
+            <div class="table">
+                <div class="thead">
+                    <div class="tr">
+                        <div class="th edit">EDITAR</div>
+                        <div class="th active">ACTIVO</div>
+                        <div class="th type">TIPO</div>
+                        <div class="th name">RAZON SOCIAL</div>
+                        <div class="th rut">RUT</div>
+                        <div class="th giro">GIRO</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="table-content">
+            <div class="table">
+                <div class="tbody"></div>
+            </div>
+        </div>
+
+    </div>
+
+    <div id="clients_btns">
+        <div class="grid-column">
+
+            <button id="client__delete-entity-btn" class="svg-wrapper icon-left red">
+                <svg height="45" width="160" xmlns="http://www.w3.org/2000/svg">
+                    <rect class="shape" height="45" width="160"></rect>
+                </svg>
+                <div class="desc-container">
+                    <i class="fad fa-trash"></i>
+                    <p>ELIMINAR</p>
+                </div>
+            </button>
+
+            <div id="" class="client-btn">
+                <div>
+                    <input spellcheck="false" class="input-effect" type="text" name="search-origin-entity"
+                    id="clients__search-entity">
+                    <label><i class="fal fa-search"></i>BUSCAR</label>
+                    <span class="focus-border"></span>
+                </div>
+            </div>
+
+            <div class="client-btn">
+                <div>
+                    <div class="select-effect has-content">
+                        <p>Activos</p>
+                        <select id="clients__entities-active-select">
+                            <option value="" hidden></option>
+                            <option value="All">Todos</option>
+                            <option selected value="1">Activos</option>
+                            <option value="0">Inactivos</option>
+                        </select>
+                        <i class="far fa-chevron-down"></i>
+                        <label>ESTADO</label>
+                        <span class="focus-border"></span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="client-btn">
+                <div>
+                    <div class="select-effect has-content">
+                        <p>Proveedores</p>
+                        <select id="clients__entities-type-select">
+                            <option value="" hidden></option>
+                            <option value="All">Todos</option>
+                            <option value="C">Clientes</option>
+                            <option selected value="P">Proveedores</option>
+                            <option value="A">Clientes y Proveedores</option>
+                            <option value="T">Transportistas</option>
+                        </select>
+                        <i class="far fa-chevron-down"></i>
+                        <label>TIPO</label>
+                        <span class="focus-border"></span>
+                    </div>
+                </div>
+            </div>
+
+            <button id="client__create-entity-btn" class="svg-wrapper enabled green">
+                <svg height="45" width="160" xmlns="http://www.w3.org/2000/svg">
+                    <rect class="shape" height="45" width="160" />
+                </svg>
+                <div class="desc-container">
+                    <i class="far fa-layer-plus"></i>
+                    <p>CREAR</p>
+                </div>
+            </button>
+
+        </div>
+    </div>
+</div>

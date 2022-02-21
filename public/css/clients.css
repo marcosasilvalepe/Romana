@@ -1,0 +1,264 @@
+#clients .content {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    position: relative;
+}
+
+#clients__table-grid {
+    margin: 0 auto auto auto;
+    width: 100%;
+    height: 100%;
+    display: grid;
+    grid-auto-flow: row;;
+    grid-template-rows: 520px 1fr;
+    border: 2px solid rgba(255, 255, 255, .3);
+}
+
+#clients__table .active {
+    text-align: center;
+}
+
+#clients__table .active > div {
+    display: flex;
+    width: 100%;
+    height: 100%;
+}
+
+#clients__table .active > div i {
+    margin: auto;
+    font-size: 16px;
+}
+
+#clients__table .tr {
+    grid-template-columns: 90px 90px 180px 1fr 140px 270px ;
+}
+
+#clients__table .edit > div {
+    width: 100%;
+    height: 100%;
+    display: flex;
+}
+
+#clients__table .edit i {
+    margin: auto;
+    font-size: 18px;
+    transition: all 250ms 0s ease;
+}
+
+#clients__table .edit:hover i {
+    transform: scale(1.7);
+}
+
+#clients__table .name {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+#clients__table .giro {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+#clients_btns {
+    display: flex;
+    width: 100%;
+    height: 100%;
+}
+
+#clients_btns > .grid-column {
+    margin:auto;
+    grid-template-columns: repeat(5, 1fr);
+    column-gap: 25px;
+    width: 82%;
+    height: 47px;
+}
+
+#clients_btns input {
+    width: 100%;
+    z-index: 3;
+    text-align: center;
+}
+
+.client-btn {
+    width: 100%;
+    height: 47px;
+    display: flex;
+}
+
+.client-btn > div {
+    display: flex;
+    width: 100%;
+    height: 30px;
+    position: relative;
+    margin: auto auto 0 auto;
+}
+
+.client-btn label {
+   width: 100%;
+   text-align: center;
+}
+
+.client-btn .select-effect label {
+}
+
+.client-btn p {
+    margin: auto;
+    font-weight: 700;
+    font-size: 13px;
+    text-align: center;
+    width: 100%;
+}
+
+#clients_btns button {
+    margin-top: 1px;
+}
+
+/***** CLIENT TEMPLATE *****/
+#clients__client-template {
+    width: 100%;
+    height: 100%;
+    padding: 25px;
+    border: 2px solid rgba(255, 255, 255, .6);
+    display: grid;
+    grid-auto-flow: row;
+    grid-template-rows: 30px repeat(3, 40px) 278px 45px;
+    row-gap: 20px;
+}
+
+.client-template__row {
+    position: relative;
+    height: 100%;
+    width: 90%;
+    margin: auto;
+    display: flex;
+}
+
+.client-template__row h3 {
+    margin: auto auto auto 0;
+    width: 100%;
+}
+
+.client-template__row > div:not(#client-template__btns):not(#client-template__branch-table):not(#client-template__create-branch) {
+    position: relative;
+    width: 100%;
+    height: 75%;
+    margin: auto;
+    display: grid;
+    grid-auto-flow: column;
+}
+
+.client-template__row:nth-child(2) > div,
+.client-template__row:nth-child(3) > div {
+    grid-template-columns: 2fr 1fr;
+    column-gap: 60px;
+} 
+
+.client-template__row:nth-child(4) > div {
+    grid-template-columns: repeat(3, 1fr);    
+    column-gap: 30px;
+}
+
+#client-template__entity-giro .select-effect > div {
+    height: 250px;
+    overflow-y: auto;
+}
+
+#clients__client-template .select-effect p {
+    text-align: left;
+}
+
+#client-template__branch-table {
+    border: 1px solid rgba(255, 255, 255, .6);
+    width: 100%;
+    height: calc(100% - 10px);
+    margin: auto auto 0 auto;
+    display: flex;
+    flex-direction: column;
+}
+
+#client-template__branch-table .tr {
+    grid-template-columns: 60px 200px 1fr 200px
+}
+
+#client-template__branch-table .table-content {
+    height: 235px;
+}
+
+#client-template__branch-table .th,
+#client-template__branch-table .td {
+    font-size: 12px;
+}
+
+#client-template__branch-table .td {
+    padding: 12px 15px;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+#client-template__btns {
+    margin: auto;
+    width: 75%;
+    display: flex;
+}
+
+#client-template__btns button {
+    margin: auto;
+}
+
+#client-template__create-branch {
+  width: 100%;
+  display: flex;
+  padding: 15px 0;
+  border: 1px solid rgba(255, 255, 255, .6);
+}
+
+#client-template__create-branch > div:not(.close-btn-absolute) {
+    display: grid;
+    grid-auto-flow: row;
+    grid-template-rows: repeat(4, 1fr);
+    row-gap: 10px;
+    
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+}
+
+#client-template__create-branch > div > div {
+    height: 75%;
+    margin: auto 30px;
+    display: grid;
+    grid-auto-flow: column;
+    grid-template-columns: 1fr 1fr;
+    column-gap: 30px;
+}
+
+#client-template__create-branch > div > div:last-child {
+    display: flex;
+    width: 100%;
+    height: 100%;
+    margin: auto 0;
+}
+
+#client-template__create-branch > div > div:last-child > div {
+    display: flex;
+    width: 400px;
+    margin: auto;
+}
+
+#client-template__create-branch > div > div:last-child button {
+    margin: auto;
+}
+
+#client-template__create-branch .close-btn-absolute {
+    width: 30px;
+    height: 30px;
+    top: -15px;
+}
+
+#client-template__create-branch .close-btn-absolute i {
+    font-size: 16px;
+}
