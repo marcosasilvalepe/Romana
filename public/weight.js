@@ -1,5 +1,194 @@
 "use strict";
 
+let socket;
+try {
+
+	socket = io('https://192.168.1.90:3100', {
+		autoConnect: false
+	});
+	
+	socket.connect();
+
+	socket.on('connect', () => {
+
+		socket.emit('test', 'IT WORKED!!');
+	
+		socket.on('chat-message', msg => {
+			console.log(msg)	
+		});
+	
+		socket.on('new weight dev', weight => {
+			console.log(weight)
+			document.querySelector('#create-weight__take-weight__weight p').innerText = weight;
+		});
+
+		socket.on('transmitting serial data', weight => {
+			if (parseInt(weight) !== NaN) {
+				document.querySelector('#create-weight__take-weight__weight p').innerText = weight;
+			}
+		});
+
+		socket.on('serial port connection error', () => {
+
+			if (!!document.querySelector('#create-weight-step-2')) {
+
+				weight_object.tara_type = 'manual';
+				
+				document.querySelector('#new-weight__widget__tara-type .header-check-type p').innerText = 'MANUAL';
+				document.getElementById('create-weight__take-weight__weight').className = 'manual';
+
+				const conn_status = document.querySelector('#create-weight__status-container > div:first-child');
+				conn_status.classList.remove('connection-ok');
+				conn_status.classList.add('connection-error');
+
+				const tara_status = document.querySelector('#create-weight__status-container > div:last-child');
+				tara_status.classList.remove('automatica');
+				tara_status.classList.add('manual');
+				tara_status.querySelector('p').innerHTML = 'TARA<br>MANUAL';
+
+			}
+		})
+	
+		socket.on('new weight updated', async response => {
+	
+			console.log(response);
+	
+			let target, status;
+			if (response.data.update.process === 'gross') {
+				target = weight_object.gross_weight;
+				document.getElementById('tare-weight__gross-weight').innerText = thousand_separator(response.data.update.net) + ' KG';
+			}
+			else if (response.data.update.process === 'tare') {
+				target = weight_object.tare_weight;
+				document.getElementById('gross-weight__tara-weight').innerText = thousand_separator(response.data.update.net) + ' KG';
+			}
+	
+			target.date = response.data.update.date;
+			target.status = response.data.update.status;
+			target.type = response.data.update.tara_type;
+			target.user = response.data.update.user;
+			target.brute = response.data.update.brute;
+			target.net = response.data.update.net;
+			status = target.status;
+			
+			document.getElementById(`${response.data.update.process}-weight__brute`).innerText = thousand_separator(response.data.update.brute) + ' KG';
+			document.getElementById(`${response.data.update.process}-weight__net`).innerText = thousand_separator(response.data.update.net) + ' KG';
+	
+			if (weight_object.gross_weight.status > 1 && weight_object.tare_weight.status > 1) {
+				weight_object.final_net_weight = response.data.update.final_net_weight;
+				document.getElementById('gross__final-net-weight').innerText = thousand_separator(response.data.update.final_net_weight) + ' KG';
+				document.getElementById('tare__final-net-weight').innerText = thousand_separator(response.data.update.final_net_weight) + ' KG';
+				document.getElementById('gross-weight__tara-weight').nextElementSibling.innerText = 'PESO NETO TARA';
+				document.getElementById('gross__final-net-weight').nextElementSibling.innerText = 'PESO NETO FINAL';
+			}
+			else if (weight_object.gross_weight.status > 1 && weight_object.tare_weight.status === 1) {
+				document.getElementById('gross__final-net-weight').innerText = thousand_separator(response.data.update.net - weight_object.average_weight) + ' KG';
+			}
+			else if (weight_object.gross_weight.status === 1 && weight_object.tare_weight.status > 1) {
+				document.getElementById('gross-weight__tara-weight').innerText = thousand_separator(response.data.update.net) + ' KG';
+			}
+	
+			if (weight_object.tara_type === 'manual') {
+				document.getElementById('take-weight__manual-input').value = response.data.update.brute;
+				document.getElementById('take-weight__manual-input').classList.add('pulse-up');
+			} else document.querySelector('#create-weight__take-weight__weight p').innerText = response.data.update.brute;
+	
+			document.querySelector('#create-weight__take-weight__weight p').classList.add('pulse-up');
+			await delay(700);
+			document.querySelector('#create-weight__modal').classList.remove('active');
+	
+			await delay(500);
+	
+			if (!!document.querySelector('#create-weight__take-weight-container')) {
+
+				document.querySelector('#create-weight__take-weight-container').remove();
+	
+				const
+				weight_btn = document.getElementById('take-weight-container'),
+				cancel_save_btns = document.getElementById('save-cancel-btns');
+	
+				weight_btn.classList.remove('active');
+				cancel_save_btns.classList.add('active');
+				document.getElementById('create-weight-step-2').setAttribute('data-status', status);
+			}
+		})
+
+		//WEIGHT HAS BEEN CREATED BY OTHER USER -> CREATE ROW IN PENDING WEIGHTS TABLE
+		socket.on('weight created by another user', weight => {
+			
+			if (!!document.querySelector(`#pending-weights-table tr[data-weight-id="${weight.id}"]`)) return;
+
+			const tr = document.createElement('tr');
+			tr.className = 'hidden';
+			tr.setAttribute('data-weight-id', weight.id);
+			tr.innerHTML = `
+				<td class="weight-id">${thousand_separator(weight.id)}</td>
+				<td class="created">${DOMPurify().sanitize(new Date(weight.created).toLocaleString('es-CL'))}</td>
+				<td class="cycle"></td>
+				<td class="gross-brute">-</td>
+				<td class="primary-plates">${DOMPurify().sanitize(weight.primary_plates)}</td>
+				<td class="driver">${DOMPurify().sanitize(weight.driver)}</td>
+				<td class="client">-</td>
+			`;
+
+			if (weight.cycle === 1) tr.querySelector('.cycle').innerHTML = `<div><i class="fad fa-arrow-down"></i><p>RECEPCION</p></div>`;
+			else if (weight.cycle === 2) tr.querySelector('.cycle').innerHTML = `<div><i class="fad fa-arrow-up"></i><p>DESPACHO</p></div>`;
+			else if (weight.cycle === 3) tr.querySelector('.cycle').innerHTML = `<div><p>INTERNO</p></div>`;
+			else if (weight.cycle === 4) tr.querySelector('.cycle').innerHTML = `<div><p>SERVICIO</p></div>`;
+			
+			document.querySelector('#pending-weights-table tbody').prepend(tr);
+			fade_in_animation(tr);
+			tr.classList.remove('hidden');
+		})
+
+		//WEIGHT IS HAS BEEN CHANGED TO ANNULED OR FINISHED BY OTHER USER
+		socket.on('weight status changed by other user', async weight_id => {
+			const tr = document.querySelector(`#pending-weights-table tr[data-weight-id="${weight_id}"]`);
+			if (!!tr) {
+				await fade_out_animation(tr);
+				tr.remove();
+			}
+		})
+
+		//GROSS WEIGHT HAS BEEN UPDATED BY ANOTHER USER -< UPDATES PENDING WEIGHTS TABLE GROSS WEIGHT
+		socket.on('gross weight updated in one of the weights that are pending', weight => {
+			const tr = document.querySelector(`#pending-weights-table tr[data-weight-id="${weight.id}"]`);
+			if (!!tr) tr.querySelector('.gross-brute').innerText = thousand_separator(weight.gross_weight);
+		})
+
+		//FIRST DOCUMENT ENTITY IN PENDING WEIGHT HAS BEEN UPDATED
+		socket.on('update pending weight entity in pending weights table', weight => {
+			const tr = document.querySelector(`#pending-weights-table tr[data-weight-id="${weight.id}"]`);
+			if (!!tr) tr.querySelector('.client').innerText = weight.entity_name;
+		})
+
+
+
+	});
+
+	socket.on('disconnect', () => {
+		console.log('socket disconnected');
+	});
+
+	const socketReconnect = async () => {
+		try {
+			await delay(500);
+			if (!socket.connected) socket.connect();
+		} 
+		catch(e) { console.log(`Error reconnecting socket. ${e}`); socketReconnect() }
+	}
+
+	window.onfocus = () => {
+		if (!socket.connected && screen_width < 768) socketReconnect();
+	}
+
+	window.onblur = () => {
+		console.log(socket.connected);
+		if (socket.connected && screen_width < 768) socket.disconnect();
+	}
+
+} catch(socket_error) { console.log(`Error connecting socket. ${socket_error}`) }
+
 //FIRST BREADCRUMB WEIGHT
 document.querySelector('#weight__breadcrumb li:first-child').addEventListener('click', async function() {
 	
@@ -128,6 +317,8 @@ document.getElementById('weights-menu__create').addEventListener('click', async 
 		while (!fade_out_div.classList.contains('animationend')) { await delay(10) }
 		fade_out_div.classList.remove('animationend');
 
+		document.querySelectorAll('#create-weight__select-vehicle-table tbody tr').forEach(tr => { tr.remove() })
+
     	response.data.forEach(vehicle => {
 
 			const tr = document.createElement('tr');
@@ -148,7 +339,7 @@ document.getElementById('weights-menu__create').addEventListener('click', async 
 				</td>
 			`;
 			
-			tr.querySelector('.secondary-plates').innerText = (vehicle.secondary_plates === null) ? '-' : vehicle.secondary_plates;
+			tr.querySelector('.secondary-plates').innerText = (vehicle.secondary_plates === null || vehicle.secondary_plates.length === 0) ? '-' : vehicle.secondary_plates;
 			
 			tr.querySelector('.internal i').className = (vehicle.internal === 0) ? 'far fa-times' : 'far fa-check';
 			tr.querySelector('.status i').className = (vehicle.status === 0) ? 'far fa-times' : 'far fa-check';
@@ -197,6 +388,7 @@ document.getElementById('create-weight__cycle').addEventListener('click', e => {
 
 	if (!!document.querySelector('#create-weight__cycle > div.active'))
 		document.querySelector('#create-weight__cycle > div.active').classList.remove('active');
+	
 	btn.classList.add('active');
 
 	if (document.querySelector('#create-weight__search-vehicles-container .icon-container .found').classList.contains('active'))
@@ -224,331 +416,6 @@ document.querySelector('#create-weight__select-vehicle-table .tbl-content tbody'
 	input.dispatchEvent(new Event('input', { bubbles: true }));
 	input.click();
 });
-
-const create_vehicle_finalize = async function() {
-
-	const btn = this;
-	if (btn_double_clicked(btn)) return;
-	if (!btn.classList.contains('enabled')) return;
-
-	const 
-	transport_select = document.querySelector('.content-container.active .create-vehicle__transport-select'),
-	driver_tr = document.querySelector('.content-container.active .create-weight__change-driver tbody tr.selected'),
-	data = {
-		primary_plates: document.querySelector('.content-container.active .create-vehicle__primary-plates').value,
-		secondary_plates: document.querySelector('.content-container.active .create-vehicle__secondary-plates').value,
-		transport_id: transport_select.options[transport_select.selectedIndex].value,
-		driver_id: (driver_tr === null) ? null : driver_tr.getAttribute('data-driver-id')
-	}
-
-	try {
-
-		if (data.primary_plates.length < 6) throw 'Patente de vehículo necesita al menos 6 caracteres';
-
-		//SANITIZE OBJECT
-		for (let key in data) { data[key] = DOMPurify().sanitize(data[key]) }
-		data.internal = (document.querySelector('.content-container.active .create-vehicle__internal-cbx').checked) ? true : false;
-		data.status = (document.querySelector('.content-container.active .create-vehicle__active-cbx').checked) ? true : false;
-
-		const 
-		create_vehicle = await fetch('/create_vehicle', {
-			method: 'POST',
-			headers: {
-				"Content-Type" : "application/json",
-				"Authorization" : token.value
-			},
-			body: JSON.stringify(data)
-		}),
-		response = await create_vehicle.json();
-
-		if (response.error !== undefined) throw response.error;
-		if (!response.success) throw 'Success response from server is false.';
-
-		const tr = document.createElement('tr');
-		tr.innerHTML = `
-			<td class="primary-plates">${DOMPurify().sanitize(response.created.primary_plates)}</td>
-			<td class="secondary-plates"></td>
-			<td class="driver">${DOMPurify().sanitize(response.created.driver)}</td>
-			<td class="phone"></td>
-			<td class="internal">
-				<div>
-					<i></i>
-				</div>
-			</td>
-			<td class="status">
-				<div>
-					<i></i>
-				</div>
-			</td>
-		`;
-
-		tr.querySelector('.secondary-plates').innerText = (response.created.secondary_plates === null) ? '-' : response.created.secondary_plates;
-		tr.querySelector('.phone').innerText = (response.created.phone === null) ? '-' : response.created.phone;
-
-		tr.querySelector('.internal i').className = (response.created.status === 0) ? 'far fa-times' : 'far fa-check';
-		tr.querySelector('.status i').className = (response.created.iternal === 0) ? 'far fa-times' : 'far fa-check';
-
-		document.querySelector('#create-weight__select-vehicle-table tbody').prepend(tr);
-		document.querySelector('.content-container.active .create-weight__create-vehicle__back-to-create-weight').click();
-
-		await delay(500);
-		document.querySelector('#create-weight__select-vehicle-table tbody tr:first-child').click();
-
-	} catch(error) {error_handler('Error al intentar crear vehículo', error) }
-}
-
-const edit_vehicle_finalize = async function() {
-
-	if (clicked) return;
-	prevent_double_click();
-
-	const 
-	modal = document.getElementById('vehicles__vehicle-template'),
-	transport_select = modal.querySelector('.create-vehicle__transport-select'),
-	data = {
-		primary_plates: modal.querySelector('.create-vehicle__primary-plates').value.replace(/[^a-zA-Z0-9]/gm, '').toUpperCase(),
-		secondary_plates: modal.querySelector('.create-vehicle__secondary-plates').value.replace(/[^a-zA-Z0-9]/gm, '').toUpperCase(),
-		transport_id: transport_select.options[transport_select.selectedIndex].value,
-		internal: (modal.querySelector('.create-vehicle__internal-cbx').checked) ? '1' : '0',
-		active: (modal.querySelector('.create-vehicle__active-cbx').checked) ? '1' : '0',
-		driver_id: (!!modal.querySelector('.create-weight__change-driver tr.selected')) ? modal.querySelector('.create-weight__change-driver tr.selected').getAttribute('data-driver-id') : null
-	}
-
-	//SANITIZE OBJECT
-	for (let key in data) { data[key] = DOMPurify().sanitize(data[key]) }
-
-	try {
-
-		const
-		save_vehicle_data = await fetch('/save_vehicle_data', {
-			method: 'POST',
-			headers: {
-				"Content-Type" : "application/json",
-				"Authorization" : token.value
-			},
-			body: JSON.stringify(data)
-		}),
-		response = await save_vehicle_data.json();
-
-		if (response.error !== undefined) throw response.error;
-		if (!response.success) throw 'Success response from server is false.';
-
-		const 
-		tr = document.querySelector(`#vehicles-table .tbody .tr[data-primary-plates=${data.primary_plates}]`),
-		status_class = (data.active === '0') ? 'far fa-times' : 'far fa-check',
-		internal_class = (data.internal === '0') ? 'far fa-times' : 'far fa-check',
-		secondary_plates = (data.secondary_plates.length === 0) ? '-' : data.secondary_plates,
-		transport = (data.transport_id === 'none') ? '-' : transport_select.querySelector(`option:nth-child(${transport_select.selectedIndex + 1})`).innerText,
-		driver_name = (!!modal.querySelector('.content-container.active .create-weight__change-driver tr.selected')) ? modal.querySelector('.content-container.active .create-weight__change-driver tr.selected .driver').innerText : '-';
-
-		console.log(transport)
-
-		tr.querySelector('.status i').className = status_class;
-		tr.querySelector('.internal i').className = internal_class;
-		tr.querySelector('.secondary-plates').innerText = secondary_plates;
-		tr.querySelector('.driver').innerText = driver_name;
-		tr.querySelector('.transport').innerText = transport;
-
-		document.querySelector('.content-container.active .create-weight__create-vehicle__back-to-create-weight').click();
-	} catch(error) { error_handler('Error al intentar guardar datos de vehiculo.', error) }
-
-}
-
-const create_vehicle_choose_driver = async () => {
-
-	if (clicked) return;
-	prevent_double_click();
-
-	const
-	modal = document.querySelector('.content-container.active .create-vehicle__vehicle-data'),
-	plates = DOMPurify().sanitize(modal.querySelector('.create-vehicle__primary-plates').value.replace(/[^a-zA-Z0-9]/gm, '').toUpperCase()),
-	tooltip = modal.querySelector('.create-vehicle__vehicle-data .create-vehicle-data .widget-tooltip');
-
-	if (plates.length < 6) {	
-		tooltip.firstElementChild.innerText = 'Patente del vehículo requiere mínimo 6 caracteres.';
-		fade_in(tooltip);
-		tooltip.classList.remove('hidden');
-		return;
-	}
-
-	let default_driver = null
-	try {
-
-		//CREATING DRIVER IN WEIGHT
-		if (document.getElementById('weight').classList.contains('active')) {
-			
-			const 
-			check_plates = await fetch('/check_existing_plates', {
-				method: 'POST',
-				headers: {
-					"Content-Type" : "application/json",
-					"Authorization" : token.value
-				},
-				body: JSON.stringify({ plates })
-			}),
-			response = await check_plates.json();
-
-			if (response.error !== undefined) throw response.error;
-			if (!response.success) throw 'Success response from server is false.';
-
-		}
-		
-		//EDITING EXISITING VEHICHE
-		else {
-
-			const
-			get_default_driver = await fetch('/get_vehicle_default_driver', {
-				method: 'POST',
-				headers: {
-					"Content-Type" : "application/json",
-					"Authorization" : token.value
-				},
-				body: JSON.stringify({ plates })
-			}),
-			response = await get_default_driver.json();
-
-			if (response.error !== undefined) throw response.error;
-			if (!response.success) throw 'Success response from server is false.';
-
-			default_driver = response.driver;
-
-		}
-
-		if (!!document.querySelector('.content-container.active .create-weight__change-driver-container')) {
-
-			const drivers_table = document.querySelector('.content-container.active .create-weight__change-driver-container');
-			if (drivers_table.hasAttribute('data-default-driver')) {
-
-				if (!!drivers_table.querySelector('.tbl-content tbody tr.selected')) drivers_table.querySelector('.tbl-content tbody tr.selected').classList.remove('selected');
-
-				default_driver = JSON.parse(drivers_table.getAttribute('data-default-driver')); 
-				if (!!document.querySelector(`.content-container.active .create-weight__change-driver-container tr[data-driver-id="${default_driver.id}"]`) === false) {
-					
-					const tr = document.createElement('tr');
-					tr.className = 'selected';
-					tr.setAttribute('data-driver-id', default_driver.id);
-					tr.innerHTML = `
-						<td class="driver">${DOMPurify().sanitize(default_driver.name)}</td>
-						<td class="rut">${DOMPurify().sanitize(default_driver.rut)}</td>
-						<td class="phone"></td>
-						<td class="internal">
-							<div>
-								<i class=""></i>
-							</div>
-						</td>
-						<td class="status">
-							<div>
-								<i class=""></i>
-							</div>
-						</td>
-					`;
-
-					const 
-					phone = (default_driver.phone === null) ? '' : default_driver.phone,
-					internal_class = (default_driver.internal === 0) ? 'far fa-times' : 'far fa-check',
-					status_class = (default_driver.active === 0) ? 'far fa-times' : 'far fa-check';
-
-					tr.querySelector('.phone').innerText = phone;
-					tr.querySelector('.internal i').className = internal_class;
-					tr.querySelector('.status i').className = status_class;
-
-					drivers_table.querySelector('.tbl-content tbody').prepend(tr);
-				}
-				else drivers_table.querySelector(`.tbl-content tbody tr[data-driver-id="${default_driver.id}"]`).classList.add('selected');
-			}
-
-			document.querySelector('.content-container.active .create-vehicle-container').classList.remove('active');
-			return;
-		}
-
-		const 
-		driver_template = await (await fetch('./templates/template-change-driver.html')).text(),
-		driver_div = document.createElement('div');
-		
-		driver_div.innerHTML = driver_template;
-		driver_div.querySelector('.change-driver__type-btns').lastElementChild.remove();
-
-		modal.parentElement.parentElement.appendChild(driver_div);
-		driver_div.querySelector('.create-weight__change-driver__set-driver').classList.add('enabled');
-
-		
-		const
-		driver_type = 'internal',
-		get_drivers = await fetch('/get_drivers', { 
-			method: 'POST', 
-			headers: { 
-				"Content-Type" : "application/json",
-				"Authorization" : token.value 
-			}, 
-			body: JSON.stringify({ driver_type }) 
-		}),
-		drivers_response = await get_drivers.json();
-
-		if (drivers_response.error !== undefined) throw drivers_response.error;
-		if (!drivers_response.success) throw 'Success response from server is false.';
-
-		console.log(drivers_response)
-		if (default_driver !== null) {
-			console.log('inside')
-			document.querySelector('.content-container.active .create-weight__change-driver-container').setAttribute('data-default-driver', JSON.stringify(default_driver));
-			
-			let default_driver_in_response = false;
-			for (let i = 0; i < drivers_response.drivers.length; i++) {
-				if (drivers_response.drivers[i].id === default_driver.id) {
-					default_driver_in_response = true;
-					break;
-				}
-			}
-
-			if (!default_driver_in_response) drivers_response.drivers.unshift(default_driver);	
-		}
-
-		driver_div.querySelector('.create-weight__change-driver tbody').addEventListener('click', change_driver_select_tr);
-		driver_div.querySelector('.create-weight__change-driver__close-modal').addEventListener('click', e => {
-			driver_div.previousElementSibling.classList.add('active');
-		});
-		driver_div.querySelector('.create-weight__change-driver__search-driver input').addEventListener('input', select_driver_search_driver);
-		
-		
-		if (document.getElementById('weight').classList.contains('active')) {
-			driver_div.querySelector('.create-weight__change-driver__create-driver-btn').addEventListener('click', select_driver_create_driver_btn);
-			driver_div.querySelector('.create-weight__change-driver__set-driver').addEventListener('click', create_vehicle_finalize);
-		}
-		else {
-			driver_div.querySelector('.create-weight__change-driver__create-driver-btn').remove();
-			driver_div.querySelector('.create-document-btns-container').classList.add('edit-vehicle');
-			driver_div.querySelector('.create-weight__change-driver__set-driver').addEventListener('click', edit_vehicle_finalize);
-		}
-		
-		//CREATE DRIVER BTNS
-		document.querySelector('#create-weight__change-driver__back-to-select-driver').addEventListener('click', select_driver_create_driver_back_btn);
-		document.querySelector('#create-weight__change-driver__create-driver').addEventListener('click', select_driver_create_driver);
-		
-		driver_div.querySelector('#create-weight__create-driver-rut').addEventListener('input', select_driver_create_driver_rut_input);
-		driver_div.querySelector('#create-weight__create-driver-rut').addEventListener('keydown', select_driver_create_driver_rut_keydown);
-		
-		driver_div.querySelectorAll('.create-weight__change-driver__create .input-effect').forEach(input => {
-			input.addEventListener('input', custom_input_change);
-		});
-
-		document.getElementById('create-driver__active-cbx').checked  = true;
-
-		driver_div.querySelectorAll('.change-driver__type-btns > div:not(.default-driver)').forEach(driver_type => {
-			driver_type.addEventListener('click', list_drivers_by_type);
-		});
-		
-		const drivers = drivers_response.drivers;
-		await change_driver_create_tr(drivers);
-
-		if (default_driver !== null) 
-			document.querySelector(`.content-container.active .create-weight__change-driver-container tbody tr[data-driver-id="${default_driver.id}"]`).classList.add('selected');
-
-		await delay(10)
-
-		modal.parentElement.classList.remove('active');
-
-	} catch(error) { error_handler('Error en patente del vehículo.', error) }
-}
 
 document.getElementById('select-vhc-create').addEventListener('click', async () => {
 
@@ -629,8 +496,8 @@ document.querySelector('#pending-weights-table tbody').addEventListener('click',
 
 	let tr;
 	if (e.target.matches('tr')) tr = e.target;
-	else if (e.target.matches('td:not(.delete)')) tr = e.target.parentElement;
-	else if (e.target.matches('i')) tr = e.target.parentElement.parentElement;
+	else if (e.target.matches('td')) tr = e.target.parentElement;
+	else if (e.target.matches('i') || e.target.matches('p')) tr = e.target.parentElement.parentElement.parentElement;
 	else return;
 	
 	const 
@@ -819,6 +686,7 @@ document.querySelector('#weights-menu__finished').addEventListener('click', () =
 	if (clicked) return;
 	prevent_double_click()
 	get_finished_weights('T');
+	
 });
 
 document.querySelector('#weights-menu__deleted').addEventListener('click', () => {
@@ -1265,10 +1133,14 @@ const finished_weights_table = async e => {
 
 	if (!edit) {
 
-		if (tr.classList.contains('selected')) tr.classList.remove('selected');
+		if (tr.classList.contains('selected')) {
+			tr.classList.remove('selected');
+			document.querySelector('#finished-weights__print-weight > div').classList.remove('enabled');
+		}
 		else {
 			document.querySelectorAll('#finished-weight__table tr.selected').forEach(tr => { tr.classList.remove('selected') });
 			tr.classList.add('selected');	
+			document.querySelector('#finished-weights__print-weight > div').classList.add('enabled');
 		}
 		return
 	}
@@ -1670,9 +1542,11 @@ const finished_weights_table = async e => {
 }
 
 //FINISHED WEIGHTS TABLE -> PRINT BTN
-const finished_weights_print_weight = async e => {
+const finished_weights_print_weight = async function() {
 
+	if (btn_double_clicked(this)) return;
 	if (!!document.querySelector('#finished-weight__table tr.selected') === false) return;
+	if (!document.querySelector('#finished-weights__print-weight > div').classList.contains('enabled')) return;
 
 	const weight_id = document.querySelector('#finished-weight__table tr.selected').getAttribute('data-weight-id');
 
@@ -2142,13 +2016,13 @@ class create_weight_object {
 					const config = qz.configs.create(printer);
 					console.log('ok')
 
-					await print_with_dot_matrix(config);
+					await print_with_dot_matrix(config, response.weight_object);
 					return resolve();
 			
 				} catch(print_error) { console.log(`Couldn't connect to printer. ${print_error}`) }
 
 				//CREATE WINDOW AND PRINT WITH BROWSER
-				const mywindow = window.open('https://192.168.1.66:3000/print', 'PRINT');
+				const mywindow = window.open('https://192.168.1.90:3000/print', 'PRINT');
 				
 				mywindow.document.body.onload = async () => {
 
@@ -2294,6 +2168,8 @@ function create_weight(response) {
 		step_2.setAttribute('data-cycle', response.weight_object.cycle.id);
 		step_2.innerHTML = response.template;
 	
+		console.log(response.weight_object)
+
 		weight_object = new create_weight_object(response.weight_object);
 		response.weight_object.documents.forEach(doc => { 
 			const new_doc = new create_document_object(doc);
@@ -3443,39 +3319,34 @@ class create_document_object {
 				month = months_array[doc_date.getMonth()],
 				day = (doc_date.getDate() < 10) ? '0' + doc_date.getDate() : doc_date.getDate(),
 				day_and_month = `                                                ${day}    ${month}`,
-				address = print_doc_break_line(doc_data.entity.address, 8, 47, 3),
+				address = print_doc_break_line(doc_data.entity.address.replace(/[º°]/gm, 'ø').replace(/[ñ]/gmi, '¥'), 8, 47, 3),
 				giro = print_doc_break_line(doc_data.entity.giro, 8, 34, 31),
-				line_jump = '\x0A' + '\x0A';
+				line_jump = '\x0A';
 
 				const data = [
-					'\x1B' + '\x69' + '\x61' + '\x00' + '\x1B' + '\x40', // set printer to ESC/P mode and clear memory buffer
-					'\x1B' + '\x55' + '\x02', '\x1B' + '\x33' + '\x0F', // set margin (02) and line feed (0F) values)
-					'\x1B' + '\x6B' + '\x0B' + '\x1B' + '\x58' + '\x00' + '\x3A' + '\x00', // set font and font size
+					line_jump, line_jump, line_jump, line_jump, line_jump, line_jump, line_jump, line_jump,
+					`                                                         ${thousand_separator(doc_data.number)}` + '\r\n',//9
 					line_jump, line_jump, line_jump, line_jump,
-					line_jump, line_jump, line_jump, line_jump, line_jump,
-					`                                                         ${thousand_separator(doc_data.number)}` + '\x0A' + '\x0A',//11
-					line_jump, line_jump, line_jump, line_jump, line_jump + '\x0A',
 
 				  //'01234567890123456789012345678901234567890123456789012345678901234567890123456789',
 				  //'1         1         2         3         4         5         6         7         ',
-					day_and_month + print_doc_spaces(0, day_and_month, 69) + year, //17,5
-				  //'                                               10      DICIEMBRE      2021' + '\x0A', //13
-					line_jump, line_jump + '\x0A',
-					`         ${doc_data.entity.name.toUpperCase()}` + '\x0A', //20,5
-					line_jump + line_jump, //
-					'         ' + address.first_line.toUpperCase() + print_doc_spaces(9, address.first_line, 52) + doc_data.entity.rut + '\x0A' + '\x0A',  //22
-					'   ' + address.second_line.toUpperCase() + '\x0A', //23,5
+					day_and_month + print_doc_spaces(0, day_and_month, 69) + year + '\r\n', //14
+				  //'                                               10      DICIEMBRE      2021' + '\x0A', //14
 					line_jump,
-					'        ' + doc_data.entity.comuna.toUpperCase() + print_doc_spaces(8, doc_data.entity.comuna, 34) + giro.first_line.toUpperCase() + '\x0A' + '\x0A', //19
-					'                               ' + giro.second_line.toUpperCase() + '\x0A', //20
-					line_jump, line_jump, line_jump, line_jump + '\x0A'
+					`         ${doc_data.entity.name.toUpperCase()}` + '\r\n', //16
+					line_jump,
+					'         ' + address.first_line.toUpperCase() + print_doc_spaces(9, address.first_line, 52) + doc_data.entity.rut + '\r\n',  //18
+					'   ' + address.second_line.toUpperCase() + '\r\n', //19
+					'        ' + doc_data.entity.comuna.toUpperCase() + print_doc_spaces(8, doc_data.entity.comuna, 34) + giro.first_line.toUpperCase() + '\r\n', //20
+					'                               ' + giro.second_line.toUpperCase() + '\r\n', //20
+					line_jump, line_jump, line_jump
 				];
 
 				doc_data.rows.forEach(async row => {
 					
 					if (row.product.code === 'TRASLADO') {
 						const traslado_description = await get_traslado_description();
-						data.push(`       ${traslado_description}`);
+						data.push(`       ${traslado_description}` + '\r\n');
 					} else {
 
 						const 
@@ -3487,7 +3358,7 @@ class create_document_object {
 	
 						if (product_name.length > 0) {
 							const product_line = print_doc_body_string(product_amount, product, product_price);
-							data.push(product_line + '\x0A' + '\x0A');
+							data.push(product_line + '\r\n');
 						}
 	
 						const
@@ -3496,17 +3367,17 @@ class create_document_object {
 	
 						if (container_name.length > 0) {
 							const container_line = '    ' + container_amount + print_doc_spaces(4, container_amount, 11) + container_name;
-							data.push(container_line + '\x0A'+ '\x0A');
+							data.push(container_line + '\r\n');
 						}
 	
-						if (product_name.length > 0 || container_name.length > 0) data.push('   _____' + '\x0A'+ '\x0A' + '\x0A');
+						if (product_name.length > 0 || container_name.length > 0) data.push('   _____' + '\r\n');
 					}
 
 				});
 
 				console.log(data.length)
 
-				while (data.length < 57) { data.push(line_jump) }
+				while (data.length < 40) { data.push(line_jump) }
 
 				const
 				driver_name = doc_data.driver.name,
@@ -3520,10 +3391,10 @@ class create_document_object {
 
 			  			//'01234567890123456789012345678901234567890123456789012345678901234567890123456789',
 			  			//'1         1         2         3         4         5         6         7         ',
-				data.push(print_doc_center_text(`ID: ${sii_id} - VEHICULO: ${plates}`) + '\x0A' + '\x0A');
-				data.push(print_doc_center_text(`CHOFER: ${driver_name.toUpperCase()} - RUT: ${driver_rut}`) + '\x0A' + '\x0A');
-				data.push(print_doc_center_text(sale_type_first_list) + '\x0A' + '\x0A');
-				data.push(print_doc_center_text(sale_type_second_line) + '\x0A' + '\x0A');
+				data.push(print_doc_center_text(`ID: ${sii_id} - VEHICULO: ${plates}`) + '\r\n');
+				data.push(print_doc_center_text(`CHOFER: ${driver_name.toUpperCase()} - RUT: ${driver_rut}`) + '\r\n');
+				data.push(print_doc_center_text(sale_type_first_list) + '\r\n');
+				data.push(print_doc_center_text(sale_type_second_line) + '\r\n');
 
 				/*
 				data.push(`                        ID: 05375101 - VEHICULO: ${plates}` + '\x0A' + '\x0A');
@@ -3572,7 +3443,7 @@ class create_document_object {
 
 	update_doc_date(doc_date) {
 		return new Promise(async (resolve, reject) => {
-			doc_date = DOMPurify().sanitize(doc_date);
+			doc_date = DOMPurify().sanitize(doc_date + ' 00:00:00');
 			const doc_id = DOMPurify().sanitize(this.frozen.id);
 			try {
 				const	
@@ -3587,11 +3458,11 @@ class create_document_object {
 				response = await update.json();
 
 				if (response.error !== undefined) throw response.error;
+				if (!response.success) throw 'Success response from server is false.';
 
-				if (response.update) {
-					this.date = response.doc_date;
-					resolve(true);
-				} else resolve(false);
+				this.date = doc_date;
+				return resolve();
+
 			}
 			catch (error) { error_handler('Error al actualizar fecha del documento en /update_doc_date', error); reject(error) }
 		})
@@ -3619,6 +3490,7 @@ class create_document_object {
 
 				this.client.entity.id = response.entity.id;
 				this.client.entity.name = response.entity.name;
+
 				if (response.last_record.found) {
 					this.internal.entity.id = response.last_record.entity.id;
 					this.internal.entity.name = response.last_record.entity.name;
@@ -3692,7 +3564,6 @@ class create_document_object {
 				if (response.error !== undefined) throw response.error;
 				if (!response.success) throw 'Success response from server is false.';
 
-				this.existing_document = response.existing_document;
 				if (target_table==='internal-entities') {
 					this.internal.entity.id = response.id;
 					this.internal.entity.name = response.name
@@ -4782,8 +4653,9 @@ function edit_document_in_modal(doc_id, modal) {
 			modal.querySelector('#create-document__doc-number input').value = doc_number;
 	
 			let doc_date = document_object.date;
+			console.log(doc_date)
 			if (doc_date !== null) {
-				doc_date = doc_date.split('T')[0];
+				doc_date = doc_date.split(' ')[0];
 				modal.querySelector('#create-document__doc-date .widget').classList.add('saved');
 				modal.querySelector('#create-document__doc-date input').classList.add('has-content');
 			}
@@ -4986,31 +4858,35 @@ async function create_document_doc_date_update(e) {
 	}
 	*/
 
-	if (e.code !== 'Tab' && e.key!== 'Enter') return;
+	if (e.code !== 'Tab' && e.key !== 'Enter') return;
 	if (e.target.value.length > 0 && !validate_date(e.target.value)) return;
 
-	const date = (e.target.value==='') ? null : e.target.value + ' 00:00:00';
+	const date = (e.target.value.length === 0) ? null : e.target.value;
 	if (date === document_object.date) return;
 
 	const widget = document.querySelector('#create-document__doc-date .widget');
 	animate_on_data_saved(widget);
 
 	try {	
-		const update = await document_object.update_doc_date(date);
-		if (update) {
 
-			if (date === null) {
-				widget.classList.remove('saved');
-				e.target.classList.remove('has-content');
-			}
-			else {
-				widget.classList.add('saved');
-				e.target.classList.add('has-content');
-			}
+		const year = parseInt(date.substring(0, 4));
+		if (year === NaN || year < 2019) throw 'Fecha inválida para documento.'
 
-			//document.querySelector('#create-document__header__origin-entity .widget').focus();
+		await document_object.update_doc_date(date);
+
+		if (date === null) {
+			widget.classList.remove('saved');
+			e.target.classList.remove('has-content');
 		}
-	} catch(error) { console.log(`Error updating document date: Error msg: ${error}`) }
+
+		else {
+			widget.classList.add('saved');
+			e.target.classList.add('has-content');
+		}
+
+		//document.querySelector('#create-document__header__origin-entity .widget').focus();
+		
+	} catch(error) { error_handler('Error al ingresar fecha de documento.', error) }
 }
 
 async function create_document_doc_date_input(e) {
@@ -5019,7 +4895,8 @@ async function create_document_doc_date_input(e) {
 
 	if (date.length < 10) return;
 	if (!validate_date(date)) return;
-	if (parseInt(date.split('-')[0]) < 2019) return;
+	console.log(date)
+	if (parseInt(date.substring(0, 4)) === NaN || parseInt(date.substring(0, 4)) < 2019) return;
 	if (date === document_object.date) return;
 
 	const widget = document.querySelector('#create-document__doc-date .widget');
@@ -5027,15 +4904,13 @@ async function create_document_doc_date_input(e) {
 
 	try {
 
-		const update = await document_object.update_doc_date(date);
-		if (update) {
+		await document_object.update_doc_date(date);
+		
+		widget.classList.add('saved');
+		e.target.classList.add('has-content');
 
-			widget.classList.add('saved');
-			e.target.classList.add('has-content');
-
-			//document.querySelector('#create-document__header__origin-entity .widget').focus();
-		}
-
+		//document.querySelector('#create-document__header__origin-entity .widget').focus();
+		
 	} catch(error) { console.log(`Error updating document date: Error msg: ${error}`) }
 }
 
@@ -5115,14 +4990,14 @@ async function open_entity_modal(e) {
 
 	/*if (document_object.electronic) return;*/
 
-	if (e.type==='click' || (e.type==='keydown' && (e.code==='Space' || e.key==='Enter'))) {
+	if (e.type === 'click' || (e.type === 'keydown' && (e.code === 'Space' || e.key === 'Enter'))) {
 		
 		if (clicked) return;
 		prevent_double_click();
 
 		try {
 			const
-			fetch_entities = await fetch('/fetch_entities', { 
+			fetch_entities = await fetch('/get_entities_for_document', { 
 				method: 'GET', 
 				headers: { 
 					"Cache-Control" : "no-cache",
@@ -5154,7 +5029,7 @@ async function open_entity_modal(e) {
 			fade_in_target.classList.remove('hidden');
 			document.getElementById('create-document__select-entity__search-origin').focus();	
 
-		} catch(error) { error_handler('Error al buscar lista de entidades en /fetch_entities', error) }
+		} catch(error) { error_handler('Error al buscar lista de entidades en /get_entities_for_document', error) }
 		
 		if (clicked) return;
 		prevent_double_click();
@@ -5257,6 +5132,7 @@ async function create_document_select_entity() {
 		document.querySelector('#create-document__header__origin-entity .widget-data-absolute p').innerText = document_object.client.entity.name;
 		
 		if (document_object.internal.entity.id !== null) {
+		
 			const
 			internal_entity = document_object.internal.entity.id,
 			internal_branch = document_object.internal.branch.id;
@@ -5268,6 +5144,7 @@ async function create_document_select_entity() {
 		mutation_observer = null;
 		
 		mutation_observer = new MutationObserver(() => {
+
 			const target_btn = document.getElementById('create-document__select-origin-branch-btn');
 			target_btn.classList.toggle('disabled');
 			target_btn.classList.toggle('enabled');
@@ -5277,6 +5154,7 @@ async function create_document_select_entity() {
 		document.querySelector('#create-document__origin-branch div:nth-child(1) h3').innerText = document_object.client.entity.name;
 
 		for (let i = 0; i < branches.length; i++) {
+
 			const
 			tr = document.createElement('div'),
 			td1 = document.createElement('div'),
@@ -6559,7 +6437,9 @@ async function container_amount_update(e) {
 	}
 
 	//CHECKS IF ANY INPUT HAS CONTENT
+	console.log('check')
 	let row_with_content = false;
+	console.log(row_element)
 	const row_inputs = row_element.querySelectorAll('input');
 	for (let i = 0; i < row_inputs.length; i++) { 
 		if (row_inputs[i].value.length > 0) {
@@ -6656,17 +6536,10 @@ async function select_option_from_custom_select() {
 			select.nextElementSibling.classList.add('saved');
 			select.querySelector('.selected-option p').innerText = selected_text;
 			
-			if (target_table==='internal-entities') select.nextElementSibling.querySelector('.widget-data-absolute p').innerText = document_object.internal.entity.name;
+			if (target_table === 'internal-entities') select.nextElementSibling.querySelector('.widget-data-absolute p').innerText = document_object.internal.entity.name;
 			else select.nextElementSibling.querySelector('.widget-data-absolute p').innerText = document_object.internal.branch.name;
 			
 			ul.classList.remove('active')	
-
-			if (document_object.existing_document) {
-				document_object.number = null;
-				const tooltip = document.querySelector('#create-document__doc-number .widget-tooltip');
-				fade_in(tooltip, 250, 'block');
-				tooltip.classList.remove('hidden');
-			}
 		}
 	}
 	catch(e) { console.log(`Error selecting option from custom select. Error msg: ${e}`) }

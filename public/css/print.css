@@ -1,11 +1,194 @@
 @media print {
-    html, body {
-        display: block; 
-        font-family: "Calibri";
-        margin: 0;
-    }
+  html, body {
+      display: block; 
+      font-family: "Courier New";
+      margin: 0;
+  }
+}
 
-    @page {
-      size: 21.59cm 13.97cm;
-    }
+body {
+  background: #fff !important;
+  color: #000 !important;
+  font-size: 15px;
+  line-height: 1.05;
+  letter-spacing: 0.5px;
+  padding: 11px 6px;
+  font-family: "Courier New" !important;
+}
+
+/********** FIRST HEADER **********/
+#print-with-browser-grid {
+  display: grid;
+  grid-auto-flow: row;
+  width: 768px;
+}
+
+#print-with-browser-grid > div {
+  width: 100%;
+  white-space:pre;
+}
+
+.space {
+  height: 35px;
+}
+
+#print-first-header {
+  display: grid;
+  grid-auto-flow: row;
+  text-align: center;
+  padding-right: 85px;
+}
+
+#print-first-header > div:last-child {
+  padding-left: 30px;
+}
+
+/********** SECOND HEADER **********/
+
+
+#print-second-header {
+  display: grid;
+  grid-auto-flow: row;
+}
+
+#print-second-header > .second-header-row {
+  display: grid;
+  grid-auto-flow: column;
+  grid-template-columns: 145px 1fr;
+}
+
+#print-second-header .second-header-row:nth-child(3) .second-header-column:last-child {
+  padding-left: 27px;
+}
+
+#print-second-header .second-header-row:last-child {
+  grid-template-columns: 145px 436px 1fr;
+}
+
+/********** THIRD HEADER **********/
+
+#print-third-header {
+  display: grid;
+  grid-auto-flow: column;
+  grid-template-columns: 455px 313px;
+}
+
+.third-header-column {
+  display: grid;
+  grid-auto-flow: row;
+}
+
+.third-header-column__child {
+  display: grid;
+  grid-auto-flow: column;
+  grid-template-columns: 135px 1fr;
+}
+
+/********** LAST HEADER **********/
+#print-last-header {
+  display: grid;
+  grid-auto-flow: column;
+  grid-template-columns: 90px 93px 125px 135px 325px;
+}
+
+.last-header-column {
+  display: grid;
+  grid-auto-flow: row;
+  grid-template-rows: repeat(4, 1fr);
+  text-align: right;
+}
+
+.last-header-column:first-child {
+  text-align: left;
+}
+
+.last-header-column > div {
+  width: 100%;
+  height: 100%;
+}
+
+.centered {
+  text-align: center;
+  white-space: initial;
+  position: relative;
+}
+
+.centered > div {
+  width: 100%;
+  height: 100%;
+  position: relative;
+}
+
+.centered span {
+  position: absolute;
+  top: 50%;
+  left: 85%;
+  transform: translate(-50%, -50%);
+  z-index: 10;
+  text-align: center;
+  width: 120%;
+  height: 100%;
+  word-break: keep-all;
+  overflow-wrap: unset;
+}
+
+.last-header-column__child {
+  display: grid;
+  grid-auto-flow: column;
+  grid-template-columns: 1fr 93px;
+}
+
+.last-header-column__child > div {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  white-space: initial;
+}
+
+.last-header-column__child > div:first-child {
+  text-align: left;
+  padding-left: 98px;
+}
+
+.last-header-column__child > div:last-child {
+  padding-right: 22px;
+}
+
+/********** DOCUMENTS **********/
+#documents-body {
+  display: grid;
+  grid-auto-flow: row;
+}
+
+#documents-body > div:first-child {
+  display: grid;
+  grid-auto-flow: column;
+  grid-template-columns: 145px 240px 323px 60px;
+}
+
+#documents-body > div:first-child > div:last-child {
+  text-align: right;
+  padding-right: 5px;
+}
+
+#documents-body__body {
+  display: grid;
+  grid-auto-flow: row;
+  line-height: 1.1;
+}
+
+#documents-body__body > div {
+  display: grid;
+  grid-template-columns: 145px 240px 323px 60px;
+}
+
+#documents-body__body > div > div {
+  display: grid;
+  grid-auto-flow: row;
+  grid-template-rows: repeat(2, 1fr);
+}
+
+.documents-body__fourth-column {
+  text-align: right;
+  padding-right: 5px;
 }

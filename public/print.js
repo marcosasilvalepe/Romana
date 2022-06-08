@@ -147,23 +147,25 @@ function print_with_dot_matrix(config) {
             );
     
             doc.rows.forEach(row => {
-    
-                const 
-                containers = (row.container.code === null) ? '' : reduce_string_length(thousand_separator(row.container.amount) + ' ' + row.container.name, 80),
-                product = (row.product.name === null) ? '' : reduce_string_length(row.product.name, 36),
-                cut = (row.product.cut === null) ? '' : proper_case(row.product.cut);
-                
-                console.log(row.product)
+                if (row.product.code !== 'GEN') {
 
-                let kilos, kg_inf;
-                if (weight.cycle.id === 1) {
-                    kilos = (row.product.kilos === null) ? '' : thousand_separator(row.product.kilos);
-                    kg_inf = (row.product.informed_kilos === null) ? '' : thousand_separator(row.product.informed_kilos);
-                } else {
-                    kilos = (row.product.informed_kilos === null) ? '' : thousand_separator(row.product.informed_kilos);
-                    kg_inf = (row.product.kilos === null) ? '' : thousand_separator(row.product.kilos);
+                    const 
+                    containers = (row.container.code === null) ? '' : reduce_string_length(thousand_separator(row.container.amount) + ' ' + row.container.name, 80),
+                    product = (row.product.name === null) ? '' : reduce_string_length(row.product.name, 36),
+                    cut = (row.product.cut === null) ? '' : proper_case(row.product.cut);
+                    
+                    console.log(row.product)
+    
+                    let kilos, kg_inf;
+                    if (weight.cycle.id === 1) {
+                        kilos = (row.product.kilos === null) ? '' : thousand_separator(row.product.kilos);
+                        kg_inf = (row.product.informed_kilos === null) ? '' : thousand_separator(row.product.informed_kilos);
+                    } else {
+                        kilos = (row.product.informed_kilos === null) ? '' : thousand_separator(row.product.informed_kilos);
+                        kg_inf = (row.product.kilos === null) ? '' : thousand_separator(row.product.kilos);
+                    }
+                    data.push(print_body_string(product, cut, kg_inf, kilos), '\x0A' + '\x0A', containers, '\x0A' + '\x0A', '---' + '\x0A' + '\x0A');    
                 }
-                data.push(print_body_string(product, cut, kg_inf, kilos), '\x0A' + '\x0A', containers, '\x0A' + '\x0A', '---' + '\x0A' + '\x0A');
             });
             
             //REMOVE LAST --- ROW SEPARATOR IN DOCUMENT

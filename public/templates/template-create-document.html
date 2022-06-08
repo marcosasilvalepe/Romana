@@ -1,17 +1,18 @@
-<div id="create-weight__modal-container">
+<div class="create-weight__modal-container">
     <div class="modal-content">
-        <div id="create-document__select-entities-container" class="hidden">
-            <div id="create-document__origin-entity" class="create-document-absolute active">
+
+        <div class="create-document__select-entities-container hidden">
+            <div class="create-document-absolute active create-document__origin-entity">
                 <div class="header">
                     <h3>ENTIDAD DE ORIGEN</h3>
                 </div>
-                <div class="body entity-list-container" id="create-document__origin-entity-list">
+                <div class="body entity-list-container create-document__origin-entity-list">
                     <ul></ul>
                 </div>
                 <div class="footer">
                     <div class="create-document-btns-container">
 
-                        <button id="create-document__select-entity__close-entity-modal" class="svg-wrapper enabled red" onclick="close_entity_modal();"  data-prev-tab-selector="#create-document__origin-entity-list li:first-child">
+                        <button class="svg-wrapper enabled red create-document__select-entity__close-entity-modal" onclick="close_entity_modal();"  data-prev-tab-selector="#create-document__origin-entity-list li:first-child">
                             <svg height="45" width="160" xmlns="http://www.w3.org/2000/svg">
                                 <rect class="shape" height="45" width="160" />
                             </svg>
@@ -20,16 +21,15 @@
                                 <p>CANCELAR</p>
                             </div>
                         </button>
-                        <div id="create-document__select-entity__search-origin-container" class="btn-search-container">
+                        <div class="btn-search-container create-document__select-entity__search-origin-container">
                             <div class="input-effect-container">
-                                <input spellcheck="false" class="input-effect" type="text" name="search-origin-entity"
-                                id="create-document__select-entity__search-origin"
-                                prev-tab-selector="#create-document__origin-entity-list li:first-child">
+                                <input spellcheck="false" class="input-effect create-document__select-entity__search-origin" 
+                                type="text" name="search-origin-entity" prev-tab-selector="#create-document__origin-entity-list li:first-child">
                                 <label><i class="fal fa-search"></i>BUSCAR</label>
                                 <span class="focus-border"></span>    
                             </div>
                         </div>
-                        <button id="create-document__select-entity__select-branch" class="svg-wrapper disabled green" data-next-tab-selector="#create-document__origin-entity-list li:first-child">
+                        <button class="svg-wrapper disabled green create-document__select-entity__select-branch" data-next-tab-selector="#create-document__origin-entity-list li:first-child">
                             <svg height="45" width="160" xmlns="http://www.w3.org/2000/svg">
                                 <rect class="shape" height="45" width="160" />
                             </svg>
@@ -41,7 +41,7 @@
                     </div>
                 </div>
             </div>
-            <div id="create-document__origin-branch" class="create-document-absolute right hidden">
+            <div class="create-document-absolute right create-document__origin-branch hidden">
                 <div class="header">
                     <h3></h3>
                 </div>
@@ -57,14 +57,14 @@
                                 </div>
                             </div>
                         </div>
-                        <div id="create-document__origin-branch-list" class="table-content">
+                        <div class="table-content create-document__origin-branch-list">
                             <div class="table-body"></div>
                         </div>
                     </div>
                 </div>
                 <div class="footer">
                     <div class="create-document-btns-container">
-                        <button id="create-document__back-to-origin-btn" class="svg-wrapper enabled red">
+                        <button class="svg-wrapper enabled red create-document__back-to-origin-btn">
                             <svg height="45" width="160" xmlns="http://www.w3.org/2000/svg">
                                 <rect class="shape" height="45" width="160" />
                             </svg>
@@ -74,7 +74,7 @@
                             </div>
                         </button>
 
-                        <button id="create-document__select-origin-branch-btn" class="svg-wrapper disabled green">
+                        <button class="svg-wrapper disabled green create-document__select-origin-branch-btn">
                             <svg height="45" width="160" xmlns="http://www.w3.org/2000/svg">
                                 <rect class="shape" height="45" width="160" />
                             </svg>
@@ -88,29 +88,29 @@
             </div>
         </div>
         
-        <div id="create-document__create-product" class="hidden">
+        <div class="create-document__create-product hidden">
             <div class="create-document-absolute">
                 <div class="header">
                     <h3>CREAR PRODUCTO</h3>
                 </div>
                 <div class="body">
-                    <div id="create-product__search-product">
+                    <div class="create-product__search-product">
                         <input type="text" spellcheck="false" class="input-effect" max="128" placeholder="Buscar Producto">
                         <span class="focus-border"></span>
                         <ul></ul>
                     </div>
-                    <div id="create-product__product-code">
+                    <div class="create-product__product-code">
                         <input type="text" spellcheck="false" class="input-effect" max="10" placeholder="Código Producto">
                         <span class="focus-border"></span>
                     </div>
-                    <div id="create-product__product-description">
+                    <div class="create-product__product-description">
                         <input type="text" spellcheck="false" class="input-effect" max="128" placeholder="Nombre Producto">
                         <span class="focus-border"></span>
                     </div>
                 </div>
                 <div class="footer">
                     <div class="create-document-btns-container">
-                        <button id="create-document__create-product-back-btn" class="svg-wrapper enabled red">
+                        <button class="svg-wrapper enabled red create-document__create-product-back-btn">
                             <svg height="45" width="160" xmlns="http://www.w3.org/2000/svg">
                                 <rect class="shape" height="45" width="160" />
                             </svg>
@@ -120,7 +120,7 @@
                             </div>
                         </button>
 
-                        <button id="create-document__create-product-accept-btn" class="svg-wrapper enabled green">
+                        <button class="svg-wrapper enabled green create-document__create-product-accept-btn">
                             <svg height="45" width="160" xmlns="http://www.w3.org/2000/svg">
                                 <rect class="shape" height="45" width="160" />
                             </svg>
@@ -134,10 +134,11 @@
             </div>
         </div>
         
-        <div id="create-document__details-container" class="">
-            <div id="create-document__header">
+        <div class="create-document__details-container">
+
+            <div class="create-document__header">
                 <div class="create-document__header-row">
-                    <div class="create-document__header" id="create-document__header__truck">
+                    <div class="create-document__header-widget create-document__header__truck">
                         <div class="widget saved">
                             <div class="widget-container">
                                 <div class="widget-icon">
@@ -153,7 +154,7 @@
                             </div>
                         </div>
                     </div>
-                    <div class="create-document__header" id="create-document__header__created">
+                    <div class="create-document__header-widget create-document__header__created">
                         <div class="widget saved">
                             <div class="widget-container">
                                 <div class="widget-icon">
@@ -169,7 +170,7 @@
                             </div>
                         </div>
                     </div>
-                    <div class="create-document__header" id="create-document__header__user">
+                    <div class="create-document__header-widget create-document__header__user">
                         <div class="widget saved">
                             <div class="widget-container">
                                 <div class="widget-icon">
@@ -185,7 +186,7 @@
                             </div>
                         </div>
                     </div>
-                    <div class="create-document__header" id="create-document__doc-number">
+                    <div class="create-document__header-widget create-document__doc-number">
                         <div class="widget-tooltip red hidden">
                             <span>Nº de documento ya existe para Origen.</span>
                         </div>
@@ -195,21 +196,24 @@
                                     <i class="fal fa-info"></i>
                                 </div>
                                 <div class="widget-input">
-                                    <input spellcheck="false" type="text" class="input-effect">
+                                    <input spellcheck="false" type="text" class="input-effect"
+                                    data-prev-tab-selector=".content-container.active .create-document__footer__electronic .widget">
                                     <label>Nº Doc.</label>
                                     <span class="focus-border"></span>															
                                 </div>
                             </div>
                         </div>
                     </div>
-                    <div class="create-document__header" id="create-document__doc-date" onclick="widget_focus_input(this)">
+                    <div class="create-document__header-widget create-document__doc-date" onclick="widget_focus_input(this)">
                         <div class="widget box-shadow-animated">
                             <div class="widget-container">
                                 <div class="widget-icon">
                                     <i class="far fa-calendar-alt"></i>
                                 </div>
                                 <div class="widget-input">
-                                    <input type="date" name="date" class="input-effect" data-next-tab-selector="#create-document__header__origin-entity .widget">
+                                    <input type="date" name="date" class="input-effect"
+                                    
+                                    data-next-tab-selector=".content-container.active .create-document__header__origin-entity .widget">
                                     <label>Fecha Doc.</label>
                                     <span class="focus-border"></span>															
                                 </div>
@@ -218,8 +222,11 @@
                     </div>
                 </div>
                 <div class="create-document__header-row">
-                    <div class="create-document__header" id="create-document__header__origin-entity">
-                        <div class="widget box-shadow-animated" tabindex="-1">
+                    <div class="create-document__header-widget create-document__header__origin-entity">
+                        <div class="widget box-shadow-animated" tabindex="-1"
+                            data-prev-tab-selector=".content-container.active .create-document__doc-date input" 
+                            data-next-tab-selector=".content-container.active .create-document__header__destination-entity .widget"
+                        >
                             <div class="widget-container">
                                 <div class="widget-icon">
                                     <i class="fal fa-layer-group"></i>
@@ -232,7 +239,7 @@
                             </div>
                         </div>
                     </div>
-                    <div class="create-document__header" id="create-document__header__origin-branch">
+                    <div class="create-document__header-widget create-document__header__origin-branch">
                         <div class="widget">
                             <div class="widget-container">
                                 <div class="widget-icon">
@@ -246,7 +253,7 @@
                             </div>
                         </div>
                     </div>
-                    <div class="create-document__header widget-with-select" id="create-document__header__destination-entity">
+                    <div class="create-document__header-widget widget-with-select create-document__header__destination-entity">
                         <div class="custom-select" data-target="internal-entities">
                             <div class="selected-option" onclick="create_document_open_custom_select(this);">
                                 <p>Seleccionar Entidad</p>
@@ -254,7 +261,10 @@
                             </div>
                             <ul></ul>
                         </div>
-                        <div class="widget box-shadow-animated widget-with-select" tabindex="-1">
+                        <div class="widget box-shadow-animated widget-with-select" tabindex="-1"
+                            data-prev-tab-selector=".content-container.active .create-document__header__origin-entity .widget"
+                            data-next-tab-selector=".content-container.active .create-document__header__destination-branch .widget"
+                        >
                             <div class="widget-container">
                                 <div class="widget-icon">
                                     <i class="fal fa-layer-group"></i>
@@ -268,7 +278,7 @@
                         </div>
                         
                     </div>
-                    <div class="create-document__header widget-with-select" id="create-document__header__destination-branch">
+                    <div class="create-document__header-widget widget-with-select create-document__header__destination-branch">
                         <div class="custom-select" data-target="internal-branches">
                             <div class="selected-option" onclick="create_document_open_custom_select(this);">
                                 <p>Seleccionar Sucursal</p>
@@ -291,23 +301,24 @@
                     </div>											
                 </div>
             </div>
-            <div id="create-document__body">
-                <div id="create-document__body__table-container">
+
+            <div class="create-document__body">
+                <div class="create-document__body__table-container">
                     <div class="tbl-header">
                         <table cellpadding="0" cellspacing="2" border="0">
                             <thead>
                                 <tr>
                                     <th class="row-number">Nº</th>
+                                    <th class="container-code">Envase</th>
+                                    <th class="container-name">Nombre</th>
+                                    <th class="container-weight">Peso Env.</th>
+                                    <th class="container-amount">Cantidad</th>
                                     <th class="product-code">Producto</th>
                                     <th class="product-name">Nombre</th>
                                     <th class="cut">DESCARTE</th>
                                     <th class="product-price">Precio</th>
                                     <th class="product-kilos">Kilos</th>
                                     <th class="product-total">Total</th>
-                                    <th class="container-code">Envase</th>
-                                    <th class="container-name">Nombre</th>
-                                    <th class="container-weight">Peso Env.</th>
-                                    <th class="container-amount">Cantidad</th>
                                 </tr>
                             </thead>
                         </table>
@@ -318,16 +329,22 @@
                         </table>
                     </div>
                 </div>
-                <div id="create-document__body__document-comments">
-                    <textarea spellcheck="false" name="" id="create-document__comments"></textarea>
+                <div class="create-document__body__document-comments">
+                    <textarea spellcheck="false" name="" class="create-document__comments"
+                        data-prev-tab-selector=".content-container.active .create-document__body__table-container tbody tr:last-child .product-kilos input" 
+                        data-next-tab-selector=".content-container.active .create-document__footer__back-btn .widget"
+                    ></textarea>
                     <label>Ingresar observaciones al documento</label>
                 </div>
             </div>
-            <div id="create-document__footer">
+
+            <div class="create-document__footer">
                 <div class="row">
-                    <div id="create-document__footer__buttons">
-                        <div id="create-document__footer__back-btn" class="create-document__footer">
-                            <div class="widget" tabindex="-1" data-prev-tab-selector="#create-document__comments" data-next-tab-selector="#create-document__footer__print-document .widget">
+                    <div class="create-document__footer__buttons">
+                        <div class="create-document__footer create-document__footer__back-btn">
+                            <div class="widget" tabindex="-1" 
+                            data-prev-tab-selector=".content-container.active .create-document__comments" 
+                            data-next-tab-selector=".content-container.active .create-document__footer__print-document .widget">
                                 <div class="widget-container">
                                     <div class="widget-icon"></div>
                                     <div class="widget-button">
@@ -338,8 +355,10 @@
                             </div>
                         </div>
 
-                        <div id="create-document__footer__print-document" class="create-document__footer">
-                            <div class="widget" tabindex="-1" data-prev-tab-selector="#create-document__footer__back-btn .widget" data-next-tab-selector="#create-document__footer__delete-btn .widget">
+                        <div class="create-document__footer create-document__footer__print-document">
+                            <div class="widget" tabindex="-1" 
+                            data-prev-tab-selector=".content-container.active .create-document__footer__back-btn .widget" 
+                            data-next-tab-selector=".content-container.active .create-document__footer__delete-btn .widget">
                                 <div class="widget-container">
                                     <div class="widget-icon"></div>
                                     <div class="widget-button">
@@ -350,20 +369,26 @@
                             </div>
                         </div>
 
-                        <div id="create-document__footer__delete-btn" class="create-document__footer" data-prev-tab-selector="#create-document__footer__print-document .widget" data-next-tab-selector="#create-document__doc-number input">
-                            <div class="widget" tabindex="-1">
+                        <div class="create-document__footer create-document__footer__delete-btn">
+                            <div class="widget" tabindex="-1" 
+                                data-prev-tab-selector=".content-container.active .create-document__footer__print-document .widget" 
+                                data-next-tab-selector=".content-container.active .create-document__footer__doc-type .widget"
+                            >
                                 <div class="widget-container">
                                     <div class="widget-icon"></div>
                                     <div class="widget-button">
                                         <i class="fal fa-trash-alt"></i>
-                                        <p>ELIMINAR</p>
+                                        <p>ANULAR</p>
                                     </div>
                                 </div>
                             </div>
                         </div>
 
-                        <div id="create-document__footer__doc-type" class="create-document__footer" data-prev-tab-selector="#create-document__footer__print-document .widget" data-next-tab-selector="#create-document__doc-number input">
-                            <div class="widget" tabindex="-1">
+                        <div class="create-document__footer create-document__footer__doc-type">
+                            <div class="widget" tabindex="-1"
+                                data-prev-tab-selector=".content-container.active .create-document__footer__delete-btn .widget" 
+                                data-next-tab-selector=".content-container.active .create-document__footer__electronic .widget"
+                            >
                                 <div class="widget-container">
                                     <div class="widget-icon"></div>
                                     <div class="widget-button">
@@ -374,8 +399,11 @@
                             </div>
                         </div>
 
-                        <div id="create-document__footer__electronic" class="create-document__footer" data-prev-tab-selector="#create-document__footer__print-document .widget" data-next-tab-selector="#create-document__doc-number input">
-                            <div class="widget" tabindex="-1">
+                        <div class="create-document__footer create-document__footer__electronic">
+                            <div class="widget" tabindex="-1"
+                                data-prev-tab-selector=".content-container.active .create-document__footer__doc-type .widget" 
+                                data-next-tab-selector=".content-container.active .create-document__doc-number input"
+                            >
                                 <div class="widget-container">
                                     <div class="widget-icon"></div>
                                     <div class="widget-button">
@@ -385,22 +413,7 @@
                             </div>
                         </div>
 
-                    
-                        <div id="create-document__footer__total-product-kilos" class="create-document__footer">
-                            <div class="widget">
-                                <div class="widget-container">
-                                    <div class="widget-icon"></div>
-                                    <div class="widget-data">
-                                        <h5>TOTAL KILOS</h5>
-                                    </div>
-                                    <hr>
-                                    <div class="widget-data">
-                                        <p>0</p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <div id="create-document__footer__total-containers" class="create-document__footer">
+                        <div class="create-document__footer create-document__footer__total-containers">
                             <div class="widget">
                                 <div class="widget-container">
                                     <div class="widget-icon"></div>
@@ -414,7 +427,23 @@
                                 </div>
                             </div>
                         </div>
-                        <div id="create-document__footer__total-document" class="create-document__footer">
+                    
+                        <div class="create-document__footer create-document__footer__total-product-kilos">
+                            <div class="widget">
+                                <div class="widget-container">
+                                    <div class="widget-icon"></div>
+                                    <div class="widget-data">
+                                        <h5>TOTAL KILOS</h5>
+                                    </div>
+                                    <hr>
+                                    <div class="widget-data">
+                                        <p>0</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="create-document__footer create-document__footer__total-document">
                             <div class="widget">
                                 <div class="widget-container">
                                     <div class="widget-icon"></div>
@@ -432,5 +461,6 @@
                 </div>
             </div>
         </div>
+
     </div>
 </div>

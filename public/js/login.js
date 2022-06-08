@@ -6,7 +6,7 @@ function get_cookie(name) {
 }
 
 /*** WAIT DELAY FUNCTION ***/
-function delay(delayValue) { return new Promise(resolve => setTimeout(resolve, delayValue)); }
+function delay(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
 
 /*** FADE OUT FUNCTION ***/
 function fade_out(el, display) {
@@ -62,12 +62,15 @@ document.querySelector('input[type="submit"').addEventListener('click', async fu
 
 	const login = document.querySelector('.login');
 	login.classList.add('test');
-	setTimeout(() => { login.classList.add('animationend') }, 500)
+	setTimeout(() => { document.querySelector('.authent').classList.add('active'); }, 500)
 
 	try {
+
 		const
 		login_user = await fetch('/login_user', {
-			method: 'POST', headers: { "Content-Type" : "application/json" }, body: JSON.stringify({ user, password })
+			method: 'POST', 
+			headers: { "Content-Type" : "application/json" }, 
+			body: JSON.stringify({ user, password })
 		}),
 		response = await login_user.json();
 
@@ -83,17 +86,13 @@ document.querySelector('input[type="submit"').addEventListener('click', async fu
 
 		if (user_name === 'Felipe') {
 			const
-			first_vowel = Math.floor(Math.random() * (4- 0 + 1) + 0),
-			second_vowel = Math.floor(Math.random() * (4- 0 + 1) + 0),
-			thirh_vowel = Math.floor(Math.random() * (4- 0 + 1) + 0);
+			first_vowel = Math.floor(Math.random() * (4 - 0 + 1) + 0),
+			second_vowel = Math.floor(Math.random() * (4 - 0 + 1) + 0),
+			thirh_vowel = Math.floor(Math.random() * (4 - 0 + 1) + 0);
 			user_name = 'Juan T' + vowels[first_vowel] + 'ch' + vowels[second_vowel] + 'p' + vowels[thirh_vowel];
 		}
 		document.querySelector('.success p').innerHTML = `Bienvenido de vuelta<br>${user_name}`
 
-		while (!login.classList.contains('animationend')) { await delay(10) }
-		document.querySelector('.authent').classList.add('active');
-
-		await delay(2000);
 		document.querySelector('.authent').classList.remove('active');
 
 		document.querySelector('.login').classList.remove('test');
@@ -105,9 +104,9 @@ document.querySelector('input[type="submit"').addEventListener('click', async fu
         document.querySelector('.success').classList.add('active');
 
 		await delay(1000)
-		window.location = '/app'
+		window.location = response.redirect;
 
-	} catch(error) { alert(`Error al intentar ingresar usuario. ${error.toString()}`); login.classList.remove('test') }
+	} catch(e) { alert(`Error al intentar ingresar usuario`); login.classList.remove('test') }
 })
 
 function focus_prev(that) { that.previousElementSibling.classList.toggle('focused') }
@@ -139,9 +138,9 @@ document.getElementById('username').focus();
 		document.querySelector('.success p').innerHTML = `Bienvenido de vuelta<br>${user_name}`
 
         if (response.success) {
-            window.location = '/app';
+            window.location = response.redirect;;
             return;
         }
 
-	} catch(error) { console.log(error) }
+	} catch(e) { console.log('error') }
 })();

@@ -2,9 +2,11 @@ const express = require('express');
 const https = require('https');
 const fs = require('fs');
 const morgan = require('morgan');
+const puppeteer = require('puppeteer');
+//const helmet = require('helmet');
 const path = require('path');
-
-const exphbs = require('express-handlebars');
+const axios = require('axios');
+const app = express();
 
 const dotenv = require('dotenv');
 dotenv.config({ path: './config/config.env' })
@@ -13,75 +15,125 @@ const conn = require('./config/db');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const uuid = require('uuid');
-//const SerialPort = require('serialport');
 
-const app = express();
+let engine;
+if (process.env.NODE_ENV === 'production') {
+    engine =  require('express-handlebars').engine;
+    SerialPort = require('serialport');
+} 
+else {
+    engine = require('express-handlebars');
+    app.use(morgan('dev'));
+    console.log('Using Morgan!');
+}
+
 //app.use(express.urlencoded({ extended: false }));
+
 app.use(express.json());
 
+/*
+app.use(
+    helmet({
+        contentSecurityPolicy: {
+            directives: {
+                'default-src' : [
+                    "'self'",
+                    'localhost', 
+                    'localhost:3000', 
+                    'localhost:3001', 
+                    'localhost:3100', 
+                    '192.168.1.90'
+                ],
+
+                'base-uri' : ["'self'"],
+                'style-src' : ["'self'", 'localhost'],
+                'script-src' : [
+                    "'self'", 
+                    'localhost', 
+                    'localhost:3000', 
+                    'localhost:3001', 
+                    'localhost:3100', 
+                    '192.168.1.90'
+                ]
+            }
+        }
+    })
+);
+app.use(helmet.crossOriginEmbedderPolicy());
+app.use(helmet.crossOriginOpenerPolicy());
+app.use(helmet.crossOriginResourcePolicy({ policy: "cross-origin" }));
+app.use(helmet.dnsPrefetchControl());
+app.use(helmet.expectCt());
+app.use(helmet.frameguard());
+app.use(helmet.hidePoweredBy());
+app.use(helmet.hsts());
+app.use(helmet.ieNoOpen());
+app.use(helmet.noSniff());
+app.use(helmet.originAgentCluster());
+app.use(helmet.permittedCrossDomainPolicies());
+app.use(helmet.referrerPolicy());
+app.use(helmet.xssFilter());
+*/
+
 // Handlebars
-app.engine('.hbs', exphbs({ defaultLayout: 'main', extname: '.hbs' }));
+app.engine('.hbs', engine({ defaultLayout: 'main', extname: '.hbs' }));
 app.set('view engine', '.hbs');
 
 // STATIC FOLDER
 app.use(express.static(path.join(__dirname, 'public')));
 
-// LOGGING
-let SerialPort;
-if (process.env.NODE_ENV === 'production') SerialPort = require('serialport');
-else { console.log('Using Morgan!'); app.use(morgan('dev')) }
-
 // ROUTES -> NEEDS TO BE AFTER MORGAN
 const endpoints = require('./routes/endpoints');
-
 const error_handler = endpoints.error_handler;
 app.use('/', endpoints.router);
 
-
-//SSL STUFF
 const PORT = process.env.PORT || 3443;
 
-const key = fs.readFileSync(path.join(__dirname, 'cert', 'romana_cert.key'));
-const cert = fs.readFileSync(path.join(__dirname, 'cert', 'romana_cert.crt'));
 
-const sslServer = https.createServer({
-    key: key, 
-    cert: cert,
-    requestCert: false,
-    rejectUnauthorized: false
-}, app);
+const puppeteer_script = require('./puppeteer_script');
+const generate_electronic_document = puppeteer_script.generate_document;
 
-sslServer.listen(PORT, () => { console.log(`Server listening on port: ${PORT}`) });
+/******************* PRODUCTION AND DEVELOPMENT SERVER *****************/
+let server, socket_server, io;
+if (process.env.NODE_ENV === 'production') {
 
-/*
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Server running in ${process.env.NODE_ENV} mode in port ${PORT} - MYSQL Status is: ${conn.state}`));
-*/
+    const key = fs.readFileSync(path.join(__dirname, 'cert', 'romana_cert.key'));
+    const cert = fs.readFileSync(path.join(__dirname, 'cert', 'romana_cert.crt'));
 
-/************************* SOCKET STUFF ****************/
+    server = https.createServer({
+        key: key, 
+        cert: cert,
+        requestCert: false,
+        rejectUnauthorized: false
+    }, app);
 
-//SSL SOCKET STUFF
-const socket_server = https.createServer({
-    key: key, 
-    cert: cert,
-    requestCert: false,
-    rejectUnauthorized: false
-}, app);
+    socket_server = https.createServer({
+        key: key, 
+        cert: cert,
+        requestCert: false,
+        rejectUnauthorized: false
+    }, app);
+    
+    io = require('socket.io')(socket_server, {
+        cors: { origin: '*' },
+        secure: true
+    });
 
-const io = require('socket.io')(socket_server, {
-    cors: { origin: '*' },
-    secure: true
+} else {
+
+    server = app;
+    socket_server = require('http').createServer(app);
+    io = require('socket.io')(socket_server, {
+        cors: { origin: '*' }
+    });
+
+}
+
+server.listen(PORT, () => {
+    console.log(`Server running in ${process.env.NODE_ENV} mode in port ${PORT} - MYSQL Status is: ${conn.state}`);
 });
 
-/*
-const socket_server = require('http').createServer(app);
-const io = require('socket.io')(socket_server, {
-    cors: { origin: '*' }
-});
-*/
-
-/*** WAIT DELAY FUNCTION ***/
-function delay(delayValue) { return new Promise(resolve => setTimeout(resolve, delayValue)); }
+const delay = ms => { return new Promise(resolve => setTimeout(resolve, ms)) }
 
 const format_date = date => {
     let
@@ -102,7 +154,7 @@ const format_date = date => {
     return current_year + '-' + current_month + '-' + current_date + ' ' + current_hrs + ':' + current_mins + ':' + current_secs;
 }
 
-let weight_interval, weight_value = 0, serial_opened = false;
+let weight_interval, weight_value = 0, serial_value, serial_opened = false;
 
 const serial = {};
 
@@ -133,12 +185,24 @@ if (process.env.NODE_ENV === 'production') {
 
 }
 
-const save_weight_data = weight_data => {
+const save_data_to_online_db = async weight_data => {
+    try {
+
+        const response = await axios.post('http://mslepe.cl/lepefer/upload_romana_weight_data.php', weight_data);
+        
+        console.log(response)
+
+        if (response.data.error !== undefined) throw response.error;
+        if (!response.data.success) throw 'Success response from server is false.';
+
+    } catch(e) { console.log(e) }
+}
+
+const save_weight_data = (weight_data, env_process) => {
     return new Promise(async (resolve, reject) => {
 
         const
         weight_id = weight_data.id,
-        weight_value = weight_data.weight_value,
         user = weight_data.user,
         process = weight_data.process,
         tara_type = weight_data.tara_type.substring(0, 1).toUpperCase(),
@@ -152,9 +216,9 @@ const save_weight_data = weight_data => {
                 return new Promise((resolve, reject) => {
                     conn.query(`
                         SELECT gross_status, gross_containers, gross_net, tare_status, tare_containers, tare_net 
-                        FROM weights WHERE id=${weight_id};
+                        FROM weights WHERE id=${parseInt(weight_id)};
                     `, (error, results, fields) => {
-                        if (error) return reject(error);
+                        if (error || results.length === 0) return reject(error);
                         response.weight = {
                             gross: {
                                 status: results[0].gross_status,
@@ -177,7 +241,7 @@ const save_weight_data = weight_data => {
             const update_weight = () => {
                 return new Promise((resolve, reject) => {
     
-                    const brute_weight = (tara_type === 'A') ? weight_value : input_weight;
+                    const brute_weight = (tara_type === 'A') ? weight_data.weight_value : input_weight;
     
                     let target_net, final_net_weight = null;
                     if (process === 'gross') {
@@ -193,13 +257,13 @@ const save_weight_data = weight_data => {
                         UPDATE weights 
                         SET 
                             ${process}_status=2, 
-                            ${process}_date='${now}', 
-                            ${process}_type='${tara_type}', 
-                            ${process}_user=${user}, 
-                            ${process}_brute=${brute_weight}, 
+                            ${process}_date=${conn.escape(now)}, 
+                            ${process}_type=${conn.escape(tara_type)}, 
+                            ${process}_user=${parseInt(user)}, 
+                            ${process}_brute=${parseInt(brute_weight)}, 
                             ${process}_net=${target_net}, 
                             final_net_weight=${final_net_weight} 
-                        WHERE id=${weight_id};
+                        WHERE id=${parseInt(weight_id)};
                     `, (error, results, fields) => {
                         if (error) return reject(error);
                         return resolve();
@@ -210,7 +274,7 @@ const save_weight_data = weight_data => {
             const check_if_manual_weight_row_exists = () => {
                 return new Promise((resolve, reject) => {
                     conn.query(`
-                        SELECT process FROM weights_manual_input WHERE process='${process}' AND weight_id=${weight_id};
+                        SELECT process FROM weights_manual_input WHERE process=${conn.escape(process)} AND weight_id=${parseInt(weight_id)};
                     `, (error, results, fields) => {
                         if (error) return reject(error);
                         if (results.length > 0) return resolve(true);
@@ -223,8 +287,8 @@ const save_weight_data = weight_data => {
                 return new Promise((resolve, reject) => {
                     conn.query(`
                         UPDATE weights_manual_input 
-                        SET manual_brute=${weight_value} 
-                        WHERE process='${process}' AND weight_id=${weight_id};
+                        SET manual_brute=${parseInt(weight_data.weight_value)} 
+                        WHERE process=${conn.escape(process)} AND weight_id=${parseInt(weight_id)};
                     `, (error, results, fields) => {
                         if (error) return reject(error);
                         return resolve();
@@ -236,7 +300,7 @@ const save_weight_data = weight_data => {
                 return new Promise((resolve, reject) => {
                     conn.query(`
                         INSERT INTO weights_manual_input (weight_id, process, manual_brute) 
-                        VALUES (${weight_id}, '${process}', ${weight_value});
+                        VALUES (${parseInt(weight_id)}, '${process}', ${parseInt(weight_data.weight_value)});
                     `, (error, results, fields) => {
                         if (error) return reject(error);
                         return resolve();
@@ -252,7 +316,7 @@ const save_weight_data = weight_data => {
                         weights.${process}_net AS net, weights.final_net_weight 
                         FROM weights
                         INNER JOIN users ON weights.${process}_user=users.id
-                        WHERE weights.id=${weight_id};
+                        WHERE weights.id=${parseInt(weight_id)};
                     `, (error, results, fields) => {
                         if (error || results.length === 0) return reject(error);
                         response.update = {
@@ -272,7 +336,9 @@ const save_weight_data = weight_data => {
                     })
                 })
             }
-    
+
+            if ((weight_data.weight_value === 0 || weight_data.weight_value === NaN) && process === 'gross' && tara_type === 'A') throw 'Weight value is 0 for gross process.';
+            
             await get_weight_data();
             await update_weight();
 
@@ -285,8 +351,19 @@ const save_weight_data = weight_data => {
             await check_update();
 
             response.success = true;
-            return resolve(response);
 
+            //SAVE TO DATA TO TEXT FILE
+
+
+            //SAVE DATA TO ONLINE DB
+            weight_data.now = now;
+            
+            if (env_process === 'production') {
+                try { save_data_to_online_db(weight_data) }
+                catch(err) { console.log(err) }    
+            }
+
+            return resolve(response);
         }
         catch(e) { console.log(`Error updating brute weight in database. ${e}`); return reject(e) }
     })
@@ -296,16 +373,16 @@ const process_serial_data = data => {
 
     const 
     buffer = Buffer.from(data).toString().trim(),
-    weight = buffer.substring(3, buffer.length - 2).trim().replace(/[^0-9]/gm, '');
-    console.log(weight)
-    return parseInt(weight);
+    weight = parseInt(buffer.substring(3, 10));
+    console.log(data);
+    return { weight: parseInt(weight), serial_value: buffer };
 
 }
 
 const get_created_weight = weight_id => {
     return new Promise((resolve, reject) => {
         conn.query(`
-            SELECT weights.id, weights.cycle, weights.primary_plates, weights.gross_brute, drivers.name AS driver
+            SELECT weights.id, weights.created, weights.cycle, weights.primary_plates, weights.gross_brute, drivers.name AS driver
             FROM weights
             INNER JOIN cycles ON weights.cycle=cycles.id
             LEFT OUTER JOIN drivers ON weights.driver_id=drivers.id
@@ -316,6 +393,19 @@ const get_created_weight = weight_id => {
         })
     })
 }
+
+let browser;
+(async () => {
+    if (process.env.NODE_ENV === 'production') {
+        try {
+        
+            browser = await puppeteer.launch({ headless: false });
+            console.log('browser launched');
+    
+        } catch(e) { `Couldn't launch browser. ${e}` }    
+    }
+})();
+
 
 io.on('connection', socket => {
 
@@ -345,9 +435,13 @@ io.on('connection', socket => {
                     console.log('Port already open!');
 
                     serial.port.on('data', async data => {
-                        await delay(300);
-                        weight_value = process_serial_data(data);
-                        socket.emit('transmitting serial data', weight_value);
+                        
+                        const process_data = process_serial_data(data);
+                        weight_value = process_data.weight;
+                        serial_value = process_data.serial_value;
+
+                        if (weight_value !== NaN && weight_value < 100000)
+                            socket.emit('transmitting serial data', weight_value);
                         await delay(50);
                     });
 
@@ -361,10 +455,14 @@ io.on('connection', socket => {
                     console.log('Serial Port is now open!');
                     
                     serial.port.on('data', async data => {
-                        await delay(300);
-                        weight_value = process_serial_data(data);
-                        socket.emit('transmitting serial data', parseInt(weight_value));
-                        await delay(100);
+                        
+                        const process_data = process_serial_data(data);
+                        weight_value = process_data.weight;
+                        serial_value = process_data.serial_value;
+
+                        if (weight_value !== NaN && weight_value < 100000)
+                            socket.emit('transmitting serial data', weight_value);
+                        await delay(50);
                     });
 
                 });
@@ -394,9 +492,14 @@ io.on('connection', socket => {
             try {
 
                 serial.port.close(() => { console.log('Serial Port closed'); });
+
+                weight_data.serial_value = serial_value;
                 weight_data.weight_value = weight_value;
+                response.data = await save_weight_data(weight_data, process.env.NODE_ENV);
+
+                //RESET VALUES
                 weight_value = 0;
-                response.data = await save_weight_data(weight_data);
+                serial_value = null;
                 response.success = true;
 
             }
@@ -417,7 +520,7 @@ io.on('connection', socket => {
                 console.log('close connection');
                 weight_data.weight_value = weight_value;
                 weight_value = 0;
-                response.data = await save_weight_data(weight_data);
+                response.data = await save_weight_data(weight_data, process.env.NODE_ENV);
                 response.success = true;
 
             }
@@ -453,6 +556,7 @@ io.on('connection', socket => {
 
     //WEIGHT HAS BEEN ANNULED OR FINISHED BY USER -> TELL OTHER USERS OF IT
     socket.on('weight status changed', weight_id => {
+        socket.emit('weight status changed by other user', weight_id);
         socket.broadcast.emit('weight status changed by other user', weight_id);
     })
 
@@ -465,8 +569,15 @@ io.on('connection', socket => {
     socket.on('weight object first documents client entity has been updated', entity_name => {
         socket.broadcast.emit('update pending weight entity in pending weights table', entity_name);
     })
+
+    //GENERATE ELECTRONIC DOCUMENT
+    socket.on('generate electronic document', async doc_id => {
+        
+        console.log(doc_id)
+
+        await generate_electronic_document(doc_id, browser, socket);
+
+    })
 });
-
-
 
 socket_server.listen(3100);

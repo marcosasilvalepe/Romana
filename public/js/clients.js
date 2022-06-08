@@ -1,3 +1,5 @@
+"use strict";
+
 const clients_search_entity = async e => {
 
     if (e.key!== 'Enter') return;
@@ -154,17 +156,6 @@ function client_template_event_listeners(giros) {
          //ADD BRANCH BUTTON
         document.querySelector('#client-template__add-branch').addEventListener('click', clients_add_branch);
 
-        //CLOSE DIV
-        document.querySelector('#clients__client-template > .close-btn-absolute').addEventListener('click', async e => {
-            const
-            fade_out_div = document.getElementById('clients__client-template'),
-            fade_in_div = document.getElementById('clients__table-grid');
-
-            await fade_out_animation(fade_out_div);
-            await fade_in_animation(fade_in_div);
-            fade_out_div.remove();
-        });
-
         //DELETE ENTITY
         document.getElementById('client-template__delete-entity').addEventListener('click', clients_delete_entity);
 
@@ -191,8 +182,7 @@ const clients_edit_entity = async e => {
         if (e.target.classList.contains('td')) tr = e.target.parentElement;
         else if (e.target.className.length === 0) tr = e.target.parentElement.parentElement;
         else if (e.target.matches('i')) tr = e.target.parentElement.parentElement.parentElement;
-        else return;    
-    
+        else return;
     }
     
     if (!edit) {
@@ -209,6 +199,7 @@ const clients_edit_entity = async e => {
         return;
     }
 
+    //EDIT ENTITY
     const 
     entity_id = tr.getAttribute('data-entity-id'),
     fade_out_div = document.querySelector('#clients__table-grid');
@@ -309,6 +300,8 @@ const clients_edit_entity = async e => {
         await fade_in_animation(template_div);
         fade_out_div.classList.remove('animationend');
 
+        breadcrumbs('add', 'clients', 'Editar Entidad');
+
     } catch(error) { error_handler('Error al buscar datos de entidad.', error) }
 }
 
@@ -321,7 +314,6 @@ const clients_table_delete_entity = async function() {
 
     if (!!document.querySelector('#clients__table .tbody .tr.selected' === false)) return;
 
-    console.log('inside')
     const entity = DOMPurify().sanitize(document.querySelector('#clients__table .tbody .tr.selected').getAttribute('data-entity-id'));
 
     try {
@@ -389,7 +381,8 @@ const clients_create_entity_btn =  async e => {
         const fade_out_div = document.querySelector('#clients__table-grid');
         await fade_out_animation(fade_out_div);
         await fade_in_animation(template_div);
-        fade_out_div.classList.remove('animationend');        
+        breadcrumbs('add', 'clients', 'Crear Entidad');
+        fade_out_div.classList.remove('animationend');   
 
     } catch(error) { error_handler('Error al intentar crear entidad', error) }
 }
@@ -517,8 +510,8 @@ async function clients_delete_entity() {
 //SAVE ENTITY DATA BTN -> CLICK EVENT
 async function clients_save_data() {
 
-    if (clicked) return;
-	prevent_double_click();
+    const btn = this;
+	if (btn_double_clicked(btn)) return;
 
     try {
 
@@ -566,15 +559,16 @@ async function clients_save_data() {
             type = type_select.options[type_select.selectedIndex].innerText,
             row = document.querySelector(`#clients__table .tr[data-entity-id="${data.client_id}"]`);
 
-            row.querySelector('.active i').className = i_classname;
-            row.querySelector('.type').innerText = type;
-            row.querySelector('.rut').innerText = response.formatted_rut;
+            row.querySelector('.td.active i').className = i_classname;
+            row.querySelector('.td.type').innerText = type;
+            row.querySelector('.td.rut').innerText = response.formatted_rut;
+
             const giro_select = document.querySelector('#client-template__entity-giro select');
             row.querySelector('.giro').innerText = giro_select.options[giro_select.selectedIndex].innerText;
 
         }
 
-        document.querySelector('#clients__client-template > .close-btn-absolute').click();
+        document.querySelector('#clients__breadcrumb > li:first-child').click();
 
     } catch(error) { error_handler('Error al intentar guardar datos de entidad', error) }
 }
@@ -597,7 +591,7 @@ async function clients_add_branch() {
             headers: {
                 "Authorization" : token.value
             }
-        })
+        }),
         response = await get_regions.json();
 
         if (response.error !== undefined) throw response.error;

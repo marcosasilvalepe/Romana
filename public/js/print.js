@@ -1,4 +1,54 @@
-/*** NUMBER FORMATER ***/
+async function error_handler(custom_msg, msg) {
+	console.error(msg);
+	if (typeof msg === 'object') {
+		if (msg === null) msg = 'msg is null';
+		else if (msg.sqlMessage !== undefined) msg = msg.sqlMessage;
+		else msg = msg.toString();
+	}
+
+	const
+	menu_icon = document.getElementById('menu-errors'),
+	error_div = document.getElementById('error-section'),
+	container = document.getElementById('error-container'),
+	error_container = document.createElement('div'),
+	now = new Date().toLocaleString('es-CL').split(' ')[1],
+	time = document.createElement('h4'),
+	custom_div = document.createElement('div'),
+	custom_p = document.createElement('p'),
+	msg_div = document.createElement('div'),
+	msg_p = document.createElement('p');
+
+	error_container.className = 'error-container';
+	error_container.append(time, custom_div, msg_div);
+
+	time.innerText = now;
+
+	custom_div.className = 'error-custom-msg';
+	custom_div.appendChild(custom_p);
+	custom_p.innerText = custom_msg;
+
+	msg_div.className = 'error-msg';
+	msg_div.appendChild(msg_p);
+	msg_p.innerText = msg;
+
+	container.appendChild(error_container);
+	error_div.classList.add('active');
+	menu_icon.classList.add('new-error');
+}
+
+function load_css(src) {
+	return new Promise(async resolve => {
+		const version = await get_file_version(src);
+		if (!!document.querySelector(`link[href="${src}?v=${version}"]`)) return resolve();
+
+		const css = document.createElement('link');
+		css.onload = () => { return resolve() }
+		css.setAttribute('rel', 'stylesheet');
+		css.setAttribute('href', src + '?v=' + version);
+		document.head.appendChild(css);
+	})
+}
+
 function thousand_separator(num) { return num.toString().replace(/(\d)(?=(\d{3})+(?!\d))/g, '$1.') }
 
 function print_spaces(description, description_value, total_spaces) {
@@ -116,7 +166,7 @@ function build_doc_first_line_string(doc_type, doc_number, entity, product, kilo
 
     product = reduce_string_length(product, 32);
 
-    if (kilos === null) kilos = '';
+    if (kilos === null) kilos = '0';
     else kilos = kilos.toString();
 
     const doc = ' ' + doc_type + doc_number;
@@ -141,7 +191,7 @@ function build_doc_second_line_string(branch, container_name, container_amount) 
     if (branch === null) branch = '';
     else branch = reduce_string_length(branch, 21);
 
-    if (container_name === null) container_name = '';
+    if (container_name === null) container_name = '0';
     else container_name = reduce_string_length(container_name, 32);
 
     if (container_amount === null) container_amount = '0';
@@ -161,13 +211,12 @@ function build_doc_second_line_string(branch, container_name, container_amount) 
     return initial_spaces + branch.toUpperCase() + spaces_to_container + container_name.toUpperCase() + spaces_to_amount + container_amount;
 }
 
-function print_with_dot_matrix(config) {
+function print_with_dot_matrix(config, weight) {
     return new Promise((resolve, reject) => {
 
         try {
             console.log(weight_object)
             const 
-            weight = weight_object,
             line_jump = '\x0A',
             now = new Date().toLocaleString('es-CL'),
             secondary_plates = (weight.secondary_plates === null) ? '' : weight.secondary_plates,
@@ -186,10 +235,10 @@ function print_with_dot_matrix(config) {
             tare_date = (tare.date === null) ? format_print_weight_date('') : format_print_weight_date(tare.date),
             spaces_to_gross_date = print_spaces(' Fecha - Hora  ', tare_date, 48),
             gross_date = (gross.date === null) ? format_print_weight_date('') : format_print_weight_date(gross.date),
-            tare_user = (tare.user.id === null) ? '' : tare.user.name.toUpperCase(),
-            gross_user = (gross.user.id === null) ? '' : gross.user.name.toUpperCase(),
+            tare_user = (tare.user.id === null) ? '' : replace_spanish_chars(tare.user.name.toUpperCase()),
+            gross_user = (gross.user.id === null) ? '' : replace_spanish_chars(gross.user.name.toUpperCase()),
             spaces_to_gross_user = print_spaces(' Operador      ', tare_user, 48),
-            driver = (weight.driver.name === null) ? '' : weight.driver.name.toUpperCase(),
+            driver = (weight.driver.name === null) ? '' : replace_spanish_chars(weight.driver.name.toUpperCase()),
             spaces_to_gross_driver = print_spaces(' Chofer        ', driver, 48);
 
             const 
@@ -220,11 +269,11 @@ function print_with_dot_matrix(config) {
                 `                         Ticket de Pesaje Nø${weight.frozen.id}` + '\r\n',
                 `                            Impreso ${format_print_weight_date(now)}` + '\r\n',
                 line_jump,
-                ` Patente        ${weight.frozen.primary_plates}` + '\r\n',
+                ` Patente        ${replace_spanish_chars(weight.frozen.primary_plates)}` + '\r\n',
                 ` Ciclo          ${cycle}` + '\r\n',
                 ' Empresa           78.447.760-6   Sociedad Comercial Lepefer y Cia Ltda.' + '\r\n',
                 ' Direcci¢n      Callejon El Convento s/n' + '\r\n',
-                ` Transportista  ${transport}` + spaces_to_secondary_plates + `Acoplado ${secondary_plates}` + '\r\n',
+                ` Transportista  ${transport}` + spaces_to_secondary_plates + `Acoplado ${replace_spanish_chars(secondary_plates)}` + '\r\n',
                 line_jump,
                 ' Informaci¢n Tara                               Informaci¢n Pesaje Bruto' + '\r\n',
               //'0         1         2         3         4         5         6         7         ',
@@ -237,28 +286,37 @@ function print_with_dot_matrix(config) {
                 ' Bruto        ' + gross_weight_line + corrected_net + '\r\n',
                 ' Tara         ' + tare_weight_line + informed_net + '\r\n',
                 ' Neto         ' + net_weight_line + difference + '\r\n',
-                ' Detalle' + '\r\n',
-                ' Tipo/NøDoc     Origen/Sucursal          Producto / Envase                  Cant' + '\r\n'
+                
             ];
         
             const doc_type = (weight.cycle.id === 2) ? 'GDD' : 'GDR';
 
+            if (weight.documents.length > 0) 
+                data.push(
+                    ' Detalle' + '\r\n',
+                    ' Tipo/NøDoc     Origen/Sucursal          Producto / Envase                  Cant' + '\r\n'
+                );
+
             weight.documents.forEach(doc => {
                 doc.rows.forEach(row => {
-    
-                    if (row.product.name !== null && row.product.cut === null) throw `Descarte para ${row.product.name} no ha sido seleccionado en documento.`;
+                    
+                    if (row.product.code === 'GEN') return;
+
+                    if (row.product.name !== null && row.product.cut === null) 
+                        throw `Descarte para ${row.product.name} no ha sido seleccionado en documento.`;
+                    
                     const product = (row.product.name === null) ? '' : row.product.name + ' ' + row.product.cut;
     
                     data.push(
-                        build_doc_first_line_string(doc_type, doc.number, doc.client.entity.name, product, row.product.kilos) + '\r\n',
-                        build_doc_second_line_string(doc.client.branch.name, row.container.name, row.container.amount) + '\r\n'
+                        build_doc_first_line_string(doc_type, doc.number, replace_spanish_chars(doc.client.entity.name), product, row.product.kilos) + '\r\n',
+                        build_doc_second_line_string(replace_spanish_chars(doc.client.branch.name), row.container.name, row.container.amount) + '\r\n'
                     );
 
                 });
             });
         
             data.forEach(row => { console.log(row) })
-return
+            
             //PRINT
             qz.print(config, data);
             return resolve();
@@ -271,120 +329,99 @@ function print_with_browser(weight) {
   	return new Promise(async (resolve, reject) => {
 		try {
 			
-			//TOP ROW
-			document.querySelector('#print-ticket > p:first-child').innerText = `Ticket de Pesaje ${thousand_separator(weight.frozen.id)}`;
-			document.querySelector('#print-ticket > p:last-child').innerText = `Impreso ${new Date().toLocaleString('es-CL')}`;
-			
-			//HEADER LEFT SIDE
-			document.querySelector('#print-weight-cycle').innerText = weight.cycle.name;
-			document.querySelector('#print-weight-plates').innerText = (weight.secondary_plates === null) ? weight.frozen.primary_plates : weight.frozen.primary_plates + ' - ' + weight.secondary_plates;
-			document.querySelector('#print-weight-driver').innerText = weight.driver.name;
+			console.log(weight);
+            
+            const now = new Date().toLocaleString('es-CL');
 
-			//HEADER RIGHT SIDE
-			document.querySelector('#print-kilos').innerText = thousand_separator(weight.final_net_weight) + ' KG';
-			document.querySelector('#print-kg-inf').innerText = thousand_separator(weight.kilos.informed) + ' KG';
-			document.querySelector('#print-kilos-difference').innerText = thousand_separator(weight.final_net_weight - weight.kilos.informed) + ' KG';
+            let cycle;
+            if (weight.cycle.id === 1) cycle = 'Recepción';
+            else if (weight.cycle.id === 2) cycle = 'Despacho';
+            else if (weight.cycle.id === 3) cycle = 'Interno';
+            else cycle = 'Servicio';
 
-			//GROSS WEIGHT DATA
-			document.querySelector('#print-gross-date').innerText = (weight.gross_weight.date === null) ? '' : weight.gross_weight.date;
-			document.querySelector('#print-gross-user').innerText = (weight.gross_weight.user.name === null) ? '' : weight.gross_weight.user.name;
-			document.querySelector('#print-gross-brute').innerText = thousand_separator(weight.gross_weight.brute) + ' KG';
-			document.querySelector('#print-gross-containers').innerText = thousand_separator(weight.gross_weight.containers_weight) + ' KG';
-			document.querySelector('#print-gross-net').innerText = thousand_separator(weight.gross_weight.net) + ' KG';
+            document.getElementById('ticket-number').innerText = `Ticket de Pesaje Nº ${weight.frozen.id}`;
+            document.getElementById('printed-date').innerText = `Impreso ${format_print_weight_date(now)}`;
 
-			//TARE WEIGHT DATA
-			document.querySelector('#print-tare-date').innerText = (weight.tare_weight.date === null) ? '' : weight.tare_weight.date;
-			document.querySelector('#print-tare-user').innerText = (weight.tare_weight.user.name === null) ? '' : weight.tare_weight.user.name;
-			document.querySelector('#print-tare-brute').innerText = thousand_separator(weight.tare_weight.brute) + ' KG';
-			document.querySelector('#print-tare-containers').innerText = thousand_separator(weight.tare_weight.containers_weight) + ' KG';
-			document.querySelector('#print-tare-net').innerText = thousand_separator(weight.tare_weight.net) + ' KG';
+            document.getElementById('primary-plates').innerText = weight.frozen.primary_plates;
+            document.getElementById('cycle').innerText = cycle;
+            document.getElementById('secondary-plates').innerText = `Acoplado ${(weight.secondary_plates === null) ? '' : weight.secondary_plates}`;
 
-			//DOCUMENTS
-			weight.documents.forEach(doc => {
+            const
+            gross = weight.gross_weight,
+            tare = weight.tare_weight;
 
-				const print_document = document.createElement('div');
-				document.getElementById('print-documents').appendChild(print_document);
-				print_document.className = 'print-document grid-row';
-				print_document.innerHTML = `
-					<div class="print-document-header grid-row">
-						<div class="grid-row">
-							<p></p>
-							<p></p>
-						</div>
-						<p></p>
-						<p></p>
-					</div>
-					<div class="print-document-body grid-row">
-						<div class="grid-column">
-							<p>Producto</p>
-							<p>Descarte</p>
-							<p>Kg. Inf.</p>
-							<p>Kilos</p>
-                            <p>Envases</p>
-						</div>
-					</div>
-				`;
-                //<div>----------------------------------------------------------------------------------------------------------------------------------------------------------</div>
-				print_document.querySelector('.print-document-header .grid-row p:first-child').innerHTML = (doc.number === null) ? '<b>Nº Doc:</b> -' : '<b>Nº Doc:</b> ' + DOMPurify().sanitize(thousand_separator(doc.number));
-				
-				//DOCUMENT DATE
-				let doc_date;
-				if (doc.date === null) doc_date = '<b>Fecha Doc:</b> -';
-				else {
-					const 
-					date = new Date(doc.date.split('T')[0]),
-					doc_year = date.getFullYear(),
-					doc_month = (date.getMonth() + 1 < 10) ? '0' + (date.getMonth() + 1) : date.getMonth() + 1,
-					doc_day = (date.getDate() + 1 < 10) ? '0' + (date.getDate() + 1) : date.getDate() + 1;
-					doc_date = DOMPurify().sanitize(doc_day + '-' + doc_month + '-' + doc_year);
-				}
-				print_document.querySelector('.print-document-header .grid-row p:last-child').innerHTML = '<b>Fecha Doc:</b> ' + doc_date;
+            document.getElementById('tare-weight-date').innerText = (tare.date === null) ? '' : format_print_weight_date(tare.date);
+            document.getElementById('tare-weight-user').innerText = (tare.user.id === null) ? '' : tare.user.name.toUpperCase();
 
-				//ORIGIN AND DESTINATION
-				let origin, destination;
-				if (weight.cycle.id === 1) {
-					origin = '<b>Origen:</b> ' + doc.client.entity.name + ' - ' + doc.client.branch.name;
-					destination = '<b>Destino:</b> ' + doc.internal.entity.name + ' - ' + doc.internal.branch.name;
-				} else {
-					origin = '<b>Origen:</b> ' + doc.internal.entity.name + ' - ' + doc.internal.branch.name;
-					destination = '<b>Destino:</b> ' + doc.client.entity.name + ' - ' + doc.client.branch.name;
-				}
-				print_document.querySelector('.print-document-header > p:nth-child(2)').innerHTML = origin;
-				print_document.querySelector('.print-document-header > p:last-child').innerHTML = destination;
+            document.getElementById('gross-weight-date').innerText = (gross.date === null) ? '' : format_print_weight_date(gross.date);
+            document.getElementById('gross-weight-user').innerText = (gross.user.id === null) ? '' : gross.user.name.toUpperCase();
 
-				//DOCUMENT BODY
-				doc.rows.forEach(row => {
+            document.querySelectorAll('.weight-driver').forEach(div => {
+                div.innerText = (weight.driver.name === null) ? '' : weight.driver.name.toUpperCase();
+            });
 
-					const grid_column = document.createElement('div');
-					grid_column.className = 'grid-column';
-					grid_column.innerHTML = `
-						<p class="product"></p>
-						<p class="cut"></p>
-						<p class="kg-inf"></p>
-						<p class="kilos"></p>
-						<p class="containers"></p>
-					`;
-					
-					grid_column.querySelector('.containers').innerText = (row.container.code === null) ? '-' : thousand_separator(row.container.amount) + ' ' + row.container.name;
-					grid_column.querySelector('.product').innerText = (row.product.name === null) ? '-' : row.product.name;
-					grid_column.querySelector('.cut').innerText = (row.product.cut === null) ? '-' : row.product.cut;
-					
-					let kilos, kg_inf;
-					if (weight.cycle.id === 1) {
-						kilos = (row.product.kilos === null) ? '-' : thousand_separator(row.product.kilos) + ' KG';
-						kg_inf = (row.product.informed_kilos === null) ? '-' : thousand_separator(row.product.informed_kilos) + ' KG';
-					} else {
-						kilos = row.product.informed_kilos;
-						kg_inf = row.product.kilos;
-					}
-					grid_column.querySelector('.kg-inf').innerText = kg_inf;
-					grid_column.querySelector('.kilos').innerText = kilos;
-					
-					print_document.querySelector('.print-document-body').appendChild(grid_column);
-				});
-				
-			});
-			resolve();
+            document.getElementById('gross-brute').innerText = thousand_separator(gross.brute);
+            document.getElementById('tare-brute').innerText = thousand_separator(tare.brute);
+            document.getElementById('brute-difference').innerText = thousand_separator(gross.brute - tare.brute);
+
+            document.getElementById('gross-containers').innerText = `${thousand_separator(gross.containers_weight)},000`;
+            document.getElementById('tare-containers').innerText = `${thousand_separator(tare.containers_weight)},000`;
+
+            document.getElementById('gross-net').innerText = thousand_separator(gross.net);
+            document.getElementById('tare-net').innerText = thousand_separator(tare.net);
+            document.getElementById('tare-net').nextElementSibling.innerText = thousand_separator(gross.net - tare.net);
+
+            document.querySelector('#final-net-weight').innerText = (weight.final_net_weight === null) ? 0 : thousand_separator(weight.final_net_weight);
+            document.querySelector('#informed-net').innerText = (weight.kilos.informed === null) ? 0 : thousand_separator(weight.kilos.informed);
+            document.querySelector('#net-difference').innerText = thousand_separator(weight.final_net_weight - weight.kilos.informed);
+
+            if (weight.documents.length === 0) {
+                document.getElementById('documents__detail-line').remove();
+                document.getElementById('documents-body__header').remove();
+            }
+
+            weight.documents.forEach(doc => {
+                doc.rows.forEach(row => {
+                    
+                    const div = document.createElement('div');
+                    div.innerHTML = `
+                        <div class="documents-body__first-column">
+                            <div></div>
+                            <div></div>
+                        </div>
+                
+                        <div class="documents-body__second-column">
+                            <div></div>
+                            <div></div>
+                        </div>
+                
+                        <div class="documents-body__third-column">
+                            <div></div>
+                            <div></div>
+                        </div>
+            
+                        <div class="documents-body__fourth-column">
+                            <div></div>
+                            <div></div>
+                        </div>
+                    `;
+
+                    div.querySelector('.documents-body__first-column > div:first-child').innerText = (doc.number === null) ? '' : 'GDD' + doc.number;
+                    
+                    div.querySelector('.documents-body__second-column > div:first-child').innerText = (doc.client.entity.id === null) ? '' : reduce_string_length(doc.client.entity.name, 21).toUpperCase();
+                    div.querySelector('.documents-body__second-column > div:last-child').innerText = (doc.client.branch.id === null) ? '' : reduce_string_length(doc.client.branch.name, 21).toUpperCase();
+                    
+                    div.querySelector('.documents-body__third-column > div:first-child').innerText = (row.product.name === null) ? '' : reduce_string_length(row.product.name, 32);
+                    div.querySelector('.documents-body__third-column > div:last-child').innerText = (row.container.name === null) ? '' : reduce_string_length(row.container.name, 32);
+
+                    div.querySelector('.documents-body__fourth-column > div:first-child').innerText = (row.product.kilos === null) ? 0 : row.product.kilos;
+                    div.querySelector('.documents-body__fourth-column > div:last-child').innerText = (row.container.amount === null) ? 0 : row.container.amount;
+
+                    document.getElementById('documents-body__body').appendChild(div);
+                });
+            });
+
+			return resolve();
 		} catch(error) { console.log(`Error. ${error}`); reject() }
   	});
 }
@@ -537,3 +574,40 @@ function test(weight) {
         console.log(d)
     })
 }
+
+
+(() => {
+
+    if (!!document.querySelector('#print-with-browser-grid')) {
+
+        window.addEventListener('load', async () => {
+
+            const 
+            queryString = window.location.search,
+            urlParams = new URLSearchParams(queryString),
+            weight_id = urlParams.get('weight_id'),
+            get_weight = await fetch('/get_finished_weight', {
+                method: 'POST', 
+                headers: { 
+                    "Content-Type" : "application/json",
+                    "Authorization" : token.value
+                }, 
+                body: JSON.stringify({ weight_id })
+            }),
+            response = await get_weight.json();
+        
+            if (response.error !== undefined) throw response.error;
+            if (!response.success) throw 'Success response from server is false.';
+            
+            await window.load_css('css/print.css');
+            await window.print_with_browser(response.weight_object);
+    
+            //window.document.close(); // necessary for IE >= 10
+            window.focus(); // necessary for IE >= 10*/
+            window.print();
+            window.close();    
+        })
+
+    }
+
+})();

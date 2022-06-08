@@ -1,11 +1,5 @@
 <div id="finished-weight__modal"></div>
 
-<div class="close-btn-absolute">
-    <div>
-        <i class="fas fa-times"></i>
-    </div>
-</div>
-
 <div class="card purple">
     <div class="new-weight-icon purple">
         <i class="far fa-check"></i>
@@ -14,16 +8,8 @@
     <h2 id="finished-weight__header"></h2>
 
     <div id="finished-weight__filters">
-        
-        <div id="finished-weights__print-weight" class="finished-weight__filter">
-            <div>
-                <i class="far fa-print"></i>
-            </div>
-            <p>IMPRIMIR</p>
-        </div>
 
         <div class="finished-weight__filter">
-            
             <input id="finished-weight__start-date" type="date" class="input-effect has-content">
             <label>FECHA INICIAL</label>
             <span class="focus-border"></span>
@@ -54,49 +40,80 @@
         </div>
 
         <div class="finished-weight__filter">
-            
-            <div id="finished-weight__cycle-input" class="reception">
-                <i class="fad fa-arrow-down"></i>
-                <input type="text" class="input-effect has-content">
+
+            <div class="select-effect has-content">
+                <p>TODOS</p>
+                <select id="finished-weight__cycle-select">
+                    <option value="" hidden=""></option>
+                    <option selected="" value="All">TODOS</option>
+                    <option value="1">RECEPCION</option>
+                    <option value="2">DESPACHO</option>
+                    <option value="3">INTERNO</option>
+                    <option value="4">SERVICIO</option>
+                </select>
+                <i class="far fa-chevron-down"></i>
                 <label>CICLO</label>
                 <span class="focus-border"></span>
             </div>
-
-            <div id="finished-weight__cycle-dropdown">
-                <div class="finished-weight__cycle-dropdown active" data-cycle="1">
-                    <i class="fad fa-arrow-down"></i>
-                    <span>RECEPCION</span>
-                </div>
-                <div class="finished-weight__cycle-dropdown" data-cycle="2">
-                    <i class="fad fa-arrow-up"></i>
-                    <span>DESPACHO</span>
-                </div>
-                <div class="finished-weight__cycle-dropdown" data-cycle="3">
-                    <i class="fad fa-arrow-up"></i>
-                    <span>INTERNO</span>
-                </div>
-                <div class="finished-weight__cycle-dropdown" data-cycle="4">
-                    <i class="fad fa-arrow-up"></i>
-                    <span>SERVICIO</span>
-                </div>
-
-            </div>
+            
         </div>
 
     </div>
+    
     <div id="finished-weight__table">
         <div class="table-head">
             <table>
                 <thead>
                     <tr>
-                        <th class="edit">EDITAR</th>
-                        <th class="weight">PESAJE</th>
-                        <th class="date">FECHA</th>
-                        <th class="plates">PATENTE</th>
-                        <th class="driver">CHOFER</th>
-                        <th class="brute">BRUTO</th>
-                        <th class="tare">TARA</th>
-                        <th class="final">NETO</th>
+                        <th class="line">Nº</th>
+                        <th class="weight active">
+                            <div class="th-container">
+                                <i class="fas fa-chevron-down"></i>
+                                <span>PESAJE</span>
+                            </div>
+                        </th>
+                        <th class="cycle">
+                            <div class="th-container">
+                                <i class="fas fa-chevron-down"></i>
+                                <span>CICLO</span>
+                            </div>
+                        </th>
+                        <th class="created">
+                            <div class="th-container">
+                                <i class="fas fa-chevron-down"></i>
+                                <span>FECHA</span>
+                            </div>
+                        </th>
+                        <th class="plates">
+                            <div class="th-container">
+                                <i class="fas fa-chevron-down"></i>
+                                <span>PATENTE</span>
+                            </div>
+                        </th>
+                        <th class="driver">
+                            <div class="th-container">
+                                <i class="fas fa-chevron-down"></i>
+                                <span>CHOFER</span>
+                            </div>
+                        </th>
+                        <th class="brute">
+                            <div class="th-container">
+                                <i class="fas fa-chevron-down"></i>
+                                <span>BRUTO</span>
+                            </div>
+                        </th>
+                        <th class="tare">
+                            <div class="th-container">
+                                <i class="fas fa-chevron-down"></i>
+                                <span>TARA</span>
+                            </div>
+                        </th>
+                        <th class="net">
+                            <div class="th-container">
+                                <i class="fas fa-chevron-down"></i>
+                                <span>NETO</span>
+                            </div>
+                        </th>
                     </tr>
                 </thead>
             </table>
@@ -108,3 +125,4 @@
         </div>						
     </div>
 </div>
+

@@ -82,11 +82,13 @@ i {
     opacity: 0;
   }
 }
+
 #ripple {
   width: 2.6rem;
   height: 2.6rem;
   margin: auto;
 }
+
 #ripple div {
   position: absolute;
   width: 2rem;
@@ -100,8 +102,6 @@ i {
   -webkit-animation-delay: 0.5s;
           animation-delay: 0.5s;
 }
-
-
 
 .body .authent p {
   text-align: center;

@@ -1,4 +1,17 @@
-<main>
+<div id="loader" class="loading">
+	<div id="loader-background"></div>
+	<div class="wrapper">
+		<div class="circle"></div>
+		<div class="circle"></div>
+		<div class="circle"></div>
+		<div class="shadow"></div>
+		<div class="shadow"></div>
+		<div class="shadow"></div>
+		<span>CARGANDO</span>
+	</div>
+</div>
+
+<main class="hidden">
 
 	<section id="error-section">
 		<div id="error-container">
@@ -7,10 +20,25 @@
 		<div id="close-error-div"><i class="far fa-times"></i></div>
 	</section>
 
-	<section id="left__menu">
-		<div id="left-menu__icon">
-			<i class="far fa-bars"></i>
+	<section id="hamburguer-menu">
+		<div class="plate plate4">
+			<svg class="burger" version="1.1" height="100" width="100" viewBox="0 0 100 100">
+				<path class="line line1" d="M 50,35 H 30" />
+				<path class="line line2" d="M 50,35 H 70" />
+				<path class="line line3" d="M 50,50 H 30" />
+				<path class="line line4" d="M 50,50 H 70" />
+				<path class="line line5" d="M 50,65 H 30" />
+				<path class="line line6" d="M 50,65 H 70" />
+			</svg>
+			<svg class="x" version="1.1" height="100" width="100" viewBox="0 0 100 100">
+				<path class="line" d="M 34,32 L 66,68" />
+				<path class="line" d="M 66,32 L 34,68" />
+			</svg>
 		</div>
+	</section>
+
+	<section id="left__menu">
+
 		<nav class="grid">
 			
 			<div class="menu-item" id="menu-weights">
@@ -20,17 +48,17 @@
 				</div>
 			</div>
 			
-			<div class="menu-item" id="menu-analytics">
-				<div class="menu-icon"><i class="fal fa-analytics"></i></div>
-				<div class="menu-description">
-					<p>Informes<br>Estadisticas</p>
-				</div>
-			</div>
-
 			<div class="menu-item" id="menu-documents">
 				<div class="menu-icon"><i class="fal fa-file-invoice"></i></div>
 				<div class="menu-description">
 					<p>Documentos</p>
+				</div>
+			</div>
+			
+			<div class="menu-item" id="menu-analytics">
+				<div class="menu-icon"><i class="fal fa-analytics"></i></div>
+				<div class="menu-description">
+					<p>Informes<br>Estadisticas</p>
 				</div>
 			</div>
 
@@ -69,6 +97,13 @@
 				</div>
 			</div>
 
+			<div class="menu-item" id="menu-errors">
+				<div class="menu-icon"><i class="fal fa-exclamation-triangle"></i></div>
+				<div class="menu-description">
+					<p>Errores</p>
+				</div>
+			</div>
+
 			<div class="menu-item" id="menu-config">
 				<div class="menu-icon"><i class="fal fa-cogs"></i></div>
 				<div class="menu-description">
@@ -77,12 +112,20 @@
 			</div>
 			
 			<div class="menu-item" id="menu-errors">
-				<div class="menu-icon"><i class="fal fa-exclamation-triangle"></i></div>
+				<div class="menu-icon">
+					<i class="fal fa-question"></i>
+				</div>
 				<div class="menu-description">
-					<p>Errores</p>
+					<p>Ayuda</p>
 				</div>
 			</div>
 
+			<div class="menu-item" id="menu-config">
+				<div class="menu-icon"><i class="fal fa-user-alt"></i></div>
+				<div class="menu-description">
+					<p>PERFIL</p>
+				</div>
+			</div>
 
 		</nav>
 	</section>
@@ -98,18 +141,6 @@
 
 	<section id="main__content">
 
-		<div id="loader" class="loading">
-			<div class="wrapper">
-				<div class="circle"></div>
-				<div class="circle"></div>
-				<div class="circle"></div>
-				<div class="shadow"></div>
-				<div class="shadow"></div>
-				<div class="shadow"></div>
-				<span>CARGANDO</span>
-			</div>
-		</div>
-
 		<div id="weight" class="content-container">
 
 			<nav class="breadcrumb">
@@ -122,61 +153,63 @@
 			</nav>
 
 			<div id="weight-menu" class="content active">
-				<div class="grid">
-					<div id="weights-menu__create" class="card small green">
-						<h4 class="new-weight-header">CREAR</h4>
-						<div class="new-weight-icon green">
-							<i class="far fa-plus"></i>
+				<div>
+					<div class="grid">
+						<div id="weights-menu__create" class="card small green">
+							<h4 class="new-weight-header">CREAR</h4>
+							<div class="new-weight-icon green">
+								<i class="far fa-plus"></i>
+							</div>
+						</div>
+						<div id="weights-menu__finished" class="card small purple">
+							<h4 class="new-weight-header">TERMINADOS</h4>
+							<div class="new-weight-icon purple">
+								<i class="far fa-check"></i>
+							</div>
+						</div>
+						<div id="weights-menu__deleted" class="card small red">
+							<h4 class="new-weight-header">ANULADOS</h4>
+							<div class="new-weight-icon orange">
+								<i class="fal fa-trash-alt"></i>
+							</div>
 						</div>
 					</div>
-					<div id="weights-menu__finished" class="card small purple">
-						<h4 class="new-weight-header">TERMINADOS</h4>
-						<div class="new-weight-icon purple">
-							<i class="far fa-check"></i>
-						</div>
-					</div>
-					<div id="weights-menu__deleted" class="card small red">
-						<h4 class="new-weight-header">ANULADOS</h4>
-						<div class="new-weight-icon orange">
-							<i class="fal fa-trash-alt"></i>
-						</div>
-					</div>
-				</div>
-				<div id="pending-weights-container">
-					<div id="pending-weights">
-						<div class="pending-weights">
-							<div class="card test">
-								<h4 class="new-weight-header">EN PROCESO</h4>
-								<div class="new-weight-icon">
-									<i class="fal fa-pen"></i>
-								</div>
-								<div id="pending-weights-table">
-									<div class="table-header">
-										<table>
-											<thead>
-												<tr>
-													<th class="weight-id">PESAJE</th>
-													<th class="created">CREADO</th>
-													<th class="cycle">CICLO</th>
-													<th class="gross-brute">BRUTO</th>
-													<th class="primary-plates">VEHICULO</th>
-													<th class="driver">CHOFER</th>
-													<th class="client">CLIENTE / PROVEEDOR</th>
-												</tr>
-											</thead>
-										</table>
+					<div id="pending-weights-container">
+						<div id="pending-weights">
+							<div class="pending-weights">
+								<div class="card test">
+									<h4 class="new-weight-header">EN PROCESO</h4>
+									<div class="new-weight-icon">
+										<i class="fal fa-pen"></i>
 									</div>
-									<div class="table-body">
-										<table>
-											<tbody>
-											</tbody>
-										</table>
+									<div id="pending-weights-table">
+										<div class="table-header">
+											<table>
+												<thead>
+													<tr>
+														<th class="weight-id">PESAJE</th>
+														<th class="created">CREADO</th>
+														<th class="cycle">CICLO</th>
+														<th class="gross-brute">BRUTO</th>
+														<th class="primary-plates">VEHICULO</th>
+														<th class="driver">CHOFER</th>
+														<th class="client">CLIENTE / PROVEEDOR</th>
+													</tr>
+												</thead>
+											</table>
+										</div>
+										<div class="table-body">
+											<table>
+												<tbody>
+												</tbody>
+											</table>
+										</div>
 									</div>
 								</div>
 							</div>
 						</div>
+						
 					</div>
-					
 				</div>
 			</div>
 
@@ -218,6 +251,9 @@
 								<h4>SERVICIO</h4>
 							</div>
 						</div>
+						<div class="widget-tooltip green tutorial-widget hidden">
+                            <span><b>1er Paso: </b>Selecciona el ciclo</span>
+                        </div>
 					</div>
 					
 					<div class="grid">
@@ -230,6 +266,9 @@
 									<div class="icon-container">
 										<div class="not-found"><i class="fas fa-times"></i></div>
 										<div class="found"><i class="fas fa-check"></i></div>
+									</div>
+									<div class="widget-tooltip green tutorial-widget hidden">
+										<span><b>2do Paso: </b>Ingresa una patente<br>o selecciona un vehículo de la lista</span>
 									</div>
 								</div>
 								<div id="select-vhc-create" class="create-weight__vehicles-type">
@@ -273,6 +312,9 @@
 						<div id="create-weight-btn">
 							<h2>CREAR PESAJE</h2>
 						</div>
+						<div class="widget-tooltip green tutorial-widget hidden">
+							<span><b>3er Paso: </b>Haz click en el botón para<br>crear un pesaje nuevo</span>
+						</div>
 					</div>
 				</div>
 			</div>
@@ -283,11 +325,7 @@
 
 		<div id="documents" class="content-container"></div>
 
-		<div id="analytics" class="content-container">
-
-			
-
-		</div>
+		<div id="analytics" class="content-container"></div>
 
 		<div id="clients" class="content-container">
 
@@ -424,9 +462,18 @@
 			</div>
 		</div>
 		
+		<div id="message-section">
+			<div id="message-container"></div>
+		</div>
+
+		<div id="message-section-2">
+			<div id="message-container-2"></div>
+		</div>
+
 	</section>
 
 </main>
+
 <script type="text/javascript" src="js/jwt-decode.js"></script>
 <script defer type="text/javascript" src="js/purify.js"></script>
 <script defer type="text/javascript" src="js/main_login.js"></script>

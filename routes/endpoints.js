@@ -2,14 +2,18 @@ const express = require('express');
 const router = express.Router();
 const conn = require('../config/db');
 const fs = require('fs');
+const excel = require('exceljs');
 const path = require('path');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs/dist/bcrypt');
+const sharp = require('sharp');
 const jwt_auth_secret = process.env.ACCESS_TOKEN_SECRET;
 const jwt_refresh_secret = process.env.REFRESH_TOKEN_SECRET;
-const socket_domain = (process.env.NODE_ENV === 'development') ? 'localhost' : '192.168.1.66';
+const socket_domain = (process.env.NODE_ENV === 'development') ? 'http://localhost:3100/socket.io/socket.io.js' : 'https://192.168.1.90:3100/socket.io/socket.io.js';
 
 console.log(socket_domain)
+const delay = ms => { return new Promise(resolve => setTimeout(resolve, ms)) }
+
 const error_handler = msg => {
     return new Promise((resolve, reject) => {
         const now = new Date().toLocaleString('es-CL');
@@ -94,6 +98,21 @@ const validate_date = date => {
 		new Date(date).toISOString();
 		return true
 	} catch(e) { return false }
+}
+
+const format_html_date = date => {
+    const
+    year = date.getFullYear(),
+    month = (date.getMonth() + 1 < 10) ? '0' + (date.getMonth() + 1) : date.getMonth() + 1,
+    day = (date.getDate() < 10) ? '0' + (date.getDate()) : date.getDate();
+    return year + '-' + month + '-' + day;
+}
+
+const set_to_monday = date => {
+    let new_date = date;
+    const day = new_date.getDay() || 7;
+    if (day !== 1) new_date.setHours(-24 * (day - 1));
+    return new_date;
 }
 
 const get_giros = () => {
@@ -260,7 +279,7 @@ const get_weight_data = weight_id => {
     })
 }
 
-const get_weight_documents = (weight_id, cycle) => {
+const get_weight_documents = (weight_id) => {
     return new Promise((resolve, reject) => {
         conn.query(`
             SELECT header.id, header.date, header.sale, header.electronic, header.client_entity AS client_id, 
@@ -277,7 +296,9 @@ const get_weight_documents = (weight_id, cycle) => {
             LEFT OUTER JOIN documents_comments ON header.id=documents_comments.doc_id 
             INNER JOIN users ON header.created_by=users.id 
             WHERE (header.status='T' OR header.status='I') AND 
-            header.weight_id=${weight_id} ORDER BY header.id ASC;
+            header.weight_id=${weight_id} 
+            GROUP BY header.number
+            ORDER BY header.id ASC;
         `, async (error, results, fields) => {
             if (error) return reject(error);
 
@@ -300,7 +321,7 @@ const get_weight_documents = (weight_id, cycle) => {
                         }
                     },
                     comments: results[i].comments,
-                    date: new Date(results[i].date).toISOString().split('T')[0] + ' 00:00:00',
+                    date: (results[i].date === null) ? null : new Date(results[i].date).toISOString().split('T')[0] + ' 00:00:00',
                     sale: (results[i].sale === 0) ? false : true,
                     electronic: (results[i].electronic === 0) ? false : true,
                     number: results[i].number,
@@ -345,7 +366,8 @@ const get_weight_documents = (weight_id, cycle) => {
                             kilos: row.kilos,
                             last_price: { found: false }, 
                             name: row.product_name, 
-                            price: row.price, 
+                            price: row.price,
+                            type: row.product_type,
                             total: row.product_total 
                         }
                     }
@@ -360,8 +382,12 @@ const get_weight_documents = (weight_id, cycle) => {
 
                 document.containers = containers;
                 document.containers_weight = containers_weight;
+                /*
                 if (cycle === 1) document.kilos = informed_kilos;
                 else document.kilos = kilos;
+                */
+
+                document.kilos = informed_kilos;
 
                 data.documents.push(document);
                 data.kilos.informed += informed_kilos;
@@ -373,11 +399,11 @@ const get_weight_documents = (weight_id, cycle) => {
     })
 }
 
-const get_document_rows = (doc_id) => {
+const get_document_rows = doc_id => {
     return new Promise((resolve, reject) => {
         conn.query(`
-            SELECT body.id, body.product_code, body.cut, products.name AS product_name, body.price, 
-            body.kilos, body.informed_kilos, body.product_total, body.container_code, 
+            SELECT body.id, body.product_code, body.cut, products.name AS product_name, products.type AS product_type, 
+            body.price, body.kilos, body.informed_kilos, body.product_total, body.container_code, 
             containers.name AS container_name, body.container_weight, body.container_amount 
             FROM documents_body body
             LEFT OUTER JOIN products ON body.product_code=products.code 
@@ -612,7 +638,6 @@ router.post('/documents_body_errors', async (req, res) => {
 
 //  Login / Landing Page
 router.get('/', (req, res) => {
-
     res.render('login', {
         title: 'Login',
         css: [
@@ -628,15 +653,29 @@ router.get('/', (req, res) => {
     })
 })
 
+const home_script = (process.env.NODE_ENV === 'development') ? 
+    [
+        {
+            src: socket_domain, attributes: ['defer']
+        }
+    ]
+    :
+    [
+        {
+            src: socket_domain, attributes: ['defer']
+        }, 
+        {
+            src: 'js/prevent_context_menu.js?v=0.1', attributes: ['defer']
+        }
+    ]
+;
 router.get('/app', userMiddleware.isLoggedIn, async (req, res) => {
-
     res.render('home', { 
         title: 'Comercial Lepefer Ltda.',
         css: [ 
             { 
                 path: 'css/loader.css',
                 attributes: [{ attr: 'type', value: 'text/css' }]
-                
             }, 
             { 
                 path: 'css/main.css',
@@ -651,12 +690,7 @@ router.get('/app', userMiddleware.isLoggedIn, async (req, res) => {
                 attributes: [{ attr: 'type', value: 'text/css' }]
             } 
         ],
-        script: [
-            { 
-                src: `https://${socket_domain}:3100/socket.io/socket.io.js`,
-                attributes: [ 'defer' ]
-            }
-        ]
+        script: home_script
     });
 })
 
@@ -672,15 +706,19 @@ router.post('/login_user', async (req, res) => {
         const get_user_data = () => {
             return new Promise((resolve, reject) => {
                 conn.query(`
-                    SELECT * FROM users 
-                    WHERE LOWER(name)=LOWER(${conn.escape(user)});
+                    SELECT users.*, users_preferences.qz_tray, users_preferences.tutorial
+                    FROM users 
+                    INNER JOIN users_preferences ON users.id=users_preferences.user
+                    WHERE LOWER(users.name)=LOWER(${conn.escape(user)});
                 `, (error, results, fields) => {
                     if (error || results.length === 0) return reject(error);
                     
                     temp.user = {
                         id: results[0].id,
                         username: results[0].name,
-                        profile: results[0].profile, 
+                        profile: results[0].profile,
+                        qzTray: (results[0].qz_tray === 0) ? false : true,
+                        tutorial: (results[0].tutorial === 0) ? false : true
                     }
                     temp.active = (results[0].active === 0) ? false : true;
                     temp.password = results[0].password;
@@ -693,7 +731,8 @@ router.post('/login_user', async (req, res) => {
         const update_refresh_token = () => {
             return new Promise((resolve, reject) => {
                 conn.query(`
-                    UPDATE users SET refresh_token='${response.refresh_token}' WHERE LOWER(name)=LOWER(${conn.escape(user)})
+                    UPDATE users SET refresh_token='${response.refresh_token}' 
+                    WHERE LOWER(name)=LOWER(${conn.escape(user)});
                 `, (error, results, fields) => {
                     if (error) return reject(error);
                     return resolve();
@@ -709,7 +748,9 @@ router.post('/login_user', async (req, res) => {
             token = jwt.sign({
                 userName: temp.user.username,
                 userId: temp.user.id,
-                userProfile: temp.user.profile
+                userProfile: temp.user.profile,
+                qzTray: temp.user.qzTray,
+                tutorial: temp.user.tutorial
               },
               jwt_auth_secret, {
                 expiresIn: '10m'
@@ -718,7 +759,9 @@ router.post('/login_user', async (req, res) => {
             refresh_token = jwt.sign({
                 userName: temp.user.username,
                 userId: temp.user.id,
-                userProfile: temp.user.profile
+                userProfile: temp.user.profile,
+                qzTray: temp.user.qzTray,
+                tutorial: temp.user.tutorial
               },
               jwt_refresh_secret, {
                 expiresIn: '15d'
@@ -732,11 +775,13 @@ router.post('/login_user', async (req, res) => {
                 secure: process.env.NODE_ENV !== "development",
                 httpOnly: true,
                 sameSite: 'strict',
-                maxAge: 15 * 24 * 60 * 60 * 1000 //7 days
+                maxAge: 15 * 24 * 60 * 60 * 1000 //15 days
             });
         }
 
         response.success = true;
+        response.redirect = '/app';
+        await delay(3000);
     }
     catch(e) { 
         response.error = e; 
@@ -762,6 +807,7 @@ router.get('/refresh_token', async (req, res) => {
 
                     if (error || results.length === 0) return reject(error);
                     temp.token = results[0].refresh_token;
+
                     return resolve(true);                    
                 })
             })
@@ -770,7 +816,8 @@ router.get('/refresh_token', async (req, res) => {
         const update_refresh_token = () => {
             return new Promise((resolve, reject) => {
                 conn.query(`
-                    UPDATE users SET refresh_token='${response.refresh_token}' WHERE LOWER(name)=LOWER(${conn.escape(user_id)})
+                    UPDATE users SET refresh_token='${response.refresh_token}' 
+                    WHERE LOWER(name)=LOWER(${conn.escape(user_id)});
                 `, (error, results, fields) => {
                     if (error) return reject(error);
                     return resolve();
@@ -794,7 +841,9 @@ router.get('/refresh_token', async (req, res) => {
                 response.token = jwt.sign({
                     userName: decoded_token.userName,
                     userId: decoded_token.userId,
-                    userProfile: decoded_token.userProfile
+                    userProfile: decoded_token.userProfile,
+                    qzTray: decoded_token.qzTray,
+                    tutorial: decoded_token.tutorial
                 },
                 jwt_auth_secret, {
                     expiresIn: '10m'
@@ -804,7 +853,9 @@ router.get('/refresh_token', async (req, res) => {
                 const new_refresh_token = jwt.sign({
                     userName: decoded_token.userName,
                     userId: decoded_token.userId,
-                    userProfile: decoded_token.userProfile
+                    userProfile: decoded_token.userProfile,
+                    qzTray: decoded_token.qzTray,
+                    tutorial: decoded_token.tutorial
                   },
                   jwt_refresh_secret, {
                     expiresIn: '15d'
@@ -816,13 +867,14 @@ router.get('/refresh_token', async (req, res) => {
                     secure: process.env.NODE_ENV !== "development",
                     httpOnly: true,
                     sameSite: 'strict',
-                    maxAge: 15 * 24 * 60 * 60 * 1000 //7 days
+                    maxAge: 15 * 24 * 60 * 60 * 1000 //15 days
                 });
 
             } else response.error = `token didn't match`;
         } else response.no_token = true;
 
         response.success = true;
+        response.redirect = '/app';
     }
     catch(e) { 
         response.error = e; 
@@ -832,13 +884,113 @@ router.get('/refresh_token', async (req, res) => {
     finally { res.json(response) }
 })
 
+router.post('/save_user_preferences', userMiddleware.isLoggedIn, async (req, res) => {
+
+    const 
+    { data } = req.body,
+    qz_tray = (data.qz_tray) ? 1 : 0,
+    tutorial = (data.tutorial) ? 1 : 0,
+    response = { success: false }
+
+    try {
+
+        const save_preferences = () => {
+            return new Promise((resolve, reject) => {
+                conn.query(`
+                    UPDATE users_preferences
+                    SET 
+                        qz_tray = ${qz_tray},
+                        tutorial = ${tutorial}
+                    WHERE user = ${parseInt(req.userData.userId)};
+                `, (error, results, fields) => {
+                    if (error) return reject(error);
+                    return resolve();
+                })
+            })
+        }
+
+        const update_refresh_token = () => {
+            return new Promise((resolve, reject) => {
+                conn.query(`
+                    UPDATE users SET refresh_token='${response.refresh_token}' 
+                    WHERE LOWER(name)=LOWER(${conn.escape(req.userData.userId)});
+                `, (error, results, fields) => {
+                    if (error) return reject(error);
+                    return resolve();
+                })
+            })
+        }
+
+        //GENERATE NEW TOKEN
+        response.token = jwt.sign({
+            userName: req.userData.userName,
+            userId: req.userData.userId,
+            userProfile: req.userData.userProfile,
+            qzTray: data.qz_tray,
+            tutorial: data.tutorial
+        },
+        jwt_auth_secret, {
+            expiresIn: '10m'
+        });
+
+        //GENERATE NEW REFRESH TOKEN
+        const new_refresh_token = jwt.sign({
+            userName: req.userData.userName,
+            userId: req.userData.userId,
+            userProfile: req.userData.userProfile,
+            qzTray: data.qz_tray,
+            tutorial: data.tutorial
+          },
+          jwt_refresh_secret, {
+            expiresIn: '15d'
+        });
+
+        await save_preferences()
+        await update_refresh_token();
+
+        res.cookie("jwt", new_refresh_token, {
+            secure: process.env.NODE_ENV !== "development",
+            httpOnly: true,
+            sameSite: 'strict',
+            maxAge: 15 * 24 * 60 * 60 * 1000 //15 days
+        });
+
+        response.success = true;
+
+    }
+    catch(e) {
+        response.error = e;
+        console.log(`Error saving user preferencies. ${e}`);
+        error_handler(`Endpoint: /save_user_preferences -> User Name: ${req.userData.userName}\r\n${e}`);
+    }
+    finally { res.json(response) }
+})
+
 router.get('/print', userMiddleware.isLoggedIn, async (req, res) => {
 
-    res.render('print', {
+    const
+    query = new URLSearchParams(req.url),
+    weight_id = query.get('/print?weight_id');
+
+    res.render(`print_v2`, {
         title: 'Comercial Lepefer Ltda.',
         css: [
-            { path: 'css/main.css' } 
+            { 
+                path: 'css/main.css',
+                attributes: [{ attr: 'type', value: 'text/css' }]
+            }
         ],
+        script: [
+            {
+                src: 'js/main_login.js', attributes: []
+            },
+            {
+                src: 'js/jwt-decode.js', attributes: []
+            },
+            {
+                src: 'js/print.js', attributes: ['defer']
+            }
+        ] 
     })
 })
 
@@ -855,7 +1007,7 @@ router.post('/print_document', userMiddleware.isLoggedIn, async (req, res) => {
                 conn.query(`
                     SELECT weights.primary_plates, weights.secondary_plates, drivers.name AS driver_name, drivers.rut AS driver_rut,
                     header.number, header.date, entities.name AS entity_name, entity_branches.name AS entity_branch, 
-                    entities.rut AS entity_rut, entity_branches.address, comunas.comuna, giros.giro 
+                    entities.rut AS entity_rut, entity_branches.address, comunas.comuna, giros.giro, documents_comments.comments
                     FROM documents_header header
                     LEFT OUTER JOIN weights ON header.weight_id=weights.id
                     INNER JOIN drivers ON weights.driver_id=drivers.id
@@ -863,6 +1015,7 @@ router.post('/print_document', userMiddleware.isLoggedIn, async (req, res) => {
                     LEFT OUTER JOIN entity_branches ON header.client_branch=entity_branches.id
                     INNER JOIN comunas ON entity_branches.comuna=comunas.id
                     INNER JOIN giros ON entities.giro=giros.id
+                    LEFT OUTER JOIN documents_comments ON header.id=documents_comments.doc_id
                     WHERE header.id=${doc_id};
                 `, (error, results, fields) => {
 
@@ -886,7 +1039,8 @@ router.post('/print_document', userMiddleware.isLoggedIn, async (req, res) => {
                         },
                         number: results[0].number,
                         date: results[0].date,
-                        rows: []
+                        rows: [],
+                        comments: results[0].comments
                     }
                     return resolve();
                 })
@@ -896,8 +1050,8 @@ router.post('/print_document', userMiddleware.isLoggedIn, async (req, res) => {
         const get_row_data = () => {
             return new Promise((resolve, reject) => {
                 conn.query(`
-                    SELECT body.container_amount, containers.name AS container_name, products.name AS product_name, body.cut, 
-                    body.price, body.kilos
+                    SELECT body.id, body.container_amount, containers.name AS container_name, products.name AS product_name, 
+                    body.product_code, body.cut, body.price, body.informed_kilos AS kilos
                     FROM documents_body body
                     INNER JOIN documents_header header ON body.document_id=header.id
                     LEFT OUTER JOIN containers ON body.container_code=containers.code
@@ -907,11 +1061,13 @@ router.post('/print_document', userMiddleware.isLoggedIn, async (req, res) => {
                     if (error) return reject(error);
                     for (let i = 0; i < results.length; i++) {
                         response.doc_data.rows.push({
+                            id: results[i].id,
                             container: {
                                 amount: results[i].container_amount,
                                 name: results[i].container_name
                             },
                             product: {
+                                code: results[i].product_code,
                                 cut: results[i].cut,
                                 name: results[i].product_name,
                                 kilos: results[i].kilos,
@@ -974,7 +1130,9 @@ router.get('/grapes_data', userMiddleware.isLoggedIn, async (req, res) => {
     const response = { 
         success: false,
         seasons: [],
-        total: { packing: 0, parron: 0 }
+        total: { packing: 0, parron: 0 },
+        cycle: 2,
+        type: 'Pasas'
     };
 
     try {
@@ -1004,13 +1162,13 @@ router.get('/grapes_data', userMiddleware.isLoggedIn, async (req, res) => {
                     FROM documents_body body
                     INNER JOIN documents_header header ON body.document_id=header.id
                     INNER JOIN weights ON header.weight_id=weights.id
-                    WHERE body.product_code='${code}' AND body.cut='${cut}' AND weights.status='T' AND weights.cycle=1
+                    WHERE body.product_code='${code}' AND body.cut='${cut}' AND weights.status='T' AND weights.cycle=${response.cycle}
                     AND (header.status='I' OR header.status='T')
                     AND (body.status='I' OR body.status='T') 
                     AND (
                         weights.created BETWEEN 
-                            '${response.seasons[response.seasons.length - 1].start} 00:00:00' 
-                            AND '${response.seasons[response.seasons.length - 1].end} 23:59:59'
+                            '${response.seasons[response.seasons.length - 1].start} 00:00:00' AND
+                            '${response.seasons[response.seasons.length - 1].end} 23:59:59'
                     );
                 `, (error, results, fields) => {
                     if (error || results.length === 0) return reject(error);
@@ -1027,7 +1185,7 @@ router.get('/grapes_data', userMiddleware.isLoggedIn, async (req, res) => {
                     INNER JOIN products ON body.product_code=products.code
                     INNER JOIN documents_header header ON body.document_id=header.id
                     INNER JOIN weights ON header.weight_id=weights.id
-                    WHERE weights.cycle=1 AND weights.status='T' AND products.type='Uva'
+                    WHERE weights.cycle=${response.cycle} AND weights.status='T' AND products.type='${response.type}'
                     AND (header.status='I' OR header.status='T') AND (body.status='I' OR body.status='T')
                     AND (
                         weights.created BETWEEN 
@@ -1218,14 +1376,16 @@ router.post('/get_products_by_date', userMiddleware.isLoggedIn, async (req, res)
         const get_warehouse_kilos = (code, cut) => {
             return new Promise((resolve, reject) => {
                 conn.query(`
-                    SELECT SUM(body.kilos) AS kilos 
+                    SELECT SUM(body.kilos) AS kilos
                     FROM documents_body body
                     INNER JOIN documents_header header ON body.document_id=header.id
                     INNER JOIN weights ON header.weight_id=weights.id
-                    WHERE body.product_code='${code}' AND cut='${cut}' AND weights.status='T' 
-                    AND ((weights.cycle=1 AND header.client_entity=183 AND header.client_branch=241) OR weights.cycle=3)
+                    INNER JOIN products ON body.product_code=products.code
+                    WHERE body.product_code='${code}' AND cut='${cut}'
+                    AND weights.status='T' AND products.type=${conn.escape(product_type)}
+                    AND (weights.cycle=1 OR weights.cycle=3)
                     AND (header.status='I' OR header.status='T')
-                    AND (body.status='I' OR body.status='T') 
+                    AND (body.status='I' OR body.status='T')
                     AND (weights.created BETWEEN '${start_date} 00:00:00' AND '${end_date} 23:59:59');
                 `, (error, results, fields) => {
                     if (error || results.length === 0) return reject(error);
@@ -1242,13 +1402,15 @@ router.post('/get_products_by_date', userMiddleware.isLoggedIn, async (req, res)
                     INNER JOIN products ON body.product_code=products.code
                     INNER JOIN documents_header header ON body.document_id=header.id
                     INNER JOIN weights ON header.weight_id=weights.id
-                    WHERE ((weights.cycle=1 AND header.client_entity=183) OR weights.cycle=3)
+                    WHERE (weights.cycle=3 OR weights.cycle=1) AND header.internal_branch=3
                     AND weights.status='T' AND products.type=${conn.escape(product_type)}
-                    AND (header.status='I' OR header.status='T') AND (body.status='I' OR body.status='T')
-                    AND (weights.created BETWEEN '${start_date} 00:00:00' AND '${end_date} 23:59:59') 
+                    AND (header.status='I' OR header.status='T') 
+                    AND (body.status='I' OR body.status='T')
+                    AND (weights.created BETWEEN '${start_date} 00:00:00' AND '${end_date} 23:59:59')
                     GROUP BY products.name ORDER BY products.name ASC;
                 `, async (error, results, fields) => {
                     if (error) return reject(error);
+
                     response.products = results;
 
                     for (let i = 0; i < response.products.length; i++) {
@@ -1258,10 +1420,11 @@ router.post('/get_products_by_date', userMiddleware.isLoggedIn, async (req, res)
                         parron = 1 * await get_warehouse_kilos(response.products[i].code, 'Parron');
 
                         response.products[i].total = packing + parron;
-                        response.products[i].kilos = { packing: packing, parron: parron };
+                        response.products[i].kilos = { packing, parron };
                         response.total.packing += packing;
                         response.total.parron += parron;
                     }
+                    
                     return resolve();
                 })
             })
@@ -1286,7 +1449,7 @@ router.post('/get_products_movements', userMiddleware.isLoggedIn, async (req, re
 
     const
     { cycle, start_date, end_date, product_code} = req.body,
-    cycle_sql = (cycle === 3) ? `AND ((weights.cycle=1 AND header.client_entity=183) OR weights.cycle=3)` : `AND weights.cycle=${cycle}`,
+    cycle_sql = (cycle === 3) ? `AND (weights.cycle=1 OR weights.cycle=3)` : `AND weights.cycle=${cycle}`,
     response = { 
         success: false,
         code: product_code,
@@ -1306,7 +1469,7 @@ router.post('/get_products_movements', userMiddleware.isLoggedIn, async (req, re
                     WHERE body.product_code=${conn.escape(product_code)} AND body.cut='${cut}'
                     AND (weights.created BETWEEN '${start_date} 00:00:00' AND '${end_date} 23:59:59') 
                     AND (header.status='I' OR header.status='T') AND (body.status='I' OR body.status='T')
-                    ${cycle_sql} AND header.client_entity=${id};
+                    ${cycle_sql} AND header.client_entity=${id} AND weights.status='T';
                 `, (error, results, fields) => {
                     if (error || results.length === 0) return reject(error);
                     return resolve(1 * results[0].kilos);
@@ -1423,6 +1586,11 @@ router.post('/get_product_documents', userMiddleware.isLoggedIn, async (req, res
 });
 
 /********************** WEIGHTS AND DOCUMENTS *********************/
+
+router.get('/get_socket_domain', userMiddleware.isLoggedIn, async (req, res) => {
+    const domain = (process.env.NODE_ENV === 'development') ? 'http://localhost' : 'https://192.168.1.90';
+    res.json({ domain })
+})
 
 router.post('/check_existing_plates', userMiddleware.isLoggedIn, async (req, res) => {
 
@@ -1688,6 +1856,41 @@ router.post('/check_primary_plates', userMiddleware.isLoggedIn, async (req, res)
         response.error = e; 
         console.log(`Error checking plates in database`, e);
         error_handler(`Endpoint: /check_primary_plates -> User Name: ${req.userData.userName}\r\n${e}`);
+    }
+    finally { res.json(response) }
+})
+
+router.post('/get_vehicle_history', userMiddleware.isLoggedIn, async (req, res) => {
+
+    const 
+    { plates } = req.body,
+    response = { success: false }
+
+    try {
+
+        const get_history = () => {
+            return new Promise((resolve, reject) => {
+                conn.query(`
+                    SELECT id AS weight_id, created, tare_net 
+                    FROM weights 
+                    WHERE primary_plates=${conn.escape(plates)} AND status='T' AND final_net_weight > 0 AND tare_net IS NOT NULL
+                    ORDER BY id DESC LIMIT 100;
+                `, (error, results, fields) => {
+                    if (error) return reject(error);
+                    response.history = results;
+                    return resolve();
+                })
+            })
+        }
+
+        await get_history();
+        response.success = true;
+
+    }
+    catch(e) { 
+        response.error = e; 
+        console.log(`Error getting vehicle history`, e);
+        error_handler(`Endpoint: /get_vehicle_history -> User Name: ${req.userData.userName}\r\n${e}`);
     }
     finally { res.json(response) }
 })
@@ -2213,9 +2416,10 @@ router.post('/annul_weight', userMiddleware.isLoggedIn, async (req, res) => {
         const get_pending_weights = () => {
             return new Promise((resolve, reject) => {
                 conn.query(`
-                    SELECT weights.id, weights.cycle, weights.primary_plates, weights.gross_brute, weights.created
+                    SELECT weights.id, weights.cycle, weights.primary_plates, weights.gross_brute, weights.created, drivers.name AS driver
                     FROM weights
                     INNER JOIN cycles ON weights.cycle=cycles.id
+                    INNER JOIN drivers ON weights.driver_id=drivers.id
                     WHERE weights.status='I' GROUP BY weights.id ORDER BY weights.id DESC;
                 `, async (error, results, fields) => {
                     if (error) return reject(error);
@@ -3290,13 +3494,13 @@ router.post('/create_new_document', userMiddleware.isLoggedIn, async (req, res) 
                     SELECT documents_header.number 
                     FROM documents_header 
                     INNER JOIN weights ON documents_header.weight_id=weights.id 
-                    WHERE weights.id=(
+                    WHERE documents_header.number IS NOT NULL AND weights.id=(
                         SELECT weights.id
                         FROM weights 
                         INNER JOIN documents_header ON weights.id=documents_header.weight_id 
-                        WHERE weights.cycle=3 AND documents_header.number IS NOT NULL
+                        WHERE weights.cycle=3 AND documents_header.number IS NOT NULL AND documents_header.status='I'
                         ORDER BY weights.id DESC LIMIT 1
-                    );`, (error, results, fields) => {
+                    ) ORDER BY documents_header.number DESC LIMIT 1;`, (error, results, fields) => {
                     if (error || results.length === 0) return reject(error);
                     document.number = results[0].number + 1;
                     document.date = new Date().toISOString().split('T')[0] + ' 00:00:00';
@@ -3442,7 +3646,7 @@ router.post('/create_new_document', userMiddleware.isLoggedIn, async (req, res) 
             };
             document.internal = {
                 entity: { id: 1, name: 'Soc. Comercial Lepefer y Cia Ltda.' },
-				branch: { id: 1, name: 'Secado El Convento' }
+				branch: { id: 3, name: 'Secado El Convento' }
             }; 
         } else {
             document.date = null;
@@ -3966,8 +4170,13 @@ router.post('/update_doc_number', userMiddleware.isLoggedIn, async (req, res) =>
 
     const
     { doc_id } = req.body,
-    doc_number = (req.body.doc_number === '') ? null : parseInt(req.body.doc_number),
-    response = { success: false, existing_document: false }
+    doc_number = (req.body.doc_number === '' || req.body.doc_number === NaN) ? null : parseInt(req.body.doc_number),
+    response = { 
+        success: false, 
+        existing_document: {
+            found: false
+        }
+    }
 
     try {
 
@@ -3987,7 +4196,9 @@ router.post('/update_doc_number', userMiddleware.isLoggedIn, async (req, res) =>
 
         const check_doc_entity = () => {
             return new Promise((resolve, reject) => {
-                conn.query(`SELECT ${field}_entity AS entity FROM documents_header WHERE id=${parseInt(doc_id)};`, (error, results, fields) => {
+                conn.query(`
+                    SELECT ${field}_entity AS entity FROM documents_header WHERE id=${parseInt(doc_id)};
+                `, (error, results, fields) => {
                     if (error || results.length === 0) return reject(error);
                     return resolve(results[0].entity);
                 })
@@ -3997,15 +4208,19 @@ router.post('/update_doc_number', userMiddleware.isLoggedIn, async (req, res) =>
         const check_doc_number = () => {
             return new Promise((resolve, reject) => {
                 conn.query(`
-                    SELECT header.id 
+                    SELECT header.id, header.weight_id
                     FROM documents_header header
                     INNER JOIN weights ON header.weight_id=weights.id
                     WHERE header.${field}_entity=${doc_entity} AND header.number=${doc_number}
                     AND header.id <> ${parseInt(doc_id)} AND weights.status <> 'N'
-                    AND (header.status='T' OR header.status='I');
+                    AND header.status='I' AND weights.cycle=${cycle};
                 `, (error, results, fields) => {
                     if (error) return reject(error);
-                    if (results.length > 0) response.existing_document = true;
+                    console.log(results)
+                    if (results.length > 0) {
+                        response.existing_document.found = true;
+                        response.existing_document.weight_id = results[0].weight_id
+                    }
                     return resolve();
                 })
             })
@@ -4045,7 +4260,7 @@ router.post('/update_doc_number', userMiddleware.isLoggedIn, async (req, res) =>
 
         if (doc_entity !== null) await check_doc_number();
         
-        if (response.existing_document) await reset_doc_number();
+        if (response.existing_document.found) await reset_doc_number();
         else await update_doc_number();
         
         response.success = true;
@@ -4180,7 +4395,7 @@ router.get('/get_entities_for_document', userMiddleware.isLoggedIn, async (req, 
 
         const get_entities = () => {
             return new Promise((resolve, reject) => {
-                conn.query("SELECT * FROM entities WHERE status=1 AND type='P' ORDER BY name ASC;", (error, results, fields) => {
+                conn.query("SELECT * FROM entities WHERE status=1 ORDER BY name ASC;", (error, results, fields) => {
                     if (error) return reject(error);
                     return resolve(results); 
                 });                        
@@ -4652,9 +4867,55 @@ router.post('/fetch_comunas', userMiddleware.isLoggedIn, async (req, res) => {
     finally { res.json(response) }
 })
 
+router.post('/get_document_row_data', userMiddleware.isLoggedIn, async (req, res) => {
+
+    const 
+    type = req.body.type.replace(/[^a-zA-Z]/gm, ''),
+    response = { success: false }
+
+    try {
+
+        const get_products = () => {
+            return new Promise((resolve, reject) => {
+                conn.query(`
+                    SELECT * FROM products WHERE type=${conn.escape(type)};
+                `, (error, results, fields) => {
+                    if (error) return reject(error);
+                    response.data = results;
+                    return resolve();
+                })
+            })
+        }
+
+        const get_containers = () => {
+            return new Promise((resolve, reject) => {
+                conn.query(`
+                    SELECT * FROM containers;
+                `, (error, results, fields) => {
+                    if (error) return reject(error);
+                    response.data = results;
+                    return resolve();
+                })
+            })
+        }
+
+        if (type === 'containers') await get_containers();
+        else await get_products();
+        response.success = true;
+
+    }
+    catch (e) { 
+        response.error = e;
+        console.log(`Error getting product/container list for document row. ${e}`); 
+        error_handler(`Endpoint: /get_document_row_data -> User Name: ${req.userData.userName}\r\n${e}`);
+    }
+    finally { res.json(response) }
+
+})
+
 router.post('/search_product_by_name', userMiddleware.isLoggedIn, async (req, res) => {
     const
-    { product } = req.body,
+    product = req.body.data.replace(/[^a-zA-Z]/gm, ''),
     response = { success: false }
 
     try {
@@ -4662,7 +4923,7 @@ router.post('/search_product_by_name', userMiddleware.isLoggedIn, async (req, re
             return new Promise((resolve, reject) => {
                 conn.query(`SELECT id, code, name, type, image FROM products WHERE name LIKE '%${product}%' ORDER BY name ASC;`, (error, results, fields) => {
                     if (error) return reject(error);
-                    response.products = results;
+                    response.data = results;
                     return resolve();
                 });        
             })
@@ -4681,15 +4942,13 @@ router.post('/search_product_by_name', userMiddleware.isLoggedIn, async (req, re
 router.post('/update_product', userMiddleware.isLoggedIn, async (req, res) => {
 
     const
-    { row_id, entity_id } = req.body,
-    code = (req.body.code.length === 0) ? null : `${req.body.code}`,
+    { row_id } = req.body,
+    code = (req.body.code.length === 0 || req.body.code === null) ? null : req.body.code,
     response = { 
         found: false, 
         code: null, 
         name: null, 
-        last_price: { 
-            found: false, price: null 
-        }, 
+        type: null,
         success: false 
     };
 
@@ -4697,44 +4956,32 @@ router.post('/update_product', userMiddleware.isLoggedIn, async (req, res) => {
 
         const search_product_query = () => {
             return new Promise((resolve, reject) => {
-                conn.query(`SELECT id, code, name FROM products WHERE code=${conn.escape(code)};`, (error, results, fields) => {
-                    if (error) { return reject(error) }
+                conn.query(`
+                    SELECT id, code, name, type FROM products WHERE code=${conn.escape(code)};
+                `, (error, results, fields) => {
+
+                    if (error) return reject(error);
                     if (results.length > 0) {
                         response.found = true;
                         response.id = results[0].id;
                         response.code = results[0].code;
                         response.name = results[0].name;
+                        response.type = results[0].type;
                     }
                     return resolve();
                 });
             });
         }
 
-        const last_price_query = () => {
-            return new Promise((resolve, reject) => {
-                conn.query(`
-                    SELECT body.price 
-                    FROM documents_body AS body 
-                    INNER JOIN documents_header AS header ON body.document_id=header.id 
-                    WHERE body.id=(
-                        SELECT MAX(body.id) FROM documents_body AS body 
-                        INNER JOIN documents_header AS header ON body.document_id=header.id 
-                        WHERE header.client_entity=${entity_id} AND body.product_code=${conn.escape(code)} AND body.status='T'
-                    );
-                `, (error, results, fields) => {
-                    if (error) return reject(error);
-                    if (results.length > 0) {
-                        response.last_price.found = true;
-                        response.last_price.price = results[0].price;  
-                    }
-                    return resolve();
-                })
-            })
-        }
-
         const update_product_query = () => {
             return new Promise((resolve, reject) => {
-                conn.query(`UPDATE documents_body SET product_code=${conn.escape(code)} WHERE id=${row_id};`, (error, results, fields) => {
+                conn.query(`
+                    UPDATE documents_body 
+                    SET 
+                        product_code=${conn.escape(response.code)},
+                        product_name=${conn.escape(response.name)}
+                    WHERE id=${parseInt(row_id)};
+                `, (error, results, fields) => {
                     if (error) return reject(error);
                     return resolve();
                 })
@@ -4743,12 +4990,9 @@ router.post('/update_product', userMiddleware.isLoggedIn, async (req, res) => {
         
         if (code !== null) {
             await search_product_query();
-            if (response.found) {
-                if (entity_id !== '') await last_price_query();
-            }    
-        } else {
-
+            if (!response.found) response.code = null;
         }
+        else response.code = null;
         
         await update_product_query();
         response.success = true;
@@ -4772,10 +5016,10 @@ router.post('/get_traslado_description', userMiddleware.isLoggedIn, async (req, 
         const get_description = () => {
             return new Promise((resolve, reject) => {
                 conn.query(`
-                    SELECT description FROM traslados WHERE documents_body_id=${parseInt(row_id)};
+                    SELECT product_name FROM documents_body WHERE id=${parseInt(row_id)};
                 `, (error, results, fields) => {
                     if (error || results.length === 0) return reject(error);
-                    response.description = results[0].description;
+                    response.description = results[0].product_name;
                     return resolve();
                 })
             })
@@ -4841,9 +5085,28 @@ router.post('/update_traslado_description', userMiddleware.isLoggedIn, async (re
             })
         }
 
+        const update_traslado_description = () => {
+            return new Promise((resolve, reject) => {
+                conn.query(`
+                    UPDATE documents_body SET product_name=${conn.escape(description)} WHERE id=${parseInt(row_id)};
+                `, (error, results, fields) => {
+                    if (error) return reject(error);
+                    return resolve();
+                })
+            })
+        }
+
+
+
+        /*
         const check_row_id = await check_row();
         if (check_row_id) await insert_description();
         else await update_description();
+        */
+
+
+
+        await update_traslado_description();
 
         response.success = true
     }
@@ -4858,8 +5121,14 @@ router.post('/update_traslado_description', userMiddleware.isLoggedIn, async (re
 router.post('/update_cut', userMiddleware.isLoggedIn, async (req, res) => {
 
     const
-    { row_id, cut } = req.body,
-    response = { success: false };
+    { row_id, product_code, cut, entity_id } = req.body,
+    response = {
+        last_price: { 
+            found: false, 
+            price: null 
+        }, 
+        success: false 
+    };
 
     try {
 
@@ -4882,8 +5151,31 @@ router.post('/update_cut', userMiddleware.isLoggedIn, async (req, res) => {
             })
         }
 
+        const last_price_query = () => {
+            return new Promise((resolve, reject) => {
+                conn.query(`
+                    SELECT body.price 
+                    FROM documents_body AS body 
+                    INNER JOIN documents_header header ON body.document_id=header.id 
+                    WHERE body.id=(
+                        SELECT MAX(body.id) FROM documents_body AS body 
+                        INNER JOIN documents_header AS header ON body.document_id=header.id 
+                        WHERE header.client_entity=${parseInt(entity_id)} AND body.product_code=${conn.escape(product_code)} 
+                        AND body.cut=${conn.escape(cut)}AND body.status='T' AND body.price IS NOT NULL AND body.id <> ${parseInt(row_id)}
+                    );
+                `, (error, results, fields) => {
+                    if (error) return reject(error);
+                    if (results.length > 0) {
+                        response.last_price.found = true;
+                        response.last_price.price = results[0].price;  
+                    }
+                    return resolve();
+                })
+            })
+        }
+
         await update_cut();
-        await check_update();
+        if (entity_id.length > 0 && entity_id !== null) await last_price_query();
         response.success = true;
     }
     catch(e) { 
@@ -4981,7 +5273,7 @@ router.post('/update_price', userMiddleware.isLoggedIn, async (req, res) => {
 router.post('/update_kilos', userMiddleware.isLoggedIn, async (req,res) => {
 
     const
-    {row_id} = req.body,
+    { row_id } = req.body,
     kilos = (req.body.kilos === '') ? null : parseFloat(req.body.kilos),
     temp = {},
     response = { success: false, product_total: null, doc_total: 0 }
@@ -5057,7 +5349,8 @@ router.post('/update_kilos', userMiddleware.isLoggedIn, async (req,res) => {
 
         await get_doc_and_weight_id();
 
-        const field = (temp.cycle === 1) ? 'informed_kilos' : 'kilos';
+        //const field = (temp.cycle === 1) ? 'informed_kilos' : 'kilos';
+        const field = 'informed_kilos';
 
         await check_for_total();
         await update_kilos();
@@ -5092,12 +5385,13 @@ router.post('/update_container', userMiddleware.isLoggedIn, async (req, res) => 
         const search_query = () => {
             return new Promise((resolve, reject) => {
                 conn.query(`SELECT code, name, weight FROM containers WHERE code=${conn.escape(code)};`, (error, results, fields) => {
-                    if (error || results.length === 0) return reject(error);
+                    if (error) return reject(error);
  
-                    response.found = true;
-                    response.container = results[0];    
+                    if (results.length > 0) {
+                        response.found = true;
+                        response.container = results[0];        
+                    }
                     return resolve();
-                
                 })
             })
         }
@@ -5136,9 +5430,11 @@ router.post('/update_container', userMiddleware.isLoggedIn, async (req, res) => 
         }
         
         if (code !== null) await search_query();
-        
-        await update_documents_body();
-        await sum_document_containers_weight();
+
+        if (response.found) {
+            await update_documents_body();
+            await sum_document_containers_weight();
+        }
 
         response.success = true;
     }
@@ -5153,7 +5449,7 @@ router.post('/update_container', userMiddleware.isLoggedIn, async (req, res) => 
 router.post('/search_container_by_name', userMiddleware.isLoggedIn, async (req, res) => {
 
     const
-    { container } = req.body,
+    container = req.body.data.replace(/[^a-zA-Z]/gm, ''),
     response = { success: false }
 
     try {
@@ -5164,14 +5460,15 @@ router.post('/search_container_by_name', userMiddleware.isLoggedIn, async (req, 
                     SELECT code, name, weight FROM containers WHERE name LIKE '%${container}%';
                 `, (error, results, fields) => {
                     if (error) return reject(error);
-                    response.containers = results;
-                    response.success = true;
+                    response.data = results;
                     return resolve();
                 })
             })
         }
         
         await search_container();
+        response.success = true;
+
     }
     catch (e) { 
         response.error = e;
@@ -5479,7 +5776,9 @@ router.post('/get_weight_totals', userMiddleware.isLoggedIn, async (req, res) =>
 
         const get_weight_cycle = () => {
             return new Promise((resolve, reject) => {
-                conn.query(`SELECT cycle from weights WHERE id=${parseInt(weight_id)};`, (error, results, fields) => {
+                conn.query(`
+                    SELECT cycle from weights WHERE id=${parseInt(weight_id)};
+                `, (error, results, fields) => {
                     if (error || results.length === 0) return reject(error);
                     response.cycle = results[0].cycle;
                     return resolve();
@@ -5490,9 +5789,9 @@ router.post('/get_weight_totals', userMiddleware.isLoggedIn, async (req, res) =>
         const get_informed_kilos = () => {
             return new Promise((resolve, reject) => {
 
-                const field = (response.cycle === 1) ? 'informed_kilos' : 'kilos';
+                //const field = (response.cycle === 1) ? 'informed_kilos' : 'kilos';
                 conn.query(`
-                    SELECT SUM(documents_body.${field}) AS kilos 
+                    SELECT SUM(documents_body.informed_kilos) AS kilos 
                     FROM documents_body 
                     INNER JOIN documents_header ON documents_body.document_id = documents_header.id 
                     WHERE (documents_header.status='I' OR documents_header.status='T') 
@@ -5508,7 +5807,9 @@ router.post('/get_weight_totals', userMiddleware.isLoggedIn, async (req, res) =>
 
         const get_weight_totals = () => {
             return new Promise((resolve, reject) => {
-                conn.query(`SELECT gross_containers, gross_net, final_net_weight FROM weights WHERE id=${parseInt(weight_id)};`, (error, results, fields) => {
+                conn.query(`
+                    SELECT gross_containers, gross_net, final_net_weight FROM weights WHERE id=${parseInt(weight_id)};
+                `, (error, results, fields) => {
                     if (error || results.length === 0) return reject(error);
                     response.gross_containers = 1 * results[0].gross_containers;
                     response.gross_net = 1 * results[0].gross_net;
@@ -5518,7 +5819,7 @@ router.post('/get_weight_totals', userMiddleware.isLoggedIn, async (req, res) =>
             })
         }
 
-        await get_weight_cycle();
+        //await get_weight_cycle();
         await get_informed_kilos();
         await get_weight_totals();
 
@@ -5541,20 +5842,11 @@ router.post('/create_empty_containers_line', userMiddleware.isLoggedIn, async (r
 
     try {
 
-        const check_kilos_breakdown = () => {
-            return new Promise((resolve, reject) => {
-                conn.query(`SELECT cycle, kilos_breakdown FROM weights WHERE id=${parseInt(weight_id)};`, (error, results, fields) => {
-                    if (error || results.length === 0) return reject(error);
-                    temp.kilos_breakdown = (results[0].kilos_breakdown === 0) ? false : true;
-                    temp.cycle = results[0].cycle;
-                    return resolve();
-                })
-            })
-        }
-
         const check_recycled_row = () => {
             return new Promise((resolve, reject) => {
-                conn.query(`SELECT MIN(id) AS id FROM tare_containers WHERE status='R';`, (error, results, fields) => {
+                conn.query(`
+                    SELECT MIN(id) AS id FROM tare_containers WHERE status='R';
+                `, (error, results, fields) => {
                     if (error) return reject(error);
                     if (results.length > 0 && results[0].id !== null) {
                         response.row_id = results[0].id;
@@ -5585,17 +5877,15 @@ router.post('/create_empty_containers_line', userMiddleware.isLoggedIn, async (r
 
         const create_row = () => {
             return new Promise((resolve, reject) => {
-                conn.query(`INSERT INTO tare_containers (weight_id, status) VALUES (${parseInt(weight_id)}, 'I');`, (error, results, fields) => {
+                conn.query(`
+                    INSERT INTO tare_containers (weight_id, status) VALUES (${parseInt(weight_id)}, 'I');
+                `, (error, results, fields) => {
                     if (error) return reject(error);
                     response.row_id = results.insertId;
                     return resolve();
                 })
             })
         }
-
-        //RESET KILOS BREAKDOWN
-        await check_kilos_breakdown();
-        if (temp.kilos_breakdown) await reset_kilos_breakdown(weight_id, temp.cycle);
 
         const existing_row = await check_recycled_row();
         if (existing_row) await use_recycled_row();
@@ -5928,7 +6218,6 @@ router.post('/kilos_breakdown', userMiddleware.isLoggedIn, async (req, res) => {
     
     const
     { weight_id } = req.body,
-    temp = {},
     response = { 
         success: false, 
         breakdown: { 
@@ -5953,7 +6242,7 @@ router.post('/kilos_breakdown', userMiddleware.isLoggedIn, async (req, res) => {
             })
         }
 
-        const get_rows = (doc_id) => {
+        const get_rows = doc_id => {
             return new Promise((resolve, reject) => {
                 conn.query(`
                     SELECT body.*, containers.name AS container_name, products.name AS product_name 
@@ -5961,7 +6250,7 @@ router.post('/kilos_breakdown', userMiddleware.isLoggedIn, async (req, res) => {
                     INNER JOIN documents_body body ON header.id=body.document_id 
                     LEFT OUTER JOIN containers ON body.container_code=containers.code 
                     INNER JOIN products ON body.product_code=products.code 
-                    WHERE (body.status='I' OR body.status='T') AND body.document_id=${doc_id}
+                    WHERE (body.status='I' OR body.status='T') AND body.document_id=${doc_id} AND body.product_code <> 'GEN'
                     ORDER BY body.id ASC;
                 `, (error, results, fields) => {
                     if (error) return reject(error);
@@ -6010,11 +6299,12 @@ router.post('/kilos_breakdown', userMiddleware.isLoggedIn, async (req, res) => {
                                 product: {
                                     code: row.product_code, 
                                     name: row.product_name, 
+                                    cut: row.cut,
                                     new_kilos: 0, 
                                     price: row.price, 
                                     kilos: row.kilos, 
                                     informed_kilos: row.informed_kilos, 
-                                    total: 1* row.product_total
+                                    total: 1 * row.product_total
                                 }
                             });
                             response.breakdown.kilos += 1 * row.kilos;
@@ -6029,7 +6319,7 @@ router.post('/kilos_breakdown', userMiddleware.isLoggedIn, async (req, res) => {
             })
         }
 
-        const cycle = await get_cycle();
+        //const cycle = await get_cycle();
         await get_documents();
         response.success = true;
     }
@@ -6060,7 +6350,7 @@ router.post('/change_kilos_breakdown_status', userMiddleware.isLoggedIn, async (
             })
         }
 
-        await change_status()
+        await change_status(); 
         response.success = true;
 
     }
@@ -6113,7 +6403,8 @@ router.post('/save_kilos_breakdown', userMiddleware.isLoggedIn, async (req, res)
                 }
 
                 else {
-                    const field = (cycle === 1) ? 'kilos' : 'informed_kilos';
+                    //const field = (cycle === 1) ? 'kilos' : 'informed_kilos';
+                    const field = 'kilos';
                     query = `UPDATE documents_body SET ${field}=${row.product.new_kilos} WHERE id=${row.id};`;
                 }
                 
@@ -6196,15 +6487,15 @@ router.post('/get_finished_weights', userMiddleware.isLoggedIn, async (req, res)
                 date = year + '-' + month + '-' + day;
 
                 conn.query(`
-                    SELECT weights.created, weights.id, weights.cycle, cycles.name, weights.primary_plates AS plates, 
+                    SELECT weights.created, weights.id AS weight, weights.cycle, cycles.name, weights.primary_plates AS plates, 
                     drivers.name AS driver, weights.gross_brute AS brute, weights.tare_net AS tare, 
                     weights.final_net_weight AS net
                     FROM weights
                     INNER JOIN cycles ON weights.cycle=cycles.id
                     INNER JOIN drivers ON weights.driver_id=drivers.id
-                    WHERE weights.status='${weight_status}' AND weights.cycle=1
+                    WHERE weights.status='${weight_status}'
                     AND created BETWEEN '${date}' AND '${date}'
-                    ORDER BY weights.id DESC;
+                    ORDER BY weights.id;
                 `, (error, results, fields) => {
                     if (error) return reject(error);
                     response.data = results;
@@ -6221,13 +6512,13 @@ router.post('/get_finished_weights', userMiddleware.isLoggedIn, async (req, res)
         const get_weights = () => {
             return new Promise((resolve, reject) => {
                 conn.query(`
-                    SELECT weights.created, weights.id, weights.cycle, cycles.name, weights.primary_plates AS plates, 
+                    SELECT weights.created, weights.id AS weight, weights.cycle, cycles.name, weights.primary_plates AS plates, 
                     drivers.name AS driver, weights.gross_brute AS brute, weights.tare_net AS tare, 
                     weights.final_net_weight AS net
                     FROM weights
                     INNER JOIN cycles ON weights.cycle=cycles.id
                     INNER JOIN drivers ON weights.driver_id=drivers.id
-                    WHERE weights.status='${weight_status}' AND weights.cycle=1
+                    WHERE weights.status='${weight_status}'
                     ORDER BY weights.id DESC LIMIT 100;
                 `, (error, results, fields) => {
                     if (error) return reject(error);
@@ -6285,7 +6576,7 @@ router.post('/get_finished_weight_by_date', userMiddleware.isLoggedIn, async (re
                 driver_sql = (driver.length === 0) ? '' : `AND drivers.name LIKE '%${driver}%'`;
 
                 conn.query(`
-                    SELECT weights.created, weights.id, weights.cycle, cycles.name, weights.primary_plates AS plates, 
+                    SELECT weights.created, weights.id AS weight, weights.cycle, cycles.name, weights.primary_plates AS plates, 
                     drivers.name AS driver, weights.gross_brute AS brute, weights.tare_net AS tare, 
                     weights.final_net_weight AS net
                     FROM weights
@@ -6302,6 +6593,9 @@ router.post('/get_finished_weight_by_date', userMiddleware.isLoggedIn, async (re
             })
         }
 
+        if (!validate_date(start_date)) throw 'Fecha de inicio inválida.';
+        if (!validate_date(end_date)) throw 'Fecha de término inválida.';
+
         await get_finished_weight();
         response.success = true;
 
@@ -6317,7 +6611,7 @@ router.post('/get_finished_weight_by_date', userMiddleware.isLoggedIn, async (re
 router.post('/get_finished_weight_by_id', userMiddleware.isLoggedIn, async (req, res) => {
 
     const
-    {weight_id} = req.body,
+    { weight_id } = req.body,
     response = { success: false };
 
     try {
@@ -6325,17 +6619,18 @@ router.post('/get_finished_weight_by_id', userMiddleware.isLoggedIn, async (req,
         const get_weight = () => {
             return new Promise((resolve, reject) => {
                 conn.query(`
-                    SELECT weights.created, weights.id, weights.cycle, cycles.name, weights.primary_plates AS plates, 
+
+                    SELECT weights.created, weights.id AS weight, weights.cycle, cycles.name, weights.primary_plates AS plates, 
                     drivers.name AS driver, weights.gross_brute AS brute, weights.tare_net AS tare, 
                     weights.final_net_weight AS net
                     FROM weights
                     INNER JOIN cycles ON weights.cycle=cycles.id
                     INNER JOIN drivers ON weights.driver_id=drivers.id
                     WHERE weights.id=${parseInt(weight_id)}
-                    ORDER BY weights.id DESC;
+                    ORDER BY weights.id;
                 `, (error, results, fields) => {
                     if (error || results.length === 0) return reject(error);
-                    response.weight = results[0];
+                    response.weights = results;
                     return resolve();
                 })
             })
@@ -6352,212 +6647,1090 @@ router.post('/get_finished_weight_by_id', userMiddleware.isLoggedIn, async (req,
     finally { res.json(response) }
 })
 
-router.post('/get_finished_weights_by_plates', userMiddleware.isLoggedIn, async (req,res ) => {
+router.post('/get_finished_weights_by_filters', userMiddleware.isLoggedIn, async (req, res) => {
 
-    const
-    { weight_status, plates, driver, cycle, start_date, end_date } = req.body,
-    response = { success: false };
-
-    try {
-
-        const get_weights = () => {
-            return new Promise((resolve, reject) => {
-                
-                const 
-                plates_sql = (plates.length === 0) ? '' : `weights.primary_plates='${plates}' AND`,
-                driver_sql = (driver.length === 0) ? '' : `drivers.name LIKE '%${driver}%' AND`;
-
-                conn.query(`
-                    SELECT weights.created, weights.id, weights.cycle, cycles.name, weights.primary_plates AS plates, 
-                    drivers.name AS driver, weights.gross_brute AS brute, weights.tare_net AS tare, 
-                    weights.final_net_weight AS net
-                    FROM weights
-                    INNER JOIN cycles ON weights.cycle=cycles.id
-                    INNER JOIN drivers ON weights.driver_id=drivers.id
-                    WHERE ${plates_sql} ${driver_sql} weights.cycle=${cycle} AND weights.status='${weight_status}'
-                    AND weights.created BETWEEN '${new_start_date} 00:00:00' AND '${new_end_date} 23:59:59'
-                    ORDER BY weights.id DESC;
-                `, (error, results, fields) => {
-                    if (error) return reject(error);
-                    response.weights = results;
-                    response.date = { start: new_start_date, end: new_end_date };
-                    return resolve();
-                })
-            })
-        }
-
-        let new_start_date, new_end_date;
-
-        if (!validate_date(start_date) || !validate_date(end_date)) {
-
-            new_start_date = '2019-01-01';
-
-            const 
-            now = new Date(),
-            year = now.getFullYear(),
-            month = (now.getMonth() + 1 < 10) ? '0' + (now.getMonth() + 1) : now.getMonth() + 1,
-            day = (now.getDate() + 1 < 10) ? '0' + (now.getDate()) : now.getDate();
-
-            new_end_date = year + '-' + month + '-' + day;
-
-        } else {
-            new_start_date = start_date;
-            new_end_date = end_date;
-        }
-
-        await get_weights();
-        response.success = true;
-
-    }
-    catch(e) { 
-        response.error = e; 
-        console.log(`Error getting finished weights by plates. ${e}`);
-        error_handler(`Endpoint: /get_finished_weights_by_plates -> User Name: ${req.userData.userName}\r\n${e}`);
-    }
-    finally { res.json(response) }
-})
-
-router.post('/get_finished_weights_by_driver', userMiddleware.isLoggedIn, async (req, res) => {
-
-    const
-    { weight_status, driver, plates, cycle, start_date, end_date } = req.body,
-    response = { success: false };
-
-    try {
-
-        const get_weights = () => {
-            return new Promise((resolve, reject) => {
-
-                const plates_sql = (plates.length === 0) ? '' : `AND weights.primary_plates='${plates}'`;
-
-                conn.query(`
-                    SELECT weights.created, weights.id, weights.cycle, cycles.name, weights.primary_plates AS plates, 
-                    drivers.name AS driver, weights.gross_brute AS brute, weights.tare_net AS tare, 
-                    weights.final_net_weight AS net
-                    FROM weights
-                    INNER JOIN cycles ON weights.cycle=cycles.id
-                    INNER JOIN drivers ON weights.driver_id=drivers.id
-                    WHERE drivers.name LIKE '%${driver}%' AND weights.cycle=${cycle} AND weights.status='${weight_status}'
-                    AND weights.created BETWEEN '${new_start_date} 00:00:00' AND '${new_end_date} 23:59:59' ${plates_sql}
-                    ORDER BY weights.id DESC;
-                `, (error, results, fields) => {
-                    if (error) return reject(error);
-                    response.weights = results;
-                    response.date = {
-                        start: new_start_date,
-                        end: new_end_date
-                    }
-                    return resolve();
-                })
-            })
-        }
-
-        let new_start_date, new_end_date;
-        if (!validate_date(start_date) || !validate_date(end_date)) {
-
-            new_start_date = '2019-01-01';
-
-            const 
-            now = new Date(),
-            year = now.getFullYear(),
-            month = (now.getMonth() + 1 < 10) ? '0' + (now.getMonth() + 1) : now.getMonth() + 1,
-            day = (now.getDate() + 1 < 10) ? '0' + (now.getDate()) : now.getDate();
-
-            new_end_date = year + '-' + month + '-' + day;
-
-        } else {
-            new_start_date = start_date;
-            new_end_date = end_date;
-        }
-
-        await get_weights();
-        response.success = true;
-
-    }
-    catch(e) { 
-        response.error = e; 
-        console.log(`Error getting weights by driver. ${e}`);
-        error_handler(`Endpoint: /get_finished_weights_by_driver -> User Name: ${req.userData.userName}\r\n${e}`);
-    }
-    finally { res.json(response) }
-})
-
-router.post('/get_finished_weights_by_cycle', userMiddleware.isLoggedIn, async (req, res) => {
-
-    const
+    const 
     { weight_status, cycle, driver, plates, start_date, end_date } = req.body,
-    response = { success: false };
+    weight_status_sql = (weight_status === 'All') ? '' : `AND weights.status='${weight_status.replace(/[^a-z]/gmi, '')}'`,
+    cycle_sql = (cycle === 'All') ? '' : `AND weights.cycle=${cycle.replace(/\D/gm, '')}`,
+    driver_sql = (driver.length === 0) ? '' : `AND drivers.name LIKE '%${driver.replace(/[^a-z ]/gmi, '')}%'`,
+    plates_sql = (plates.length === 0) ? '' : `AND weights.primary_plates LIKE '%${plates.replace(/[^a-z0-9]/gmi, '')}%'`,
+    response = { success: false }
 
     try {
 
         const get_weights = () => {
             return new Promise((resolve, reject) => {
-
-                const
-                driver_sql = (driver.length === 0) ? '' : `AND drivers.name LIKE '%${driver}%'`,
-                plates_sql = (plates.length === 0) ? '' : `AND weights.primary_plates='${plates}'`
-
                 conn.query(`
-                    SELECT weights.created, weights.id, weights.cycle, cycles.name, weights.primary_plates AS plates, 
+                    SELECT weights.created, weights.id AS weight, weights.cycle, cycles.name, weights.primary_plates AS plates, 
                     drivers.name AS driver, weights.gross_brute AS brute, weights.tare_net AS tare, 
                     weights.final_net_weight AS net
                     FROM weights
                     INNER JOIN cycles ON weights.cycle=cycles.id
                     INNER JOIN drivers ON weights.driver_id=drivers.id
-                    WHERE weights.cycle=${parseInt(cycle)} AND weights.status='${weight_status}' ${driver_sql} ${plates_sql}
-                    AND weights.created BETWEEN '${new_start_date} 00:00:00' AND '${new_end_date} 23:59:59' ${plates_sql}
-                    ORDER BY weights.id DESC;
+                    WHERE 1=1 ${weight_status_sql} ${cycle_sql} ${driver_sql} ${plates_sql} ${date_sql}
+                    ORDER BY weights.id;
                 `, (error, results, fields) => {
                     if (error) return reject(error);
                     response.weights = results;
-                    response.date = {
-                        start: new_start_date,
-                        end: new_end_date
-                    }
                     return resolve();
                 })
             })
         }
 
-        const get_last_season = () => {
+        let new_start_date, new_end_date;
+        if (!validate_date(start_date) && (validate_date(end_date))) new_start_date = new_end_date = end_date;
+        else if (validate_date(start_date) && (!validate_date(end_date))) new_start_date = new_end_date = start_date;
+        else if (!validate_date(start_date) && (!validate_date(end_date))) {
+
+            //const now = new Date(); 
+            new_start_date = format_html_date(set_to_monday(new Date()));
+            new_end_date = format_html_date(new Date()); 
+
+        }
+        else {
+            if (start_date > end_date) new_start_date = new_end_date = start_date;
+            else {
+                new_start_date = start_date;
+                new_end_date = end_date;    
+            }
+        }
+
+        const date_sql = `AND weights.created BETWEEN '${new_start_date} 00:00:00' AND '${new_end_date} 23:59:59'`;
+
+        await get_weights();
+        response.date = {
+            start: new_start_date,
+            end: new_end_date
+        }
+        response.success = true;
+
+    }
+    catch(e) { 
+        response.error = e; 
+        console.log(`Error getting finished weights by filters. ${e}`);
+        error_handler(`Endpoint: /get_finished_weights_by_filters -> User Name: ${req.userData.userName}\r\n${e}`);
+    }
+    finally { res.json(response) }
+})
+
+router.post('/finished_weights_excel_report_simple', userMiddleware.isLoggedIn, async (req, res) => {
+
+    const 
+    { data } = req.body,
+    response = { success: false }
+
+    try {
+
+        const generate_excel = () => {
+            return new Promise(async (resolve, reject) => {
+                try {
+
+                    const font = 'Calibri';
+                    const workbook = new excel.Workbook();
+
+                    const sheet = workbook.addWorksheet('Hoja1', {
+                        pageSetup:{
+                            paperSize: 9, 
+                            orientation:'portrait',
+                            margins: {
+                                left: 0.3149606, right: 0.3149606,
+                                top: 0.3543307, bottom: 0.3543307
+                            }
+                        }
+                    });
+                    
+                    sheet.columns = [
+                        { header: 'Nº', key: 'line' },
+                        { header: 'PESAJE', key: 'weight_id' },
+                        { header: 'CICLO', key: 'cycle' },
+                        { header: 'FECHA', key: 'created' },
+                        { header: 'VEHICULO', key: 'plates' },
+                        { header: 'CHOFER', key: 'driver' },
+                        { header: 'BRUTO', key: 'brute' },
+                        { header: 'TARA', key: 'tare' },
+                        { header: 'NETO', key: 'net' }
+                    ]
+
+                    //FORMAT FIRST ROW
+                    const header_row = sheet.getRow(1);
+                    for (let i = 1; i < 10; i++) {
+                        header_row.border = {
+                            top: { style: 'thin' },
+                            left: { style: 'thin' },
+                            bottom: { style: 'thin' },
+                            right: { style: 'thin' }
+                        }
+                        header_row.getCell(i).alignment = {
+                            vertical: 'middle',
+                            horizontal: 'center'
+                        }
+                        header_row.getCell(i).font = {
+                            size: 11,
+                            name: font,
+                            bold: true
+                        }
+                    }
+                    
+                    for (let i = 0; i < data.length; i++) {
+                    
+                        const data_row = sheet.getRow(i + 2);
+
+                        data_row.getCell(1).value = parseInt(data[i].line);
+                        data_row.getCell(2).value = parseInt(data[i].weight_id);
+                        data_row.getCell(3).value = data[i].cycle;
+                        data_row.getCell(4).value = data[i].created;
+                        data_row.getCell(5).value = data[i].plates;
+                        data_row.getCell(6).value = data[i].driver;
+                        data_row.getCell(7).value = parseInt(data[i].brute);
+                        data_row.getCell(8).value = parseInt(data[i].tare);
+                        data_row.getCell(9).value = parseInt(data[i].net);
+
+                        data_row.getCell(1).numFmt = '#,##0;[Red]#,##0';
+                        data_row.getCell(2).numFmt = '#,##0;[Red]#,##0';
+                        data_row.getCell(7).numFmt = '#,##0;[Red]#,##0';
+                        data_row.getCell(8).numFmt = '#,##0;[Red]#,##0';
+                        data_row.getCell(9).numFmt = '#,##0;[Red]#,##0';
+
+
+                        for (let j = 1; j < 10; j++) {
+                            const active_cell = data_row.getCell(j);
+                            active_cell.font = {
+                                size: 11,
+                                name: font
+                            }
+
+                            active_cell.alignment = {
+                                vertical: 'middle',
+                                horizontal: 'center'
+                            }
+
+                            active_cell.border = {
+                                top: { style: 'thin' },
+                                left: { style: 'thin' },
+                                bottom: { style: 'thin' },
+                                right: { style: 'thin' }
+                            }
+                        }
+                    }
+
+                    sheet.columns.forEach(column => {
+                        let dataMax = 0;
+                        column.eachCell({ includeEmpty: false }, cell => {
+                            let columnLength = cell.value.length + 3;	
+                            if (columnLength > dataMax) {
+                                dataMax = columnLength;
+                            }
+                        });
+                        column.width = (dataMax < 5) ? 5 : dataMax;
+                    });
+
+                    sheet.removeConditionalFormatting();
+
+                    const file_name = new Date().getTime();
+                    await workbook.xlsx.writeFile('./temp/' + file_name + '.xlsx');
+                    response.file_name = file_name;
+                    
+                    return resolve()
+                } catch(e) { return reject(e) }
+            })
+        }
+
+        await generate_excel();
+        response.success = true;
+
+    }
+    catch(e) {
+        response.error = e;
+        console.log(`Error creating excel report for finished weights. ${e}`);
+        error_handler(`Endpoint: /finished_weights_excel_report -> User Name: ${req.userData.userName}\r\n${e}`);
+    }
+    finally { res.json(response) }
+})
+
+router.post('/finished_weights_excel_report_detailed', userMiddleware.isLoggedIn, async (req, res) => {
+
+    const 
+    { weight_status, cycle, driver, plates, start_date, end_date } = req.body,
+    weight_status_sql = (weight_status === 'All') ? '' : `AND weights.status='${weight_status.replace(/[^a-z]/gmi, '')}'`,
+    cycle_sql = (cycle === 'All') ? '' : `AND weights.cycle=${cycle.replace(/\D/gm, '')}`,
+    driver_sql = (driver.length === 0) ? '' : `AND drivers.name LIKE '%${driver.replace(/[^a-z ]/gmi, '')}%'`,
+    plates_sql = (plates.length === 0) ? '' : `AND weights.primary_plates LIKE '%${plates.replace(/[^a-z0-9]/gmi, '')}%'`,
+    temp = {},
+    response = { success: false }
+
+    try {
+
+        const get_weights_no_date = () => {
             return new Promise((resolve, reject) => {
                 conn.query(`
-                    SELECT beginning, ending FROM seasons WHERE id=(
-                        SELECT MAX(id) FROM seasons
-                    );
-                `, (error, results, fields) => {
-                    if (error || results.length === 0) return reject(error);
-                    return resolve({ 
-                        start: results[0].beginning.toISOString().split('T')[0], 
-                        end: (results[0].ending === null) ? todays_date() :  results[0].ending.toISOString().split('T')[0]
+                    SELECT weights.created, weights.id AS weight, weights.cycle, cycles.name AS cycle_name, weights.primary_plates AS plates, 
+                    drivers.name AS driver, weights.gross_brute AS brute, weights.tare_net AS tare, 
+                    weights.final_net_weight AS net
+                    FROM weights
+                    INNER JOIN cycles ON weights.cycle=cycles.id
+                    INNER JOIN drivers ON weights.driver_id=drivers.id
+                    WHERE 1=1 ${weight_status_sql} ${cycle_sql} ${driver_sql} ${plates_sql}
+                    ORDER BY weights.id DESC LIMIT 100;
+                `,async (error, results, fields) => {
+                    if (error) return reject(error);
+
+                    temp.weights = results;
+
+                    for (let i = 0; i < temp.weights.length; i++) {
+                        const docs = await get_weight_documents(temp.weights[i].weight);
+                        temp.weights[i].docs = docs.documents;
+                    }
+
+                    return resolve();
+                })
+            })
+        }
+
+        const get_weights = () => {
+            return new Promise((resolve, reject) => {
+                conn.query(`
+                    SELECT weights.created, weights.id AS weight, weights.cycle, cycles.name AS cycle_name, weights.primary_plates AS plates, 
+                    drivers.name AS driver, weights.gross_brute AS brute, weights.tare_net AS tare, 
+                    weights.final_net_weight AS net
+                    FROM weights
+                    INNER JOIN cycles ON weights.cycle=cycles.id
+                    INNER JOIN drivers ON weights.driver_id=drivers.id
+                    WHERE 1=1 ${weight_status_sql} ${cycle_sql} ${driver_sql} ${plates_sql} ${date_sql}
+                    ORDER BY weights.id;
+                `,async (error, results, fields) => {
+                    if (error) return reject(error);
+                    
+                    temp.weights = results;
+
+                    for (let i = 0; i < temp.weights.length; i++) {
+                        const docs = await get_weight_documents(temp.weights[i].weight);
+                        temp.weights[i].docs = docs.documents;
+                    }
+
+                    return resolve();
+                })
+            })
+        }
+
+        const generate_excel = () => {
+            return new Promise(async (resolve, reject) => {
+                try {
+
+                    const font = 'Calibri';
+                    const workbook = new excel.Workbook();
+
+                    const sheet = workbook.addWorksheet('Hoja1', {
+                        pageSetup:{
+                            paperSize: 9, 
+                            orientation:'landscape',
+                            margins: {
+                                left: 0.3149606, right: 0.3149606,
+                                top: 0.3543307, bottom: 0.3543307
+                            }
+                        }
                     });
+
+                    const weights = temp.weights;
+
+                    let current_row = 1;
+
+                    for (let i = 0; i < weights.length; i++) {
+
+                        if (weights[i].docs.length === 0) continue;
+
+                        const header_row = sheet.getRow(current_row);
+                        header_row.getCell(1).value = 'PESAJE';
+                        header_row.getCell(2).value = 'VEHICULO';
+                        header_row.getCell(3).value = 'CICLO';
+                        header_row.getCell(4).value = 'CHOFER';
+                        header_row.getCell(5).value = 'ENTIDAD';
+                        header_row.getCell(6).value = 'SUCURSAL';
+                        header_row.getCell(7).value = 'Nº DOC';
+                        header_row.getCell(8).value = 'FECHA DOC.';
+                        header_row.getCell(9).value = 'CANT. ENVASE';
+                        header_row.getCell(10).value = 'ENVASE';
+                        header_row.getCell(11).value = 'PRODUCTO';
+                        header_row.getCell(12).value = 'DESCARTE';
+                        header_row.getCell(13).value = 'KILOS';
+                        header_row.getCell(14).value = 'KG. INF.';
+
+                        //FORMAT HEADER ROW
+                        for (let j = 1; j < 15; j++) {
+                            header_row.getCell(j).border = {
+                                top: { style: 'thin' },
+                                left: { style: 'thin' },
+                                bottom: { style: 'thin' },
+                                right: { style: 'thin' }
+                            }
+                            header_row.getCell(j).alignment = {
+                                vertical: 'middle',
+                                horizontal: 'center'
+                            }
+                            header_row.getCell(j).font = {
+                                bold: true,
+                                size: 11,
+                                name: font
+                            }
+                        }
+
+                        current_row += 1;
+                        
+                        let first_row = current_row;
+
+                        weights[i].docs.forEach(doc => {
+                            
+                            doc.rows.forEach(row => {
+
+                                const data_row = sheet.getRow(current_row);
+                                data_row.getCell(1).value = parseInt(weights[i].weight);
+                                data_row.getCell(2).value = weights[i].plates;
+                                data_row.getCell(3).value = weights[i].cycle_name;
+                                data_row.getCell(4).value = weights[i].driver;
+                                
+                                data_row.getCell(5).value = doc.client.entity.name;
+                                data_row.getCell(6).value = doc.client.branch.name;
+                                data_row.getCell(7).value = doc.number;
+                                data_row.getCell(8).value = (doc.date === null) ? '' : new Date(doc.date.split(' ')[0]).toLocaleString('es-CL').split(' ')[0];
+                                
+                                data_row.getCell(9).value = (row.container.amount === null) ? 0 : parseInt(row.container.amount);
+                                data_row.getCell(10).value = (row.container.name === null) ? '' : row.container.name.replace(' Con Marcado VL', '');
+                                data_row.getCell(11).value = row.product.name;
+                                data_row.getCell(12).value = row.product.cut;
+                                data_row.getCell(13).value = row.product.kilos;
+                                data_row.getCell(14).value = row.product.informed_kilos;
+
+                                data_row.getCell(7).numFmt = '#,##0;[Red]#,##0';
+                                data_row.getCell(13).numFmt = '#,##0;[Red]#,##0';
+                                data_row.getCell(14).numFmt = '#,##0;[Red]#,##0';
+
+                                //FORMAT EACH CELL ROW
+                                for (let j = 1; j < 15; j++) {
+                                    data_row.getCell(j).border = {
+                                        top: { style: 'thin' },
+                                        left: { style: 'thin' },
+                                        bottom: { style: 'thin' },
+                                        right: { style: 'thin' }
+                                    }
+                                    data_row.getCell(j).alignment = {
+                                        vertical: 'middle',
+                                        horizontal: 'center'
+                                    }
+                                }
+
+                                current_row++;
+                            })
+
+                        })
+
+                        sheet.getCell(`I${current_row}`).value = { formula: `SUM(I${first_row}:I${current_row - 1})` }
+                        sheet.getCell(`M${current_row}`).value = { formula: `SUM(M${first_row}:M${current_row - 1})` }
+                        sheet.getCell(`N${current_row}`).value = { formula: `SUM(N${first_row}:N${current_row - 1})` }
+
+                        sheet.getCell(`I${current_row}`).alignment = {
+                            vertical: 'middle',
+                            horizontal: 'center'
+                        }
+                        sheet.getCell(`I${current_row}`).font = {
+                            bold: true,
+                            size: 11,
+                            name: font
+                        }
+                        sheet.getCell(`I${current_row}`).numFmt = '#,##0;[Red]#,##0';
+
+                        sheet.getCell(`M${current_row}`).alignment = {
+                            vertical: 'middle',
+                            horizontal: 'center'
+                        }
+                        sheet.getCell(`M${current_row}`).font = {
+                            bold: true,
+                            size: 11,
+                            name: font
+                        }
+                        sheet.getCell(`M${current_row}`).numFmt = '#,##0;[Red]#,##0';;
+
+                        sheet.getCell(`N${current_row}`).alignment = {
+                            vertical: 'middle',
+                            horizontal: 'center'
+                        }
+                        sheet.getCell(`N${current_row}`).font = {
+                            bold: true,
+                            size: 11,
+                            name: font
+                        }
+                        sheet.getCell(`N${current_row}`).numFmt = '#,##0;[Red]#,##0';
+
+                        current_row += 2;
+
+                    }
+
+                    sheet.columns.forEach(column => {
+                        let dataMax = 0;
+                        column.eachCell({ includeEmpty: false }, cell => {
+                            if (cell.value !== null) {
+                                let columnLength = cell.value.length + 1.5;	
+                                if (columnLength > dataMax) {
+                                    dataMax = columnLength;
+                                }    
+                            }
+                        });
+                        column.width = (dataMax < 3) ? 3 : dataMax;
+                    });
+
+                    sheet.removeConditionalFormatting();
+
+                    const file_name = new Date().getTime();
+                    await workbook.xlsx.writeFile('./temp/' + file_name + '.xlsx');
+                    response.file_name = file_name;
+
+                    return resolve()
+                } catch(e) { return reject(e) }
+            })
+        }
+
+        let new_start_date, new_end_date;
+        if (!validate_date(start_date) && (validate_date(end_date))) new_start_date = new_end_date = end_date;
+        else if (validate_date(start_date) && (!validate_date(end_date))) new_start_date = new_end_date = start_date;
+        else if (!validate_date(start_date) && (!validate_date(end_date))) {
+
+            new_start_date = format_html_date(set_to_monday(new Date()));
+            new_end_date = format_html_date(new Date()); 
+
+        }
+        else {
+            if (start_date > end_date) new_start_date = new_end_date = start_date;
+            else {
+                new_start_date = start_date;
+                new_end_date = end_date;    
+            }
+        }
+
+        const date_sql = `AND weights.created BETWEEN '${new_start_date} 00:00:00' AND '${new_end_date} 23:59:59'`;
+
+        if (start_date.length === 0 && end_date.length === 0) await get_weights_no_date();
+        else await get_weights();
+        await generate_excel();
+        
+        response.success = true;
+
+    }
+    catch(e) { 
+        response.error = e; 
+        console.log(`Error generating finished weights detailed excel. ${e}`);
+        error_handler(`Endpoint: /finished_weights_excel_report_detailed -> User Name: ${req.userData.userName}\r\n${e}`);
+    }
+    finally { res.json(response) }
+
+})
+
+router.get('/get_excel_report', userMiddleware.isLoggedIn, async (req, res, next) => {
+
+    const
+    query = new URLSearchParams(req.url),
+    file_name = query.get('/get_excel_report?file_name');
+
+    try {
+
+        console.log(path.join(__dirname, `../temp/${file_name}`))
+
+        res.download(path.join(__dirname, `../temp/${file_name}.xlsx`), 'reporte_excel.xlsx', error => {
+            if (error) next(error);
+            else {
+                console.log('File Sent');
+                next();
+                fs.unlink(path.join(__dirname, `../temp/${file_name}.xlsx`), error => {
+                    if (error) console.log(error);
+                })
+            }
+        })
+
+    } catch(e) { console.log(e) }
+
+})
+
+/****************** DOCUMENTS *****************/
+router.get('/documents_get_docs', userMiddleware.isLoggedIn, async (req, res) => {
+
+    const response = { success: false }
+
+    try {
+
+        const get_docs = () => {
+            return new Promise((resolve, reject) => {
+                conn.query(`
+                    SELECT header.weight_id, weights.status AS weight_status, weights.cycle AS cycle, cycles.name AS cycle_name, 
+                    header.number, header.status AS doc_status, entities.name AS entity, header.date
+                    FROM documents_header header
+                    INNER JOIN weights ON header.weight_id=weights.id
+                    INNER JOIN entities ON header.client_entity=entities.id
+                    INNER JOIN cycles ON weights.cycle=cycles.id
+                    WHERE weights.status='T' AND header.status='I'
+                    ORDER BY weights.id DESC, header.id ASC LIMIT 100;
+                `, (error, results, fields) => {
+                    if (error) return reject(error);
+                    response.docs = results;
+                    return resolve();
+                })
+            })
+        }
+
+        await get_docs();
+        response.success = true;
+
+    }
+    catch(e) { 
+        response.error = e; 
+        console.log(`Error getting documents. ${e}`);
+        error_handler(`Endpoint: /documents_get_docs -> User Name: ${req.userData.userName}\r\n${e}`);
+    }
+    finally { res.json(response) }
+})
+
+router.post('/documents_docs_by_number', userMiddleware.isLoggedIn, async (req, res) => {
+
+    const 
+    { weight_status, doc_status, cycle, doc_number } = req.body,
+    weight_status_sql = (weight_status === 'All') ? '' : `AND weights.status='${weight_status}'`,
+    doc_status_sql = (doc_status === 'All') ? '' : `AND header.status='${doc_status}'`,
+    cycle_sql = (cycle === 'All') ? '' : `AND weights.cycle=${parseInt(cycle)}`,
+    response = { success: false }
+
+    try {
+
+        const get_documents = () => {
+            return new Promise((resolve, reject) => {
+                conn.query(`
+                    SELECT header.weight_id, weights.status AS weight_status, weights.cycle, cycles.name AS cycle_name, 
+                    header.number, header.status AS doc_status, entities.name AS entity, header.date
+                    FROM documents_header header
+                    INNER JOIN weights ON header.weight_id=weights.id
+                    INNER JOIN entities ON header.client_entity=entities.id
+                    INNER JOIN cycles ON weights.cycle=cycles.id
+                    WHERE header.number=${parseInt(doc_number)} ${weight_status_sql} ${doc_status_sql} ${cycle_sql}
+                    ORDER BY weights.id DESC, header.id;
+                `, (error, results, fields) => {
+                    if (error) return reject(error);
+                    response.docs = results;
+                    return resolve();
+                })
+            })
+        }
+
+        await get_documents();
+        response.success = true;
+
+    }
+    catch(e) { 
+        response.error = e; 
+        console.log(`Error getting documents by number. ${e}`);
+        error_handler(`Endpoint: /documents_docs_by_number -> User Name: ${req.userData.userName}\r\n${e}`);
+    }
+    finally { res.json(response) }
+})
+
+router.post('/documents_get_docs_from_filters', userMiddleware.isLoggedIn, async (req, res ) => {
+
+    const 
+    { weight_status, doc_status, cycle, doc_number, entity, start_date, end_date } = req.body,
+    weight_status_sql = (weight_status === 'All') ? '' : `AND weights.status='${weight_status}'`,
+    doc_status_sql = (doc_status === 'All') ? '' : `AND header.status='${doc_status}'`,
+    cycle_sql = (cycle === 'All') ? '' : `AND weights.cycle=${parseInt(cycle)}`,
+    entity_sql = (entity.length === 0) ? '' : `AND entities.name LIKE '%${entity}%'`,
+    doc_number_sql = (doc_number.length === 0 || doc_number === null) ? '' : `AND header.number=${parseInt(doc_number)}`,
+    response = { success: false };
+
+    try {
+
+        const get_documents = () => {
+            return new Promise((resolve, reject) => {
+                conn.query(`
+                    SELECT header.weight_id, weights.status AS weight_status, weights.cycle, cycles.name AS cycle_name, 
+                    header.number, header.status AS doc_status, entities.name AS entity, header.date
+                    FROM documents_header header
+                    INNER JOIN weights ON header.weight_id=weights.id
+                    INNER JOIN entities ON header.client_entity=entities.id
+                    INNER JOIN cycles ON weights.cycle=cycles.id
+                    WHERE 1=1 ${doc_number_sql} ${weight_status_sql} ${doc_status_sql} ${cycle_sql} ${entity_sql} ${date_sql}
+                    ORDER BY weights.id DESC, header.id;
+                `, (error, results, fields) => {
+                    if (error) return reject(error);
+                    response.documents = results;
+                    return resolve();
                 })
             })
         }
 
         let new_start_date, new_end_date;
-        if (!validate_date(start_date) || !validate_date(end_date)) {
+        if (!validate_date(start_date) && validate_date(end_date)) new_start_date = new_end_date = end_date;
+        else if (validate_date(start_date) && !validate_date(end_date)) new_start_date = new_end_date = start_date;
+        else if (validate_date(start_date) && validate_date(end_date)) {
 
-            const this_season = await get_last_season()
-
-            new_start_date = this_season.start + ' 00:00:00';
-            new_end_date = this_season.end;
-
-        } else {
-            new_start_date = start_date;
-            new_end_date = end_date;
+            if (start_date > end_date) new_start_date = new_end_date = start_date;
+            else {
+                new_start_date = start_date;
+                new_end_date = end_date;    
+            }
+        }
+        else {
+            //const now = new Date();
+            new_start_date = format_html_date(set_to_monday(new Date()));
+            new_end_date = format_html_date(new Date());
         }
 
-        await get_weights();
+        const date_sql = `AND (header.date BETWEEN '${new_start_date} 00:00:00' AND '${new_end_date} 00:00:00')`;
+
+        await get_documents();
+        response.date = {
+            start: new_start_date,
+            end: new_end_date
+        }
         response.success = true;
+
     }
     catch(e) { 
         response.error = e; 
-        console.log(`Error getting weights by cycle. ${e}`);
-        error_handler(`Endpoint: /get_finished_weights_by_cycle -> User Name: ${req.userData.userName}\r\n${e}`);
+        console.log(`Error getting documents from filters. ${e}`);
+        error_handler(`Endpoint: /documents_get_docs_from_filters -> User Name: ${req.userData.userName}\r\n${e}`);
     }
     finally { res.json(response) }
-});
+})
+
+router.post('/documents_generate_excel', userMiddleware.isLoggedIn, async (req, res) => {
+
+    const 
+    { weight_status, doc_status, cycle, doc_number, entity, start_date, end_date, type } = req.body,
+    weight_status_sql = (weight_status === 'All') ? '' : `AND weights.status='${weight_status}'`,
+    doc_status_sql = (doc_status === 'All') ? '' : `AND header.status='${doc_status}'`,
+    cycle_sql = (cycle === 'All') ? '' : `AND weights.cycle=${parseInt(cycle)}`,
+    entity_sql = (entity.length === 0) ? '' : `AND entities.name LIKE '%${entity}%'`,
+    doc_number_sql = (doc_number.length === 0 || doc_number === null) ? '' : `AND header.number=${parseInt(doc_number)}`,
+    temp = {},
+    response = { success: false };
+
+    console.log(req.body)
+
+    try {
+
+        const get_last_100_records_simple = () => {
+            return new Promise((resolve, reject) => {
+                conn.query(`
+                    SELECT header.weight_id, weights.status AS weight_status, weights.cycle, cycles.name AS cycle_name, weights.primary_plates,
+                    header.number, header.status AS doc_status, entities.name AS entity, header.date, header.document_total, drivers.name AS driver,
+                    entity_branches.name AS branch
+                    FROM documents_header header
+                    INNER JOIN weights ON header.weight_id=weights.id
+                    LEFT OUTER JOIN entities ON header.client_entity=entities.id
+                    INNER JOIN cycles ON weights.cycle=cycles.id
+                    LEFT OUTER JOIN drivers ON weights.driver_id=drivers.id
+                    LEFT OUTER JOIN entity_branches ON header.client_branch=entity_branches.id
+                    WHERE 1=1 ${doc_number_sql} ${weight_status_sql} ${doc_status_sql} ${cycle_sql} ${entity_sql}
+                    ORDER BY weights.id DESC, header.id LIMIT 100;
+                `, (error, results, fields) => {
+                    if (error) return reject(error);
+                    temp.documents = results;
+                    return resolve()
+                })
+            })
+        }
+
+        const get_documents_simple = () => {
+            return new Promise((resolve, reject) => {
+                conn.query(`
+                    SELECT header.weight_id, weights.status AS weight_status, weights.cycle, cycles.name AS cycle_name, weights.primary_plates,
+                    header.number, header.status AS doc_status, entities.name AS entity, header.date, header.document_total, drivers.name AS driver,
+                    entity_branches.name AS branch
+                    FROM documents_header header
+                    INNER JOIN weights ON header.weight_id=weights.id
+                    LEFT OUTER JOIN entities ON header.client_entity=entities.id
+                    INNER JOIN cycles ON weights.cycle=cycles.id
+                    LEFT OUTER JOIN drivers ON weights.driver_id=drivers.id
+                    LEFT OUTER JOIN entity_branches ON header.client_branch=entity_branches.id
+                    WHERE 1=1 ${doc_number_sql} ${weight_status_sql} ${doc_status_sql} ${cycle_sql} ${entity_sql} ${date_sql}
+                    ORDER BY weights.id DESC, header.id;
+                `, (error, results, fields) => {
+                    if (error) return reject(error);
+                    temp.documents = results;
+                    return resolve();
+                })
+            })
+        }
+
+        const generate_excel_simple = () => {
+            return new Promise(async (resolve, reject) => {
+                try {
+
+                    const font = 'Calibri';
+                    const workbook = new excel.Workbook();
+
+                    const sheet = workbook.addWorksheet('Hoja1', {
+                        pageSetup:{
+                            paperSize: 9, 
+                            orientation:'landscape',
+                            margins: {
+                                left: 0.3149606, right: 0.3149606,
+                                top: 0.3543307, bottom: 0.3543307
+                            }
+                        }
+                    });
+
+                    sheet.columns = [
+                        { header: 'Nº', key: 'line' },
+                        { header: 'ESTADO PESAJE', key: 'weight_status' },
+                        { header: 'PESAJE', key: 'weight_id' },
+                        { header: 'CICLO', key: 'cycle' },
+                        { header: 'VEHICULO', key: 'plates' },
+                        { header: 'CHOFER', key: 'driver' },
+                        { header: 'FECHA DOC.', key: 'doc_date' },
+                        { header: 'ESTADO DOC.', key: 'doc_status' },
+                        { header: 'ENTIDAD', key: 'entity' },
+                        { header: 'SUCURSAL', key: 'branch' },
+                        { header: 'TOTAL DOC.', key: 'doc_total' }
+                    ]
+
+                    //FORMAT FIRST ROW
+                    const header_row = sheet.getRow(1);
+                    for (let i = 1; i <= 11; i++) {
+                        header_row.border = {
+                            top: { style: 'thin' },
+                            left: { style: 'thin' },
+                            bottom: { style: 'thin' },
+                            right: { style: 'thin' }
+                        }
+                        header_row.getCell(i).alignment = {
+                            vertical: 'middle',
+                            horizontal: 'center'
+                        }
+                        header_row.getCell(i).font = {
+                            size: 11,
+                            name: font,
+                            bold: true
+                        }
+                    }
+
+                    const docs = temp.documents;
+
+                    for (let i = 0; i < docs.length; i++) {
+                        
+                        const data_row = sheet.getRow(i + 2);
+
+                        let weight_status;
+                        if (docs[i].weight_status === 'T') weight_status = 'TERMINADO';
+                        else if (docs[i].weight_status === 'I') weight_status = 'INGRESADO';
+                        else if (docs[i].weight_status === 'N') weight_status = 'NULO';
+
+                        data_row.getCell(1).value = i + 1;
+                        data_row.getCell(2).value = weight_status;
+                        data_row.getCell(3).value = parseInt(docs[i].weight_id);
+                        data_row.getCell(4).value = docs[i].cycle_name;
+                        data_row.getCell(5).value = docs[i].primary_plates;
+                        data_row.getCell(6).value = docs[i].driver;
+                        data_row.getCell(7).value = docs[i].date
+                        data_row.getCell(8).value = (docs[i].doc_status === 'I') ? 'INGRESADO' : 'NULO';
+                        data_row.getCell(9).value = docs[i].entity;
+                        data_row.getCell(10).value = docs[i].branch;
+                        data_row.getCell(11).value = (docs[i].document_total === null)  ? 0 : parseInt(docs[i].document_total);
+
+                        data_row.getCell(1).numFmt = '#,##0;[Red]#,##0';
+                        data_row.getCell(3).numFmt = '#,##0;[Red]#,##0';
+                        data_row.getCell(11).numFmt = '#,##0;[Red]#,##0';
+
+                        for (let j = 1; j <= 11; j++) {
+                            const active_cell = data_row.getCell(j);
+                            active_cell.font = {
+                                size: 11,
+                                name: font
+                            }
+
+                            active_cell.alignment = {
+                                vertical: 'middle',
+                                horizontal: 'center'
+                            }
+
+                            active_cell.border = {
+                                top: { style: 'thin' },
+                                left: { style: 'thin' },
+                                bottom: { style: 'thin' },
+                                right: { style: 'thin' }
+                            }
+                        }
+                    }
+
+                    sheet.columns.forEach(column => {
+                        let dataMax = 0;
+                        column.eachCell({ includeEmpty: false }, cell => {
+                            let columnLength = cell.value.length + 3;	
+                            if (columnLength > dataMax) {
+                                dataMax = columnLength;
+                            }
+                        });
+                        column.width = (dataMax < 5) ? 5 : dataMax;
+                    });
+
+                    sheet.removeConditionalFormatting();
+
+                    const file_name = new Date().getTime();
+                    await workbook.xlsx.writeFile('./temp/' + file_name + '.xlsx');
+                    response.file_name = file_name;
+
+                    return resolve();
+                } catch(e) { return reject(e) }
+            })
+        }
+
+        const get_rows_for_detailed_document = doc_id => {
+            return new Promise((resolve, reject) => {
+                conn.query(`
+                    SELECT containers.name AS container_name, body.container_amount, products.name AS product_name, 
+                    body.cut, body.kilos, body.informed_kilos, body.price
+                    FROM documents_header header
+                    INNER JOIN documents_body body ON header.id=body.document_id
+                    INNER JOIN containers ON body.container_code=containers.code
+                    INNER JOIN products ON body.product_code=products.code
+                    WHERE header.id=${parseInt(doc_id)} AND (body.status='T' OR body.status='I')
+                    ORDER BY body.id ASC;
+                `, (error, results, fields) => {
+                    if (error) return reject(error);
+                    return resolve(results)
+                })
+            })
+        }
+
+        const get_last_100_records_detailed = () => {
+            return new Promise((resolve, reject) => {
+                conn.query(`
+                    SELECT header.id, header.weight_id, weights.status AS weight_status, cycles.name AS cycle_name, weights.primary_plates,
+                    header.number, header.status AS doc_status, entities.name AS entity, header.date, header.document_total, drivers.name AS driver,
+                    entity_branches.name AS branch
+                    FROM documents_header header
+                    INNER JOIN weights ON header.weight_id=weights.id
+                    LEFT OUTER JOIN entities ON header.client_entity=entities.id
+                    INNER JOIN cycles ON weights.cycle=cycles.id
+                    LEFT OUTER JOIN drivers ON weights.driver_id=drivers.id
+                    LEFT OUTER JOIN entity_branches ON header.client_branch=entity_branches.id
+                    WHERE 1=1 ${doc_number_sql} ${weight_status_sql} ${doc_status_sql} ${cycle_sql} ${entity_sql}
+                    ORDER BY weights.id DESC, header.id LIMIT 100;
+                `, async (error, results, fields) => {
+                    if (error) return reject(error);
+
+                    temp.documents = [];
+                    
+                    for (let i = 0; i < results.length; i++) {
+                    
+                        const doc = {
+                            weight_id: results[i].weight_id,
+                            weight_status: results[i].weight_status,
+                            cycle: results[i].cycle_name,
+                            plates: results[i].primary_plates,
+                            driver: results[i].driver,
+                            id: results[i].id,
+                            number: results[i].number,
+                            date: results[i].date,
+                            status: results[i].doc_status,
+                            entity: results[i].entity,
+                            branch: results[i].branch
+                        }
+
+                        docs.rows = await get_rows_for_detailed_document(doc.id)
+                        temp.documents.push(doc);
+                    }
+                    
+                    return resolve();    
+                })
+            })
+        }
+
+        const get_documents_detailed = () => {
+            return new Promise((resolve, reject) => {
+                conn.query(`
+                SELECT header.id, header.weight_id, weights.status AS weight_status, weights.cycle, cycles.name AS cycle_name, weights.primary_plates,
+                header.number, header.status AS doc_status, entities.name AS entity, header.date, header.document_total, drivers.name AS driver,
+                entity_branches.name AS branch, containers.name, body.container_amount AS container_name, products.name AS product_name, 
+                body.cut, body.kilos, body.informed_kilos, body.price
+                FROM documents_header header
+                INNER JOIN documents_body body ON header.id=body.document_id
+                INNER JOIN containers ON body.container_code=containers.code
+                INNER JOIN products ON body.product_code=products.code
+                INNER JOIN weights ON header.weight_id=weights.id
+                LEFT OUTER JOIN entities ON header.client_entity=entities.id
+                INNER JOIN cycles ON weights.cycle=cycles.id
+                LEFT OUTER JOIN drivers ON weights.driver_id=drivers.id
+                LEFT OUTER JOIN entity_branches ON header.client_branch=entity_branches.id
+                WHERE 1=1 ${doc_number_sql} ${weight_status_sql} ${doc_status_sql} ${cycle_sql} ${entity_sql} ${date_sql}
+                ORDER BY weights.id DESC, header.id;
+                `, (error, results, fields) => {
+                    if (error) return reject(error);
+                    temp.documents = results;
+                    return resolve();
+                })
+            })
+        }
+
+        const generate_excel_detailed = () => {
+            return new Promise(async (resolve, reject) => {
+                try {
+
+                    const font = 'Calibri';
+                    const workbook = new excel.Workbook();
+
+                    const sheet = workbook.addWorksheet('Hoja1', {
+                        pageSetup:{
+                            paperSize: 9, 
+                            orientation:'landscape',
+                            margins: {
+                                left: 0.3149606, right: 0.3149606,
+                                top: 0.3543307, bottom: 0.3543307
+                            }
+                        }
+                    });
+
+                    sheet.columns = [
+                        { header: 'ESTADO PESAJE', key: 'weight_status' },
+                        { header: 'PESAJE', key: 'weight_id' },
+                        { header: 'CICLO', key: 'cycle' },
+                        { header: 'VEHICULO', key: 'plates' },
+                        { header: 'CHOFER', key: 'driver' },
+                        { header: 'FECHA DOC.', key: 'doc_date' },
+                        { header: 'ESTADO DOC.', key: 'doc_status' },
+                        { header: 'ENTIDAD', key: 'entity' },
+                        { header: 'SUCURSAL', key: 'branch' },
+                        { header: 'ENVASE', key: 'container_name' },
+                        { header: 'CANT. ENVASE', key: 'container_amount' },
+                        { header: 'PRODUCTO', key: 'product' },
+                        { header: 'DESCARTE', key: 'cut' },
+                        { header: 'PRECIO', key: 'price' },
+                        { header: 'KILOS', key: 'kilos' },
+                        { header: 'KG. INF.', key: 'informed_kilos' }
+                    ]
+
+                    //FORMAT FIRST ROW
+                    const header_row = sheet.getRow(1);
+                    for (let i = 1; i <= 17; i++) {
+                        header_row.border = {
+                            top: { style: 'thin' },
+                            left: { style: 'thin' },
+                            bottom: { style: 'thin' },
+                            right: { style: 'thin' }
+                        }
+                        header_row.getCell(i).alignment = {
+                            vertical: 'middle',
+                            horizontal: 'center'
+                        }
+                        header_row.getCell(i).font = {
+                            size: 11,
+                            name: font,
+                            bold: true
+                        }
+                    }
+
+                    const docs = temp.documents;
+
+                    let current_row = 2;
+
+                    for (let i = 0; i < docs.length; i++) {
+
+                        current_row = docs[i].id;
+
+                        const data_row = sheet.getRow(current_row);
+
+                        let weight_status;
+                        if (docs[i].weight_status === 'T') weight_status = 'TERMINADO';
+                        else if (docs[i].weight_status === 'I') weight_status = 'INGRESADO';
+                        else if (docs[i].weight_status === 'N') weight_status = 'NULO';
+
+                        data_row.getCell(2).value = weight_status;
+                        data_row.getCell(3).value = parseInt(docs[i].weight_id);
+                        data_row.getCell(4).value = docs[i].cycle_name;
+                        data_row.getCell(5).value = docs[i].primary_plates;
+                        data_row.getCell(6).value = docs[i].driver;
+                        data_row.getCell(7).value = docs[i].date
+                        data_row.getCell(8).value = (docs[i].doc_status === 'I') ? 'INGRESADO' : 'NULO';
+                        data_row.getCell(9).value = docs[i].entity;
+                        data_row.getCell(10).value = docs[i].branch;
+                        data_row.getCell(12).value = (docs[i].container_name === null) ? '' : docs[i].container_name;
+                        data_row.getCell(13).value = (docs[i].container_amount === null) ? '' : parseInt(docs[i].container_amount);
+                        data_row.getCell(14).value = (docs[i].product_name === null) ? '' : docs[i].product_name;
+                        data_row.getCell(15).value = (docs[i].cut === null) ? '' : docs[i].cut;
+                        data_row.getCell(16).value = (docs[i].price === null) ? '' : parseInt(docs[i].price);
+                        data_row.getCell(17).value = (docs[i].kilos === null) ? '' : parseInt(docs[i].kilos);
+                        data_row.getCell(18).value = (docs[i].informed_kilos === null) ? '' : parseInt(docs[i].informed_);
+
+                        data_row.getCell(1).numFmt = '#,##0;[Red]#,##0';
+                        data_row.getCell(3).numFmt = '#,##0;[Red]#,##0';
+                        data_row.getCell(11).numFmt = '#,##0;[Red]#,##0';
+
+                        //FORMAT EACH CELL ROW
+                        for (let j = 1; j <= 18; j++) {
+                            data_row.getCell(j).border = {
+                                top: { style: 'thin' },
+                                left: { style: 'thin' },
+                                bottom: { style: 'thin' },
+                                right: { style: 'thin' }
+                            }
+                            data_row.getCell(j).alignment = {
+                                vertical: 'middle',
+                                horizontal: 'center'
+                            }
+                        }
+
+                        current_row += 1;
+                    }
+
+
+
+                    return resolve();
+                } catch(e) { return reject(e) }
+            })
+        }
+
+
+
+        let new_start_date, new_end_date;
+        if (!validate_date(start_date) && validate_date(end_date)) new_start_date = new_end_date = end_date;
+        else if (validate_date(start_date) && !validate_date(end_date)) new_start_date = new_end_date = start_date;
+        else if (validate_date(start_date) && validate_date(end_date)) {
+
+            if (start_date > end_date) new_start_date = new_end_date = start_date;
+            else {
+                new_start_date = start_date;
+                new_end_date = end_date;    
+            }
+        }
+        else {
+            //const now = new Date();
+            new_start_date = format_html_date(set_to_monday(new Date()));
+            new_end_date = format_html_date(new Date());
+        }
+
+        const date_sql = `AND (header.date BETWEEN '${new_start_date} 00:00:00' AND '${new_end_date} 00:00:00')`;
+
+        if (type === 'simple') {
+
+            if (start_date.length === 0 && end_date.length === 0) await get_last_100_records_simple();
+            else await get_documents_simple();
+
+            await generate_excel_simple();
+        }
+
+        else {
+
+            if (start_date.length === 0 && end_date.length === 0) await get_last_100_records_detailed();
+            else await get_documents_detailed();
+
+            await generate_excel_detailed();
+
+        }
+
+
+        response.success = true;
+
+    }
+    catch(e) { 
+        response.error = e; 
+        console.log(`Error generating excel for documents. ${e}`);
+        error_handler(`Endpoint: /documents_generate_excel_simple -> User Name: ${req.userData.userName}\r\n${e}`);
+    }
+    finally { res.json(response) }
+})
 
 /********************** CLIENTS / PROVIDERS *********************/
 router.post('/get_entities_data', userMiddleware.isLoggedIn, async (req, res) => {
@@ -6567,8 +7740,6 @@ router.post('/get_entities_data', userMiddleware.isLoggedIn, async (req, res) =>
     type_sql = (type.length > 1) ? '' : `AND entities.type='${type.substring(0, 1)}'`,
     status_sql = (status.length > 1) ? '' : `AND entities.status='${status.substring(0, 1)}'`,
     response = { success: false }
-
-    console.log(req.body)
 
     try {
 
@@ -7265,6 +8436,168 @@ router.post('/create_save_product', userMiddleware.isLoggedIn, async (req, res) 
     finally { res.json(response) }
 })
 
+router.post('/upload_product_image', userMiddleware.isLoggedIn, async (req, res) => {
+
+    const 
+    query = new URLSearchParams(req.url),
+    image_name = query.get('/upload_product_image?image_name'),
+    response = { success: false }
+
+    try {
+
+        req.on('data', async chunk => {
+            fs.appendFileSync(`./temp/${image_name}`, chunk);
+        });
+
+        response.success = true;
+        
+    }
+    catch(e) { 
+        response.error = e; 
+        console.log(`Error uploading product image. ${e}`);
+        error_handler(`Endpoint: /upload_product_image -> User Name: ${req.userData.userName}\r\n${e}`);
+    }
+    finally { res.json(response) }
+})
+
+router.post('/save_product_image', userMiddleware.isLoggedIn, async (req, res) => {
+
+    const
+    { product_code, image_name } = req.body,
+    file_extension = image_name.split('.')[1],
+    temp = { resized: false },
+    response = { success: false }
+
+    console.log(image_name, file_extension)
+    try {
+
+        const check_files = () => {
+            return new Promise((resolve, reject) => {
+                fs.readdir('./public/images/grapes', (error, files) => {
+                    if (error) return reject(error);
+                    for (let i = 0; i < files.length; i++) {
+                        const code = files[i].split('.')[0];
+                        if (code === product_code) {
+                            temp.file = files[i];
+                            return resolve(true);
+                        }
+                    }
+                    return resolve(false);
+                })
+            })
+        }
+
+        const remove_image = path => {
+            return new Promise((resolve, reject) => {
+                fs.unlink(path, error => {
+                    if (error) return reject(error);
+                    return resolve();
+                })
+            })
+        }
+
+        const get_image_size = () => {
+            return new Promise((resolve, reject) => {
+                try { 
+                    const { size } = fs.statSync(`./temp/${image_name}`);
+                    return resolve(size);
+                }
+                catch(e) { return reject(e) }
+            })
+        }
+
+        
+        const resize_image = () => {
+            return new Promise(async (resolve, reject) => {
+                try {
+
+                    const 
+                    metadata = await sharp(`./temp/${image_name}`).metadata(),
+                    image_width = metadata.width,
+                    new_width = Math.floor(image_width * 0.7);
+
+                    await sharp(`./temp/${image_name}`)
+                        .resize({
+                            width: new_width
+                        })
+                        .toFile(`./temp/${image_name}.resized`)
+
+                    temp.resized = true;
+
+                    //REPLACE ORIGINAL FILE WITH RESIZED ONE
+                    fs.rename(`./temp/${image_name}.resized`, `./temp/${image_name}`, error => {
+                        if (error) throw error;
+                        return resolve()
+                    })
+
+                } catch(e) { return reject(e) }
+            })
+        }
+        
+
+        const move_product_image = () => {
+            return new Promise((resolve, reject) => {
+                const 
+                temp_path = `./temp/${image_name}`,
+                final_path = `./public/images/grapes/${product_code}.${file_extension}`;
+
+                fs.rename(temp_path, final_path, error => {
+                    if (error) return reject(error);
+                    return resolve();
+                })
+            })
+        }
+
+        const update_db = () => {
+            return new Promise((resolve, reject) => {
+                console.log(`${product_code}.${file_extension}`)
+                conn.query(`
+                    UPDATE products SET image='./images/grapes/${product_code}.${file_extension}' WHERE code=${conn.escape(product_code)};
+                `, (error, results, fields) => {
+                    if (error) return reject(error);
+                    return resolve()
+                })
+            })
+        }
+
+        let file_exists = await check_files();
+        console.log(file_exists)
+        
+        if (file_exists) await remove_image(`./public/images/grapes/${temp.file}`);
+
+        let image_size = await get_image_size();
+        console.log(image_size)
+
+        
+        await resize_image();
+        image_size = await get_image_size();
+        console.log(image_size);
+        
+
+        /*
+        while (image_size > 100000) {
+            await resize_image();
+            image_size = await get_image_size();
+            console.log(image_size);
+        }
+        */
+        
+        await move_product_image();
+        
+        await update_db();
+
+        response.image_name = `${product_code}.${file_extension}`;
+        response.success = true;
+
+    }
+    catch(e) { 
+        response.error = e; 
+        console.log(`Error saving product image. ${e}`);
+        error_handler(`Endpoint: /save_product_image -> User Name: ${req.userData.userName}\r\n${e}`);
+    }
+    finally { res.json(response) }
+})
+
 /********************** VEHICLES *********************/
 router.post('/list_vehicles', userMiddleware.isLoggedIn, async (req, res) => {
 
@@ -7601,8 +8934,9 @@ router.get('/analytics_stock_get_entities', userMiddleware.isLoggedIn, async (re
                     INNER JOIN weights ON header.weight_id=weights.id
                     INNER JOIN documents_body body ON header.id=body.document_id
                     INNER JOIN containers ON body.container_code=containers.code
-                    WHERE weights.cycle=${cycle} AND header.client_entity=${entity} AND containers.type='Bins Plastico'
+                    WHERE weights.cycle=${cycle} AND header.client_entity=${entity} AND containers.type LIKE '%Bin%'
                     AND (weights.status='T' OR weights.status='I') AND (header.status='T' OR header.status='I')
+                    AND (body.status='T' OR body.status='I')
                     AND (weights.created BETWEEN '${temp.season.start}' AND '${temp.season.end}');
                 `, (error, results, fields) => {
                     if (error) return reject(error);
@@ -7614,7 +8948,14 @@ router.get('/analytics_stock_get_entities', userMiddleware.isLoggedIn, async (re
         const get_entities = () => {
             return new Promise((resolve, reject) => {
                 conn.query(`
-                    SELECT * FROM entities WHERE status=1 AND type <> 'T' AND id <> 183 ORDER BY type ASC, name ASC;
+                    SELECT entities.*
+                    FROM weights 
+                    INNER JOIN documents_header header ON weights.id=header.weight_id
+                    INNER JOIN entities ON header.client_entity=entities.id
+                    WHERE weights.status='T' AND header.status='I' AND header.client_entity<>183 AND 
+                    weights.created > '${temp.season.start}'
+                    GROUP BY header.client_entity
+                    ORDER BY entities.type ASC, entities.name ASC;
                 `, async (error, results, fields) => {
 
                     if (error) return reject(error);
@@ -7627,6 +8968,7 @@ router.get('/analytics_stock_get_entities', userMiddleware.isLoggedIn, async (re
                             rut: results[i].rut,
                             type: results[i].type
                         }
+
                         entity.receptions = await movements(entity.id, 1);
                         entity.dispatches = await movements(entity.id, 2);
                         entity.stock = entity.dispatches - entity.receptions;

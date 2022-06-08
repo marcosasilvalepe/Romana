@@ -73,8 +73,7 @@ function update_products_list(data) {
             document.querySelector('#home-statistics__date .stats-data p:last-child').innerText = new Date(home_object.date.end + ' 15:00:00').toLocaleString('es-CL').split(' ')[0];
         }
 
-        setTimeout(resolve, 10)
-        //return resolve();
+        setTimeout(resolve, 0);
     })
 }
 
@@ -240,21 +239,36 @@ async function home_change_cycle_in_modal() {
 
     document.querySelector('#home-modal__data').innerHTML = template;
     
-    document.querySelectorAll('.home-modal__change-cycle').forEach(cycle_btn => {
-        cycle_btn.addEventListener('click', function() {
-            const btn = this;
-            if (btn.classList.contains('active')) return;
-            document.querySelector('.home-modal__change-cycle.active').classList.remove('active');
-            btn.classList.add('active');
-        });
-    });
+    //CHANGE CYCLE IN SMALLER SCREENS
+    document.querySelector('#home-modal__change-cycle-buttons').addEventListener('click', async e => {
 
+        if (clicked) return;
+	    prevent_double_click();
+
+        let btn;
+        if (e.target.classList.contains('home-modal__change-cycle')) btn = e.target;
+        else if (e.target.className === 'icon-container' || e.target.matches('p')) btn = e.target.parentElement;
+        else if (e.target.matches('i')) btn = e.target.parentElement.parentElement;
+        else return;
+
+        if (btn.classList.contains('active')) return;
+
+        const cycle = parseInt(btn.getAttribute('data-cycle'));
+        home_object.filters.internal = (cycle === 3) ? true : false;
+
+        await home_change_cycle(cycle);
+
+        document.querySelector('.home-modal__change-cycle.active').classList.remove('active');
+        btn.classList.add('active');
+
+    })
+    
     document.getElementById('home-modal__close').addEventListener('click', async () => {
 
         const new_cycle = parseInt(document.querySelector('.home-modal__change-cycle.active').getAttribute('data-cycle'));
         document.querySelector('#home-modal').classList.remove('active');
         
-        if (new_cycle !== home_object.cycle) await dalay(600);
+        if (new_cycle !== home_object.cycle) await delay(600);
         else await home_change_cycle(new_cycle);
         
         document.querySelector('#home-modal__change-cycle').remove();
@@ -300,10 +314,13 @@ document.querySelector('#home-statistics__date .dropdown').addEventListener('cli
         else if (dropdown_item.id === 'home-date__this-week') {
 
             let monday = now.getDate() - now.getDay() + (now.getDay() === 0 ? -6 : 1);
+            console.log(monday)
             if (monday < 10) monday = '0' + monday;
 
             start_date = `${year}-${month}-${monday}`;
             end_date = `${year}-${month}-${day}`;
+
+            console.log(start_date, end_date)
         }
 
         //THIS MONTH
@@ -961,6 +978,8 @@ async function home_show_client_documents(e) {
 
         console.log(response)
 
+        console.table(response.data)
+
         const 
         tr1 = document.createElement('tr'),
         tr2 = document.createElement('tr');
@@ -1208,7 +1227,6 @@ document.getElementById('home-products').addEventListener('click', async e => {
 });
 
 function home_get_initial_products() {
-
     return new Promise(async (resolve, reject) => {
         try {
 
@@ -1227,15 +1245,23 @@ function home_get_initial_products() {
 
             if (home_object.internal) fade_out(document.getElementById('home-products'));
 
+            home_object.cycle = response.cycle;
+
+            let cycle_name;
+            if (response.cycle === 1) cycle_name = 'RECEPCION';
+            else if (response.cycle === 2) cycle_name = 'DESPACHO';
+            else if (response.cycle === 3) cycle_name = 'INGRESOS BODEGA';
+
+            document.querySelector('#home-statistics__cycle .stats-data p').innerText = cycle_name;
+
+            document.querySelector('#home-statistics__product .stats-data p').innerText = response.type.toUpperCase();
+            
             document.querySelectorAll('#home-products > .product').forEach(div => { div.remove() });
 
             home_object.filters.cut = 'total';
-            home_object.filters.type = 'Uva';
+            home_object.filters.type = response.type;
             home_object.date.start = response.seasons[response.seasons.length - 1].start;
             home_object.date.end = response.seasons[response.seasons.length - 1].end;
-
-            //home_object.date.start = response.seasons[0].start;
-            //home_object.date.end = response.seasons[0].end;
 
             home_object.products = response.products;
             home_object.seasons = response.seasons;
@@ -1395,7 +1421,7 @@ function home_get_initial_products() {
 
     }
     
-    try {
-        await home_get_initial_products();
-    } catch(error) { error_handler('Error al obtener productos.', error) }
+    try { await home_get_initial_products() } 
+    catch(error) { error_handler('Error al obtener productos.', error) }
+    
 })();

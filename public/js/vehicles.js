@@ -201,7 +201,7 @@ document.querySelector('#vehicles-table .tbody').addEventListener('click', async
 
         //SELECT TRANSPORT ONLY IF IS SAN VICENTE. DEFAULT TO NONE
         const selected_option = (response.vehicle.transport_id === null) ? 
-            transport_select.firstElementChild : transport_select.querySelector(`option[value="${response.vehicle.transport_id}"]`);
+            transport_select.querySelector('option:nth-child(2)') : transport_select.querySelector(`option[value="${response.vehicle.transport_id}"]`);
             
         transport_select.options[selected_option.index].selected = true;
         transport_select.dispatchEvent(new Event('change'));

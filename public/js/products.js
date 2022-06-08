@@ -86,6 +86,21 @@ const product_template_event_listeners = e => {
             div.parentElement.classList.add('hidden');
             div.remove();
         });
+
+        document.querySelector('#product__create-edit__product-image').parentElement.addEventListener('click', async function() {
+            this.querySelector('input').click();
+        });
+
+        document.querySelector('#products__create-edit-product input[name="image"]').onchange = e => {
+            const 
+            input = e.target,
+            reader = new FileReader();
+            reader.onload = event => {
+                document.querySelector('#product__create-edit__product-image > div').style.backgroundImage = `url("${event.target.result}")`;
+            }
+            reader.readAsDataURL(input.files[0]);
+        }
+
         return resolve();
     })
 }
@@ -122,12 +137,75 @@ const create_save_product = async create => {
 
     const 
     type_select = document.getElementById('product__create-edit__type-select'),
+    image_input = document.querySelector('#product__create-edit__product-image').previousElementSibling,
+    file_reader = new FileReader(),
     data = {
         code: document.getElementById('product__create-edit__code').value,
         type : type_select.options[type_select.selectedIndex].value,
         primary_name: document.getElementById('product__create-edit__primary-name').value,
         secondary_name: document.getElementById('product__create-edit__secondary-name').value
+    };
+
+    let image = (image_input.files.length > 0) ? image_input.files[0] : null;
+
+    let image_name, image_upload;
+
+    //UPLOAD IMAGE TO SERVER ON SEPARTE REQUEST
+    file_reader.onload = async e => {
+
+        try {
+
+            check_loader();
+
+            console.log(image_name)
+
+            const
+            content = e.target.result,
+            chunk_size = 20000,
+            total_chunks = e.target.result.byteLength / chunk_size;
+
+            for (let chunk = 0; chunk < total_chunks + 1; chunk++) {
+
+                const this_chunk = content.slice(chunk * chunk_size, (chunk + 1) * chunk_size);
+                
+                const 
+                upload_file = await fetch(`upload_product_image?image_name=${image_name}`, {
+                    method: 'POST',
+                    headers: {
+                        "Content-Type" : "application/octet-stream",
+                        "Content-Length" : this_chunk.length
+                    },
+                    body: this_chunk
+                }),
+                upload_response = await upload_file.json();;
+
+                if (upload_response.error !== undefined || !upload_response.success) throw 'Error al subir archivo.'
+               
+            }
+
+            const 
+            save_product_image = await fetch('/save_product_image', {
+                method: 'POST',
+                headers: {
+                    "Content-Type" : "application/json",
+                    "Authorization" : token.value
+                },
+                body: JSON.stringify({ product_code: data.code, image_name: image_name })
+            }),
+            save_image_response = await save_product_image.json();
+
+            image_upload = true;
+
+            const table_image = document.querySelector(`#products__table .tr[data-code="${data.code}"] .image > div`);
+            if (!!table_image) table_image.style.backgroundImage = `url("./images/grapes/${save_image_response.image_name}")`;
+
+        } 
+        catch(error) { error_handler('Error al subir imagen de producto.', error) }
+        finally { check_loader() }
     }
+
+    //SANITIZE OBJECT
+    for (let key in data) { data[key] = DOMPurify().sanitize(data[key]) }
 
     try {
 
@@ -135,8 +213,6 @@ const create_save_product = async create => {
         if (data.type.length === 0) throw 'Tipo de producto no seleccionado.'
         if (data.primary_name.length === 0) throw 'Campo de nombre principal vacío';
 
-        //SANITIZE OBJECT
-	    for (let key in data) { data[key] = DOMPurify().sanitize(data[key]) }
         data.create = create;
 
         const 
@@ -153,6 +229,13 @@ const create_save_product = async create => {
         if (response.error !== undefined) throw response.error;
         if (!response.success) throw 'Success response from server is false.';
 
+        if (image === null) image_upload = true;
+        else {
+            image_name = image.name;
+            image_upload = false;
+            file_reader.readAsArrayBuffer(image);
+        }
+
         if (create) {
             await products_create_tr(response.products);
             document.querySelector(`#products__table .tbody .tr:last-child`).scrollIntoView();
@@ -164,6 +247,7 @@ const create_save_product = async create => {
             tr.querySelector('.alternative-name').innerText = (data.secondary_name.length === 0) ? '-' : data.secondary_name;
         }
 
+        while (!image_upload) await delay(10)
         document.querySelector('#products__create-edit-product__container > .close-btn-absolute').click();
 
     } catch(error) {error_handler('Error al intentar crear producto.', error) }
