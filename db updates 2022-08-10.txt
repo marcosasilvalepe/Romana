@@ -1,9 +1,0 @@
-//CAMBIAR BLACK POR AUTUMN ROYAL
-UPDATE documents_body 
-SET product_code='pblack' 
-WHERE product_code='paroyal' AND document_id > 6069;
-
-//UPDATE INTERNAL ENTITY
-UPDATE documents_header
-SET internal_entity=1, internal_branch=1
-WHERE created > '2021-12-01 00:00:00' AND internal_entity = 183;
