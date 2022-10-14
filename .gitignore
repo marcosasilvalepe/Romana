@@ -1,9 +1,6 @@
 node_modules
-config
-scripts
 public/fontawesome
 old
-online_db
 production
 cert
 backup
@@ -18,3 +15,6 @@ print.py
 mysql_procedures_rut.txt
 qz-tray.exe
 test.jpg
+vpn
+*.txt
+*.pdf
