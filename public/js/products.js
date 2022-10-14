@@ -44,10 +44,10 @@ const products_create_tr = products => {
                             <i class="fas fa-pen-square"></i>
                         </div>
                     </div>
-                    <div class="td code">${DOMPurify().sanitize(product.code)}</div>
-                    <div class="td type">${DOMPurify().sanitize(product.type)}</div>
-                    <div class="td primary-name">${DOMPurify().sanitize(product.primary_name)}</div>
-                    <div class="td alternative-name">${DOMPurify().sanitize(product.secondary_name)}</div>
+                    <div class="td code">${sanitize(product.code)}</div>
+                    <div class="td type">${sanitize(product.type)}</div>
+                    <div class="td primary-name">${sanitize(product.primary_name)}</div>
+                    <div class="td alternative-name">${sanitize(product.secondary_name)}</div>
                     <div class="td image">
                         <div style="background-image: url('${product.image}')"></div>
                     </div>
@@ -109,7 +109,7 @@ const delete_product = async function() {
 
     if (btn_double_clicked(this)) return;
 
-    const product_code = DOMPurify().sanitize(document.getElementById('products__create-edit-product').getAttribute('data-code'));
+    const product_code = sanitize(document.getElementById('products__create-edit-product').getAttribute('data-code'));
 
     try {
 
@@ -205,7 +205,7 @@ const create_save_product = async create => {
     }
 
     //SANITIZE OBJECT
-    for (let key in data) { data[key] = DOMPurify().sanitize(data[key]) }
+    for (let key in data) { data[key] = sanitize(data[key]) }
 
     try {
 
@@ -291,7 +291,7 @@ document.querySelector('#products__table .tbody').addEventListener('click', asyn
     try {
 
         const
-        code = DOMPurify().sanitize(tr.getAttribute('data-code')),
+        code = sanitize(tr.getAttribute('data-code')),
         get_product = await fetch('/get_product', {
             method: 'POST',
             headers: {
@@ -387,7 +387,7 @@ document.getElementById('products__search-product').addEventListener('keydown', 
     
     if (e.code !== 'Tab' && e.key !== 'Enter') return;
 
-    const product = DOMPurify().sanitize(e.target.value);
+    const product = sanitize(e.target.value);
 
     try {
 

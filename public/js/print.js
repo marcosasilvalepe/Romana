@@ -1,56 +1,3 @@
-async function error_handler(custom_msg, msg) {
-	console.error(msg);
-	if (typeof msg === 'object') {
-		if (msg === null) msg = 'msg is null';
-		else if (msg.sqlMessage !== undefined) msg = msg.sqlMessage;
-		else msg = msg.toString();
-	}
-
-	const
-	menu_icon = document.getElementById('menu-errors'),
-	error_div = document.getElementById('error-section'),
-	container = document.getElementById('error-container'),
-	error_container = document.createElement('div'),
-	now = new Date().toLocaleString('es-CL').split(' ')[1],
-	time = document.createElement('h4'),
-	custom_div = document.createElement('div'),
-	custom_p = document.createElement('p'),
-	msg_div = document.createElement('div'),
-	msg_p = document.createElement('p');
-
-	error_container.className = 'error-container';
-	error_container.append(time, custom_div, msg_div);
-
-	time.innerText = now;
-
-	custom_div.className = 'error-custom-msg';
-	custom_div.appendChild(custom_p);
-	custom_p.innerText = custom_msg;
-
-	msg_div.className = 'error-msg';
-	msg_div.appendChild(msg_p);
-	msg_p.innerText = msg;
-
-	container.appendChild(error_container);
-	error_div.classList.add('active');
-	menu_icon.classList.add('new-error');
-}
-
-function load_css(src) {
-	return new Promise(async resolve => {
-		const version = await get_file_version(src);
-		if (!!document.querySelector(`link[href="${src}?v=${version}"]`)) return resolve();
-
-		const css = document.createElement('link');
-		css.onload = () => { return resolve() }
-		css.setAttribute('rel', 'stylesheet');
-		css.setAttribute('href', src + '?v=' + version);
-		document.head.appendChild(css);
-	})
-}
-
-function thousand_separator(num) { return num.toString().replace(/(\d)(?=(\d{3})+(?!\d))/g, '$1.') }
-
 function print_spaces(description, description_value, total_spaces) {
     
     const left_spaces = total_spaces - description.length - description_value.length;
@@ -575,7 +522,6 @@ function test(weight) {
     })
 }
 
-
 (() => {
 
     if (!!document.querySelector('#print-with-browser-grid')) {
@@ -605,7 +551,7 @@ function test(weight) {
             //window.document.close(); // necessary for IE >= 10
             window.focus(); // necessary for IE >= 10*/
             window.print();
-            window.close();    
+            //window.close();    
         })
 
     }

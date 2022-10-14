@@ -1,0 +1,152 @@
+<nav class="breadcrumb">
+    <ul id="documents__breadcrumb">
+        <li>
+            <i class="fal fa-file-alt"></i>
+            <h4>DOCUMENTOS</h4>
+        </li>
+    </ul>
+</nav>
+
+<div class="content config">
+    <div id="documents__table-grid">
+
+        <div id="documents__filters">
+            
+            <div>
+                <input id="documents__doc-number" type="text" class="input-effect">
+                <label>Nº DOC.</label>
+                <span class="focus-border"></span>
+            </div>
+    
+            <div>
+                <input id="documents__entity" type="text" class="input-effect">
+                <label>RAZON SOCIAL</label>
+                <span class="focus-border"></span>
+            </div>
+
+            <div>
+                <input id="documents__start-date" type="date" class="input-effect has-content">
+                <label>FECHA INICIAL</label>
+                <span class="focus-border"></span>
+            </div>
+    
+            <div>
+                <input id="documents__end-date" type="date" class="input-effect has-content">
+                <label>FECHA FINAL</label>
+                <span class="focus-border"></span>							
+            </div>
+    
+            <div>
+                <div class="select-effect has-content">
+                    <p>TERMINADOS</p>
+                    <select id="documents__weight-status-select">
+                        <option value="" hidden=""></option>
+                        <option value="All">TODOS</option>
+                        <option value="I">INGRESADOS</option>
+                        <option selected="" value="T">TERMINADOS</option>
+                        <option value="N">NULOS</option>
+                    </select>
+                    <i class="far fa-chevron-down"></i>
+                    <label>ESTADO PESAJE</label>
+                    <span class="focus-border"></span>
+                </div>
+            </div>
+    
+            <div>
+                <div class="select-effect has-content">
+                    <p>INGRESADOS</p>
+                    <select id="documents__doc-status-select">
+                        <option value="" hidden=""></option>
+                        <option value="All">TODOS</option>
+                        <option selected="" value="I">INGRESADOS</option>
+                        <option value="N">NULOS</option>
+                    </select>
+                    <i class="far fa-chevron-down"></i>
+                    <label>ESTADO DOC.</label>
+                    <span class="focus-border"></span>
+                </div>
+            </div>
+    
+            <div>
+                <div class="select-effect has-content">
+                    <p>TODOS</p>
+                    <select id="documents__cycle-select">
+                        <option value="" hidden=""></option>
+                        <option selected value="All">TODOS</option>
+                        <option value="1">RECEPCION</option>
+                        <option value="2">DESPACHO</option>
+                        <option value="3">INTERNO</option>
+                    </select>
+                    <i class="far fa-chevron-down"></i>
+                    <label>CICLO</label>
+                    <span class="focus-border"></span>
+                </div>
+            </div>
+    
+            
+            
+        </div>
+    
+        <div id="documents__table">
+            <div class="table-header">
+                <div class="table">
+                    <div class="thead">
+                        <div class="tr">
+                            <div class="th line">Nº</div>
+                            <div class="th weight_status">
+                                <div>
+                                    <i class="fas fa-chevron-down"></i>
+                                    <span>ESTADO PESAJE</span>
+                                </div>
+                            </div>
+                            <div class="th weight_id selected" data-ascending-order="false">
+                                <div>
+                                    <i class="fas fa-chevron-down"></i>
+                                    <span>PESAJE</span>
+                                </div>
+                            </div>
+                            <div class="th cycle">
+                                <div>
+                                    <i class="fas fa-chevron-down"></i>
+                                    <span>CICLO</span>
+                                </div>
+                            </div>
+                            <div class="th date">
+                                <div>
+                                    <i class="fas fa-chevron-down"></i>
+                                    <span>FECHA</span>
+                                </div>
+                            </div>
+                            <div class="th number">
+                                <div>
+                                    <i class="fas fa-chevron-down"></i>
+                                    <span>DOC.</span>
+                                </div>
+                            </div>
+                            <div class="th doc_status">
+                                <div>
+                                    <i class="fas fa-chevron-down"></i>
+                                    <span>ESTADO DOC.</span>
+                                </div>
+                            </div>
+                            <div class="th entity">
+                                <div>
+                                    <i class="fas fa-chevron-down"></i>
+                                    <span>CLIENTE / PROVEEDOR</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+    
+            <div class="table-content">
+                <div class="table">
+                    <div class="tbody"></div>
+                </div>
+            </div>
+    
+        </div>
+
+    </div>
+</div>

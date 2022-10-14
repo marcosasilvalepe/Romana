@@ -1,0 +1,1 @@
+document.body.oncontextmenu = () => { return false }

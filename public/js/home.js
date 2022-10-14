@@ -34,26 +34,33 @@ const product_drag = {
 function update_products_list(data) {
     return new Promise(resolve => {
 
+        let show_percentage = true;
+        for (let i = 0; i < data.products.length; i++) {
+            if (data.products[i].kilos <= 0) {
+                show_percentage = false;
+                break
+            }            
+        }
+        
         const table = document.querySelector('#home-products');
         data.products.forEach(product => {
-            if (product.kilos > 0) {
 
-                const product_div = document.createElement('div');
-                product_div.className = 'product';
-                product_div.setAttribute('data-product-code', product.code);
-        
-                product_div.innerHTML = `
-                    <div class="product-img-container">
-                        <div class="product-img">
-                            <div style="background-image:url('${product.image}')"></div>
-                        </div>
+            const product_div = document.createElement('div');
+            product_div.className = 'product';
+            product_div.setAttribute('data-product-code', product.code);
+    
+            product_div.innerHTML = `
+                <div class="product-img-container">
+                    <div class="product-img">
+                        <div style="background-image:url('${product.image}')"></div>
                     </div>
-                    <h4 class="product-name">${DOMPurify().sanitize(product.name.split('-')[0].replace(product.type, '').trim())}</h4>
-                    <p class="kilos">${DOMPurify.sanitize(thousand_separator(product.kilos))} KG</p>
-                    <p>${DOMPurify().sanitize(Math.floor(((product.kilos / data.total) * 10000)) / 100)}%</p>
-                `;
-                table.appendChild(product_div)    
-            }
+                </div>
+                <h4 class="product-name">${sanitize(product.name.split('-')[0].replace(product.type, '').trim())}</h4>
+                <p class="kilos">${thousand_separator(parseInt(product.kilos))} KG</p>
+                <p>${(show_percentage) ? (Math.floor(((parseInt(product.kilos) / data.total) * 10000)) / 100) + '%' : ''}</p>
+            `;
+            table.appendChild(product_div)    
+            
         });
         
         const 
@@ -168,6 +175,10 @@ function home_change_cycle(cycle) {
             else if (cycle === 3) {
                 cycle_icon.className = 'fal fa-warehouse';
                 cycle_text.innerText = 'INGRESOS BODEGA';
+            }
+            else if (cycle === 0) {
+                cycle_icon.className = 'fad fa-sort-alt';
+                cycle_text.innerText = 'STOCK BODEGA';
             }
     
             if (!!document.querySelector('#home-statistics__cycle .dropdown-container'))
@@ -449,9 +460,9 @@ function home_products_date() {
 
     const
     start_input = document.getElementById('home-date__start'),
-    start_date = DOMPurify().sanitize(start_input.value),
+    start_date = sanitize(start_input.value),
     end_input = document.getElementById('home-date__end'),
-    end_date = DOMPurify().sanitize(end_input.value);
+    end_date = sanitize(end_input.value);
 
     get_products_by_date(start_date, end_date);
 }
@@ -574,7 +585,7 @@ function home_change_date_in_modal() {
             <div class="icon-container">
                 <i class="far fa-check"></i>
             </div>
-            <p>${DOMPurify().sanitize(season.name).toUpperCase()}</p>
+            <p>${sanitize(season.name).toUpperCase()}</p>
         `;
 
         date_div.addEventListener('click', function() {
@@ -634,6 +645,8 @@ function home_change_product(product_type) {
     
             if (response.error !== undefined) throw response.error;
             if (!response.success) throw 'Success response from server is false.';
+
+            console.log(response)
 
             home_object.filters.type = product_type;
             home_object.total = response.total;
@@ -954,11 +967,11 @@ async function home_show_client_documents(e) {
     }
 
     const
-    client_id = DOMPurify().sanitize(tr.getAttribute('data-client-id')),
-    product_code = DOMPurify().sanitize(document.getElementById('home-modal__product-container').getAttribute('data-product-code')),
-    cycle = DOMPurify().sanitize(home_object.cycle),
-    start_date = DOMPurify().sanitize(home_object.date.start),
-    end_date = DOMPurify().sanitize(home_object.date.end);
+    client_id = sanitize(tr.getAttribute('data-client-id')),
+    product_code = sanitize(document.getElementById('home-modal__product-container').getAttribute('data-product-code')),
+    cycle = sanitize(home_object.cycle),
+    start_date = sanitize(home_object.date.start),
+    end_date = sanitize(home_object.date.end);
     
     try {
 
@@ -1185,7 +1198,7 @@ async function create_products_modal_content(response) {
 
 document.getElementById('home-products').addEventListener('click', async e => {
     
-    if (clicked) return;
+    if (clicked || home_object.cycle === 0) return;
 	prevent_double_click();
 
     if (e.target.parentElement.className !== 'product-img') return;

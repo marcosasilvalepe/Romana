@@ -1,0 +1,51 @@
+
+LAN DRIVERS FOR MOTHERBORAD:
+https://askubuntu.com/questions/1344156/ubuntu-20-04-2-and-onboard-intel-i219-v
+
+MOUNTING USB:
+https://askubuntu.com/questions/37767/how-to-access-a-usb-flash-drive-from-the-terminal
+
+DOWNLOADING PACKAGES AND ALL DEPENDENCIES:
+https://stackoverflow.com/questions/22008193/how-to-list-download-the-recursive-dependencies-of-a-debian-package
+
+UBUNTU SERVER CONFIG:
+https://www.youtube.com/watch?v=vIJdypOqlL4
+
+PHPMYADMIN installation:
+https://www.digitalocean.com/community/tutorials/how-to-install-and-secure-phpmyadmin-on-ubuntu-20-04
+https://stackoverflow.com/questions/54007824/how-to-set-sql-mode-in-my-cnf-in-mysql-8
+
+PHPMYADMIN password:
+m@r$l1985_:)
+root password: myphpadmingp@s$w0ord2021
+htaccess pass: m@r$l1985_:)
+DTE user: dte
+DTE password: m1Ks3DVIAS28h7dt
+
+PM2 STUFF
+https://stackoverflow.com/questions/31579509/can-pm2-run-an-npm-start-script
+sudo pm2 start npm --no-automation --name "romana" -- run "start"
+
+OPENSSH installation:
+https://www.cyberciti.biz/faq/ubuntu-linux-install-openssh-server/
+
+DOCKER INSTALLATION
+https://www.digitalocean.com/community/tutorials/how-to-install-and-use-docker-on-ubuntu-20-04
+
+APACHE 3.0 - SPARK
+https://seraph13.medium.com/como-correr-apache-spark-desde-una-imagen-docker-88f62c676b2f
+https://www.cloudbooklet.com/how-to-install-php-7-3-on-ubuntu-18-04/
+
+SSL SERVER ON CLIENT
+https://deliciousbrains.com/ssl-certificate-authority-for-local-https-development/
+https://stackoverflow.com/questions/38728176/can-you-use-a-service-worker-with-a-self-signed-certificate
+
+OPENVPN
+user: marcos_vpn_client
+sudo openssl req -x509 -new -nodes -key myCA.key -sha256 -days 1825 -out myCA.pem
+
+UBUNTU STATIC IP
+https://linuxize.com/post/how-to-configure-static-ip-address-on-ubuntu-20-04/#:~:text=Configuring%20Static%20IP%20address%20on%20Ubuntu%20Desktop,-Setting%20up%20a&text=Depending%20on%20the%20interface%20you,IP%20address%2C%20Netmask%20and%20Gateway.
+
+WIFI Romana
+r0m@na_-_2022

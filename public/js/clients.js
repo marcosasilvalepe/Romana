@@ -4,7 +4,7 @@ const clients_search_entity = async e => {
 
     if (e.key!== 'Enter') return;
 
-    const entity = DOMPurify().sanitize(e.target.value);
+    const entity = sanitize(e.target.value);
 
     try {
         
@@ -57,9 +57,9 @@ const clients_create_row = entities => {
 					</div>
 				</div>
 				<div class="td type"></div>
-				<div class="td name">${DOMPurify().sanitize(entity.name)}</div>
-				<div class="td rut">${DOMPurify().sanitize(entity.rut)}</div>
-				<div class="td giro">${DOMPurify().sanitize(entity.giro)}</div>
+				<div class="td name">${sanitize(entity.name)}</div>
+				<div class="td rut">${sanitize(entity.rut)}</div>
+				<div class="td giro">${sanitize(entity.giro)}</div>
 			`;
 	
 			let entity_type;
@@ -83,8 +83,8 @@ function clients_select_filters() {
         const
         status_select = document.getElementById('clients__entities-active-select'),
         type_select = document.getElementById('clients__entities-type-select'),
-        status = DOMPurify().sanitize(status_select.options[status_select.selectedIndex].value),
-        type = DOMPurify().sanitize(type_select.options[type_select.selectedIndex].value);
+        status = sanitize(status_select.options[status_select.selectedIndex].value),
+        type = sanitize(type_select.options[type_select.selectedIndex].value);
         
         try {
     
@@ -281,9 +281,9 @@ const clients_edit_entity = async e => {
             tr.setAttribute('data-branch-id', branches[i].id);
             tr.innerHTML = `
                 <div class="td number">${i + 1}</div>
-                <div class="td branch">${DOMPurify().sanitize(branches[i].name)}</div>
-                <div class="td address">${DOMPurify().sanitize(branches[i].address)}</div>
-                <div class="td comuna">${DOMPurify().sanitize(branches[i].comuna)}</div>			
+                <div class="td branch">${sanitize(branches[i].name)}</div>
+                <div class="td address">${sanitize(branches[i].address)}</div>
+                <div class="td comuna">${sanitize(branches[i].comuna)}</div>			
             `;
             tbody.appendChild(tr);
         }
@@ -314,7 +314,7 @@ const clients_table_delete_entity = async function() {
 
     if (!!document.querySelector('#clients__table .tbody .tr.selected' === false)) return;
 
-    const entity = DOMPurify().sanitize(document.querySelector('#clients__table .tbody .tr.selected').getAttribute('data-entity-id'));
+    const entity = sanitize(document.querySelector('#clients__table .tbody .tr.selected').getAttribute('data-entity-id'));
 
     try {
 
@@ -411,7 +411,7 @@ async function clients_create_entity() {
         if (data.status.length === 0) throw 'Estado de Entidad sin seleccionar';
 
         //SANITIZE OBJECT
-        for (let key in data) { data[key] = DOMPurify().sanitize(data[key]) }
+        for (let key in data) { data[key] = sanitize(data[key]) }
 
         const
         create_entity = await fetch('/create_entity', {
@@ -460,10 +460,10 @@ async function clients_create_entity() {
                     <i class="${i_classname}"></i>
                 </div>
             </div>
-            <div class="td type">${DOMPurify().sanitize(type)}</div>
-            <div class="td name">${DOMPurify().sanitize(data.name)}</div>
-            <div class="td rut">${DOMPurify().sanitize(response.formatted_rut)}</div>
-            <div class="td giro">${DOMPurify().sanitize(giro)}</div>
+            <div class="td type">${sanitize(type)}</div>
+            <div class="td name">${sanitize(data.name)}</div>
+            <div class="td rut">${sanitize(response.formatted_rut)}</div>
+            <div class="td giro">${sanitize(giro)}</div>
 		`;
         tbody.prepend(tr);
 
@@ -482,7 +482,7 @@ async function clients_delete_entity() {
 
     if (!this.classList.contains('enabled')) return;
 
-    const entity = DOMPurify().sanitize(document.getElementById('clients__client-template').getAttribute('data-entity-id'));
+    const entity = sanitize(document.getElementById('clients__client-template').getAttribute('data-entity-id'));
 
     try {
 
@@ -534,7 +534,7 @@ async function clients_save_data() {
         if (data.status.length === 0) throw 'Estado de Entidad sin seleccionar';
 
         //SANITIZE OBJECT
-        for (let key in data) { data[key] = DOMPurify().sanitize(data[key]) }
+        for (let key in data) { data[key] = sanitize(data[key]) }
 
         const
         save_data = await fetch('/clients_save_data', {
@@ -650,7 +650,7 @@ async function clients_edit_branch(e) {
     if (clicked) return;
 	prevent_double_click();
 
-    const branch_id = DOMPurify().sanitize(e.target.parentElement.getAttribute('data-branch-id'));
+    const branch_id = sanitize(e.target.parentElement.getAttribute('data-branch-id'));
     try {
         
         const
@@ -775,7 +775,7 @@ async function clients_create_branch() {
         if (data.comuna.length === 0) throw 'Comuna sin seleccionar';
 
         //SANITIZE OBJECT
-        for (let key in data) { data[key] = DOMPurify().sanitize(data[key]) }
+        for (let key in data) { data[key] = sanitize(data[key]) }
 
         const
         create_branch = await fetch('/create_branch', {
@@ -840,7 +840,7 @@ async function client_save_branch_data() {
         }
         
         //SANITIZE OBJECT
-        for (let key in data) { data[key] = DOMPurify().sanitize(data[key]) }
+        for (let key in data) { data[key] = sanitize(data[key]) }
 
         const 
         save_data = await fetch('/save_branch_data', {
@@ -883,7 +883,7 @@ async function clients_delete_branch() {
         }
 
         //SANITIZE OBJECT
-        for (let key in data) { data[key] = DOMPurify().sanitize(data[key]) }
+        for (let key in data) { data[key] = sanitize(data[key]) }
 
         const
         delete_branch = await fetch('/delete_branch', {

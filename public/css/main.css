@@ -1209,7 +1209,7 @@ main {
 
 #message-section {
   width: auto;
-  height: 140px;
+  
 }
 
 @keyframes message_div_animation {
@@ -1259,10 +1259,6 @@ main {
   transition: opacity 0s 0s, width 0s, height 0s;
 }
 
-#message-section.active {
-  top: 36%;
-}
-
 #message-container,
 #message-container-2 {
   --container-color: hsl(230, 100%, 100%);
@@ -1277,6 +1273,11 @@ main {
   background-color: rgba(0, 0, 0, .3);
   box-shadow: 0 0 10px var(--container-color);
   cursor: grab;
+}
+
+div#message-section.centered {
+  height: 140px;
+  top: 36%;
 }
 
 @supports ((-webkit-backdrop-filter: none) or (backdrop-filter: none)) {
@@ -1668,16 +1669,15 @@ main {
 #user-profile {
   position: fixed;
   z-index: 100;
-  top: 56px;
-  right: 145px;
-  max-width: 250px;
+  top: 36px;
+  left: 202px;
   cursor: pointer;
-  transition: right 300ms 300ms ease;
+  transition: left 300ms 300ms ease;
 }
 
 #left__menu:hover ~ #user-profile {
-  right: 80px;
-  transition: right 300ms 0s ease;
+  left: 252px;
+  transition: left 300ms 0s ease;
 }
 
 #user-profile-container {
@@ -1695,15 +1695,15 @@ main {
 }
 
 #user-profile-icon {
-  margin: auto 5px auto auto;
+  margin: auto auto auto 0;
 }
 
 #user-profile-icon i {
- font-size: 21px;
+ font-size: 18px;
 }
 
 #user-profile-container p {
-  margin: auto;
+  margin: auto auto auto 5px;
   font-size: 16px;
   font-weight: 700;
   letter-spacing: .3px;
@@ -1752,10 +1752,17 @@ main {
 #user-profile-module {
   position: absolute;
   width: 100%;
-  height: calc(100% - 45px);
+  height: calc(100% - 41px);
   bottom: 0;
   z-index: 100000;
   display: flex;
+  background-color: rgba(0, 0, 0, .6);
+}
+
+@supports ((-webkit-backdrop-filter: none) or (backdrop-filter: none)) {
+  #user-profile-module {
+    backdrop-filter: blur(10px);
+  }
 }
 
 #user-profile-module .content-container {
@@ -1775,17 +1782,66 @@ main {
   width: 450px;
   height: calc(100% - 100px);
   margin: auto;
-  background-color: red;
   top: 20px;
 }
 
+
 #user-profile__content .body {
   border-top: 1px solid rgba(255, 255, 255, .3);
+  display: flex;
+  flex-direction: column;
 }
 
 #user-profile__content .create-document-btns-container {
   margin: auto;
 }
+
+#user-profile__close-session {
+  display: grid;
+  grid-template-rows: repeat(2, 1fr);
+  cursor: pointer;
+}
+
+#user-profile__close-session > div:first-child {
+  align-self: center;
+  justify-self: center;
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, .5);
+  box-shadow: 
+    0 0 15px 1px hsl(0, 100%, 50%)
+  ;
+  display: flex;
+  margin: auto auto 3px auto;
+}
+
+#user-profile__close-session > div:first-child i {
+  margin: auto;
+}
+
+#user-profile__close-session > div:last-child {
+  display: flex;
+}
+
+#user-profile__close-session > div:last-child p {
+  margin: 3px auto auto auto;
+  font-size: 12px;
+  text-align: center;
+  font-weight: 700;
+}
+
+#user-profiles__footer-btns {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+}
+
+
+
+
+
+
+
 
 #main__content {
   position: relative;
@@ -1971,7 +2027,7 @@ main {
 /**************** BREADCRUMB END ********************/
 .content-container {
   position: relative;
-  margin:auto;
+  margin: auto auto 0 auto;
   width: 1200px;
   height: 640px;
   display: none;

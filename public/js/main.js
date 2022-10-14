@@ -1,6 +1,4 @@
-"use strict";
-
-const sanitize = str => { return DOMPurify().sanitize(str)} 
+"use strict"; 
 
 let domain;
 (async () => {
@@ -39,6 +37,28 @@ const remove_weight_from_weights_array = () => {
 
 //WEIGHT OBJECT
 class create_weight_object {
+
+	constructor(weight_object) {
+		this.average_weight = weight_object.average_weight;
+		this.cycle = weight_object.cycle;
+		this.documents = [];
+		this.default_data = weight_object.default_data;
+		this.driver = weight_object.driver;
+		this.frozen = weight_object.frozen;
+		Object.freeze(this.frozen);
+		this.gross_weight = weight_object.gross_weight;
+		this.last_weights = weight_object.last_weights;
+		this.final_net_weight = weight_object.final_net_weight;
+		this.kilos = weight_object.kilos;
+		this.kilos_breakdown = weight_object.kilos_breakdown;
+		this.process = weight_object.default_data.process;
+		this.secondary_plates = weight_object.secondary_plates;					
+		this.status = weight_object.status;
+		this.tara_type = 'automatica';
+		this.tare_containers = weight_object.tare_containers;
+		this.tare_weight = weight_object.tare_weight;
+		this.transport = weight_object.transport;
+	}
 
 	print_weight() {
 		return new Promise(async (resolve, reject) => {
@@ -91,9 +111,10 @@ class create_weight_object {
 	}
 
 	update_driver(driver_id, set_driver_as_default) {
+		if (!this.active.edit) return;
 		return new Promise(async (resolve, reject) => {
-			driver_id = DOMPurify().sanitize(driver_id);
-			const weight_id = DOMPurify().sanitize(this.frozen.id);
+			driver_id = sanitize(driver_id);
+			const weight_id = sanitize(this.frozen.id);
 			try {
 				const update = await fetch('/update_driver', {
 					method: 'POST', 
@@ -117,8 +138,9 @@ class create_weight_object {
 	}
 
 	annul_document(doc_id) {
+		if (!this.active.edit) return;
 		return new Promise(async (resolve, reject) => {
-			doc_id = DOMPurify().sanitize(doc_id);
+			doc_id = sanitize(doc_id);
 			try {
 				const
 				annul = await fetch('/annul_document', {
@@ -152,11 +174,12 @@ class create_weight_object {
 
 	save_weight() {
 		return new Promise(async (resolve, reject) => {
+			if (!this.active.edit) return;
 			try {
 
 				const
-				weight_id = DOMPurify().sanitize(this.frozen.id),
-				process = DOMPurify().sanitize(this.process),
+				weight_id = sanitize(this.frozen.id),
+				process = sanitize(this.process),
 				save_weight = await fetch('/save_weight', {
 					method: 'POST', 
 					headers: { 
@@ -177,32 +200,28 @@ class create_weight_object {
 			} catch(error) { error_handler('Error al guardar peso.', error); return reject(error) }
 		})
 	}
-
-	constructor(weight_object) {
-		this.average_weight = weight_object.average_weight;
-		this.cycle = weight_object.cycle;
-		this.documents = [];
-		this.default_data = weight_object.default_data;
-		this.driver = weight_object.driver;
-		this.frozen = weight_object.frozen;
-		Object.freeze(this.frozen);
-		this.gross_weight = weight_object.gross_weight;
-		this.last_weights = weight_object.last_weights;
-		this.final_net_weight = weight_object.final_net_weight;
-		this.kilos = weight_object.kilos;
-		this.kilos_breakdown = weight_object.kilos_breakdown;
-		this.process = weight_object.default_data.process;
-		this.secondary_plates = weight_object.secondary_plates;					
-		this.status = weight_object.status;
-		this.tara_type = 'automatica';
-		this.tare_containers = weight_object.tare_containers;
-		this.tare_weight = weight_object.tare_weight;
-		this.transport = weight_object.transport;
-	}
 }
 
 //DOCUMENT OBJECT
 class create_document_object {
+
+	constructor(doc) {
+		this.frozen = doc.frozen
+		Object.freeze(this.frozen);
+		this.number = doc.number;
+		this.date = doc.date;
+		this.sale = doc.sale;
+		this.type = doc.type;
+		this.electronic = doc.electronic;
+		this.comments = doc.comments;
+		this.client = doc.client;
+		this.internal = doc.internal;
+		this.kilos = doc.kilos;
+		this.containers = doc.containers;
+		this.containers_weight = doc.containers_weight;
+		this.rows = [];
+		this.total = doc.total;
+	}
 
 	watch_object() {
 
@@ -235,7 +254,6 @@ class create_document_object {
 	print_document() {
 		return new Promise(async (resolve, reject) => {
 			try {
-
 				
 				if (this.number === null) throw 'Número del documento sin ingresar';
 				if (this.date === null) throw 'Fecha del documento sin ingresar';
@@ -316,22 +334,20 @@ class create_document_object {
 
 				let total_containers = 0, total_kilos = 0;
 
-				const rows = doc_data.rows;
-				for (let i = 0; i < rows.length; i++) {
-					
-					if (rows[i].product.code === 'GEN') {
+				for (let row of doc_data.rows) {
+					if (row.product.code === 'GEN') {
 
-						const traslado_description = await get_traslado_description(rows[i].id);
+						const traslado_description = await get_traslado_description(row.id);
 						console.log(traslado_description)
 						data.push(`              ${replace_spanish_chars(traslado_description.toUpperCase())}` + '\r\n', '\r\n');
 
 					} else {
 
 						const 
-						product_name = (rows[i].product.name === null) ? '' : rows[i].product.name,
-						product_cut = (rows[i].product.cut === null) ? '' : rows[i].product.cut,
-						product_amount = (rows[i].product.kilos === null) ? '' : thousand_separator(rows[i].product.kilos),
-						product_price = (rows[i].product.price === null) ? '' : '$' + thousand_separator(rows[i].product.price) + '+IVA',
+						product_name = (row.product.name === null) ? '' : row.product.name,
+						product_cut = (row.product.cut === null) ? '' : row.product.cut,
+						product_amount = (row.product.kilos === null) ? '' : thousand_separator(row.product.kilos),
+						product_price = (row.product.price === null) ? '' : '$' + thousand_separator(row.product.price) + '+IVA',
 						product = 'KG ' + product_name.toUpperCase() + ' DESCARTE ' + product_cut.toUpperCase();
 	
 						if (product_name.length > 0) {
@@ -340,8 +356,8 @@ class create_document_object {
 						}
 	
 						const
-						container_amount = (rows[i].container.amount === null) ? '' : thousand_separator(rows[i].container.amount),
-						container_name = (rows[i].container.name === null) ? '' : rows[i].container.name.toUpperCase();
+						container_amount = (row.container.amount === null) ? '' : thousand_separator(row.container.amount),
+						container_name = (row.container.name === null) ? '' : row.container.name.toUpperCase();
 	
 						if (container_name.length > 0) {
 							const container_line = '      ' + container_amount + print_doc_spaces(7, container_amount, 15) + container_name;
@@ -351,9 +367,8 @@ class create_document_object {
 						if (product_name.length > 0 || container_name.length > 0) data.push('\r\n');
 					}
 
-					total_containers += 1 * rows[i].container.amount;
-					total_kilos += 1 * rows[i].product.kilos;
-
+					total_containers += 1 * row.container.amount;
+					total_kilos += 1 * row.product.kilos;
 				}
 
 				if (doc_data.rows.length > 1) {
@@ -406,9 +421,10 @@ class create_document_object {
 	}
 
 	update_doc_number(doc_number) {
+		if (!weight_object.active.edit) return;
 		return new Promise(async (resolve, reject) => {
-			doc_number = DOMPurify().sanitize(doc_number);
-			const doc_id = DOMPurify().sanitize(this.frozen.id);
+			doc_number = sanitize(doc_number);
+			const doc_id = sanitize(this.frozen.id);
 
 			try {
 				const	
@@ -436,9 +452,10 @@ class create_document_object {
 	}
 
 	update_doc_date(doc_date) {
+		if (!weight_object.active.edit) return;
 		return new Promise(async (resolve, reject) => {
-			doc_date = DOMPurify().sanitize(doc_date + ' 00:00:00');
-			const doc_id = DOMPurify().sanitize(this.frozen.id);
+			doc_date = sanitize(doc_date + ' 00:00:00');
+			const doc_id = sanitize(this.frozen.id);
 			try {
 				const	
 				update = await fetch('/update_doc_date', {
@@ -463,10 +480,11 @@ class create_document_object {
 	}
 
 	update_client(client_id) {
+		if (!weight_object.active.edit) return;
 		return new Promise(async (resolve, reject) => {
 
-			client_id = DOMPurify().sanitize(client_id);
-			const document_id = DOMPurify().sanitize(this.frozen.id);
+			client_id = sanitize(client_id);
+			const document_id = sanitize(this.frozen.id);
 			try {
 				const
 				update_client_entity = await fetch('/update_client_entity', {
@@ -502,13 +520,14 @@ class create_document_object {
 	}
 
 	update_branch(branch_id) {
+		if (!weight_object.active.edit) return;
 		return new Promise(async (resolve,reject) => {
 			
-			branch_id = DOMPurify().sanitize(branch_id);
+			branch_id = sanitize(branch_id);
 
 			const
-			doc_number = DOMPurify().sanitize(document_object.number),
-			document_id = DOMPurify().sanitize(this.frozen.id),
+			doc_number = sanitize(document_object.number),
+			document_id = sanitize(this.frozen.id),
 			document_electronic = this.electronic;
 
 			try {
@@ -538,10 +557,11 @@ class create_document_object {
 	}
 
 	update_internal(target_id, target_table) {
+		if (!weight_object.active.edit) return;
 		return new Promise(async (resolve, reject) => {
-			target_id = DOMPurify().sanitize(target_id);
-			target_table = DOMPurify().sanitize(target_table);
-			const document_id = DOMPurify().sanitize(this.frozen.id);
+			target_id = sanitize(target_id);
+			target_table = sanitize(target_table);
+			const document_id = sanitize(this.frozen.id);
 
 			try {
 				const
@@ -569,33 +589,17 @@ class create_document_object {
 			} catch (error) { error_handler('Error al seleccionar entidad interna en /document_select_internal', error); reject(error) }
 		})
 	}
-
-	constructor(doc) {
-		this.frozen = doc.frozen
-		Object.freeze(this.frozen);
-		this.number = doc.number;
-		this.date = doc.date;
-		this.sale = doc.sale;
-		this.electronic = doc.electronic;
-		this.comments = doc.comments;
-		this.client = doc.client;
-		this.internal = doc.internal;
-		this.kilos = doc.kilos;
-		this.containers = doc.containers;
-		this.containers_weight = doc.containers_weight;
-		this.rows = [];
-		this.total = doc.total;
-	}
 }
 
 //ROW OBJECT FOR DOCUMENT OBJECT
 class document_row {
 
 	update_product(code) {
+		if (!weight_object.active.edit) return;
 		return new Promise( async (resolve, reject) => {
 
-			code = DOMPurify().sanitize(code.trim());
-			const row_id = DOMPurify().sanitize(this.id);
+			code = sanitize(code.trim());
+			const row_id = sanitize(this.id);
 
 			try {
 
@@ -623,13 +627,14 @@ class document_row {
 	}
 
 	update_cut(cut) {
+		if (!weight_object.active.edit) return;
 		return new Promise(async (resolve, reject) => {
 
-			cut = DOMPurify().sanitize(cut);
+			cut = sanitize(cut);
 			const 
 			row_id = this.id,
 			product_code = this.product.code,
-			entity_id = DOMPurify().sanitize(document_object.client.entity.id);
+			entity_id = sanitize(document_object.client.entity.id);
 
 			try {
 
@@ -664,9 +669,10 @@ class document_row {
 	}
 
 	update_price(price) {
+		if (!weight_object.active.edit) return;
 		return new Promise(async (resolve, reject) => {
-			price = DOMPurify().sanitize(price);
-			const row_id = DOMPurify().sanitize(this.id);
+			price = sanitize(price);
+			const row_id = sanitize(this.id);
 
 			try {
 				const
@@ -693,9 +699,10 @@ class document_row {
 	}
 
 	update_kilos(kilos) {
+		if (!weight_object.active.edit) return;
 		return new Promise(async (resolve, reject) => {
-			kilos = DOMPurify().sanitize(kilos);
-			const row_id = DOMPurify().sanitize(this.id);
+			kilos = sanitize(kilos);
+			const row_id = sanitize(this.id);
 			try {
 				const
 				update = await fetch('/update_kilos', {
@@ -729,10 +736,11 @@ class document_row {
 	}
 
 	update_container(code) {
+		if (!weight_object.active.edit) return;
 		return new Promise(async (resolve, reject) => {
 
-			code = DOMPurify().sanitize(code.trim());
-			const row_id = DOMPurify().sanitize(this.id);
+			code = sanitize(code.trim());
+			const row_id = sanitize(this.id);
 			try {	
 				const
 				update = await fetch('/update_container', {
@@ -767,10 +775,11 @@ class document_row {
 	}
 
 	update_container_amount(amount) {
+		if (!weight_object.active.edit) return;
 		return new Promise(async (resolve,reject) => {
 
-			amount = DOMPurify().sanitize(amount);
-			const row_id = DOMPurify().sanitize(this.id);
+			amount = sanitize(amount);
+			const row_id = sanitize(this.id);
 			try {
 				const
 				update = await fetch('/update_container_amount', {
@@ -797,9 +806,10 @@ class document_row {
 	}
 
 	annul_row() {
+		if (!weight_object.active.edit) return;
 		return new Promise(async (resolve, reject) => {
 
-			const row_id = DOMPurify().sanitize(this.id);
+			const row_id = sanitize(this.id);
 			try {	
 				const
 				annul = await fetch('/annul_row', {
@@ -829,7 +839,7 @@ class document_row {
 					const row_index = document_object.rows.indexOf(this);
 					document_object.rows.splice(row_index, 1);
 				} 
-				return resolve(true);
+				return resolve();
 			} catch(error) { error_handler('Error al anular fila en documento en /annul_row', error); return reject(error) }
 		})
 	}
@@ -839,18 +849,6 @@ class document_row {
 		this.product = row.product;
 		this.container = row.container;
 	}
-}
-
-const replace_spanish_chars = str => {
-    str = str
-            .replace(/[á]/gm, 'a').replace(/[Á]/gm, 'A')
-            .replace(/[é]/gm, 'e').replace(/[É]/gm, 'E')
-            .replace(/[í]/gm, 'i').replace(/[Í]/gm, 'I')
-            .replace(/[ó]/gm, 'o').replace(/[Ó]/gm, 'O')
-            .replace(/[ú]/gm, 'u').replace(/[Ú]/gm, 'U')
-            .replace(/[ñ]/gm, '¤').replace(/[Ñ]/gm, '¥')
-
-    return str
 }
 
 const screen_width = window.screen.width;
@@ -883,75 +881,11 @@ async function valid_session() {
 
 setInterval(valid_session, 60000); //CHECK VALID SESSION EVERY MINUTE
 
-//TO PREVENT DOUBLE CLICK
-let clicked = false; 
-function prevent_double_click() {
-	clicked = true;
-	setTimeout(() => { clicked = false }, 200);
-}
-
-function btn_double_clicked(btn) {
-	if (btn.classList.contains('clicked')) return true;
-	
-	btn.classList.add('clicked');
-	setTimeout(() => {
-		btn.classList.remove('clicked');
-	}, 200);
-	return false;
-}
-
-const check_loader = () => {
-	return new Promise(async resolve => {
-		
-		//REMOVE LOEADER
-		if (!!document.querySelector('#loader')) {
-
-			if (document.getElementById('loader').classList.contains('loading')) {
-				document.getElementById('loader').classList.remove('loading');
-				await delay(300);
-				document.getElementById('loader').remove();
-			}
-
-		} 
-		
-		//CREATE LOADER
-		else {
-
-			const loader = document.createElement('div');
-			loader.id = 'loader';
-			loader.className = 'loading';
-			loader.innerHTML = `
-				<div id="loader-background"></div>
-				<div class="wrapper">
-					<div class="circle"></div>
-					<div class="circle"></div>
-					<div class="circle"></div>
-					<div class="shadow"></div>
-					<div class="shadow"></div>
-					<div class="shadow"></div>
-					<span>CARGANDO</span>
-				</div>
-			`;
-			
-			document.body.prepend(loader)
-
-		}
-
-		return resolve();
-	})
-}
 
 Array.prototype.sortBy = function(p) {
     return this.slice(0).sort(function(a,b) {
         return (a[p] < b[p]) ? 1 : (a[p] > b[p]) ? -1 : 0;
     });
-}
-
-function validate_date(date) {
-	try {
-		new Date(date).toISOString();
-		return true
-	} catch(e) { return false }
 }
 
 const toggle_custom_input_class = function() {
@@ -963,7 +897,6 @@ const toggle_custom_input_class = function() {
 }
 
 const main_content = document.getElementById('main__content');
-let animating = false;
 
 function main_content_animation() {
 	
@@ -984,48 +917,6 @@ function main_content_animation() {
 	}, { once: true });
 }
 
-/*** BREADCRUMBS ***/
-function breadcrumbs(process, div, breadcrumb) {
-	if (process==='add') {
-		const
-		ul = document.getElementById(`${div}__breadcrumb`),
-		li = document.createElement('li'),
-		h4 = document.createElement('h4'),
-		i = document.createElement('i');
-		//svg_template = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -13 115 26"><path d="M 8 0 L 0 -13 L 107 -13 L 115 0 L 107 13 L 0 13 L 8 0" fill="url(#breadcrumb-gradient-1)" /></svg><p>${breadcrumb}</p>`;
-		//li.innerHTML = svg_template;
-		
-		h4.innerText = breadcrumb;
-		i.className = 'far fa-chevron-right';
-		li.append(i, h4);
-		ul.appendChild(li)
-	} else if (process==='remove') {
-		document.querySelector(`#${div}__breadcrumb > li:last-child`).remove();
-	}
-}
-
-function load_css(src) {
-	return new Promise(async resolve => {
-		const version = await get_file_version(src);
-		if (!!document.querySelector(`link[href="${src}?v=${version}"]`)) return resolve();
-
-		const css = document.createElement('link');
-		css.onload = () => { return resolve() }
-		css.setAttribute('rel', 'stylesheet');
-		css.setAttribute('href', src + '?v=' + version);
-		document.head.appendChild(css);
-	})
-}
-
-function debounce(callback, wait) {
-    let timerId;
-    return (...args) => {
-      clearTimeout(timerId);
-      timerId = setTimeout(() => {
-        callback(...args);
-      }, wait);
-    };
-}
 /************************ MAIN MENU FUNCTIONS ************************/
 
 /*** NAVIGATE USING ARROW KEYS ***/
@@ -1111,6 +1002,9 @@ document.addEventListener('keydown', ev => {
 
 	else if (ev.code === 'Escape') escape_key_pressed();
 
+	else if (ev.key === 'Enter' && document.getElementById('error-section').className === 'active') {
+		document.getElementById('close-error-div').click();
+	}
 });
 
 document.getElementById('close-error-div').addEventListener('click', async () => {
@@ -1187,130 +1081,6 @@ function stopDrag(e) {
 	}
 }
 
-/*** VALIDATE RUT ***/
-function validate_rut(rut) {
-	const
-	new_rut = rut.replace(/[^0-9kK]/gm, ''),
-	digits = new_rut.substring(0, new_rut.length - 1),
-	digits_array = digits.split(''),
-	dv = new_rut.substring(new_rut.length - 1).toLowerCase();
-	
-	let m = 2, sum = 0;
-
-	for (let i = digits_array.length - 1; i >= 0; i--) {
-		sum += m * parseInt(digits_array[i]);
-		m++;
-		if (m===8) m = 2; 
-	}
-
-	let new_dv = (11 - (sum % 11));
-
-	if (new_dv === 11) new_dv = '0';
-	else if (new_dv === 10) new_dv = 'k';
-	else new_dv = new_dv.toString();
-
-	if (dv === new_dv) return true;
-	return false;
-}
-
-/*** WAIT DELAY FUNCTION ***/
-function delay(delayValue) { return new Promise(resolve => setTimeout(resolve, delayValue)); }
-
-/*** NUMBER FORMATER ***/
-function thousand_separator(num) { 
-	return num.toString().replace(/(\d)(?=(\d{3})+(?!\d))/g, '$1.') 
-}
-
-/*** FADE OUT FUNCTION ***/
-function fade_out(el, display) {
-	return new Promise((resolve, reject) => {
-		el.style.opacity = 1;
-		el.style.display = display;
-		if (display!==undefined) el.style.display = display;
-		(function fade() {
-			if ((el.style.opacity -= .1) < 0) {
-				el.style.display = "none";
-				el.removeAttribute("style"); 
-				resolve();
-			} 
-			else { requestAnimationFrame(fade) }
-		})();	
-	})
-}
-
-/*** FADE IN FUNCTION ***/
-function fade_in(el, delay_value, display) {
-	return new Promise(async resolve => {
-		if (delay_value === undefined) delay_value=0;
-		el.style.opacity = 0;
-		el.style.display = display || "block";
-		await delay(delay_value);
-		(function fade() {
-			let val = parseFloat(el.style.opacity);
-			if (!((val += 0.1) > 1)) {
-				el.style.opacity = val;
-				requestAnimationFrame(fade)
-			} else {
-				el.removeAttribute("style");
-				resolve();
-			}
-		})();
-	})
-}
-
-/*** FADE ANIMATION ***/
-async function fade_animation(first_div, second_div) {
-
-	first_div.classList.add('fadeout-scaled-up');
-	await delay(550);
-	first_div.classList.add('hidden');
-
-	second_div.classList.remove('hidden');
-	second_div.classList.add('fadeout-scaled-down');
-	await delay(300);
-
-	first_div.classList.remove('fadeout-scaled-up');
-	second_div.classList.remove('fadeout-scaled-down');
-
-}
-
-async function wait_for_fade_animation(div) {
-	div.classList.add('fadeout-scaled-up');
-	await delay(600);
-
-	div.classList.add('hidden', 'animationend');
-	div.classList.remove('fadeout-scaled-up');
-}
-
-function fade_out_animation(div) {
-	return new Promise(resolve => {
-		div.classList.add('fadeout-scaledDown');
-		div.addEventListener('animationend', () => {
-			div.classList.add('hidden', 'animationend');
-			div.classList.remove('fadeout-scaledDown');
-			return resolve();	
-		}, { once: true })
-	})
-}
-
-function fade_in_animation(div) {
-	return new Promise(resolve => {
-		div.classList.remove('hidden');
-		div.classList.add('fadein-scaledUp');
-		div.addEventListener('animationend', () => {
-			div.classList.remove('fadein-scaledUp');
-			return resolve();
-		}, { once:true })	
-	})
-}
-
-/*** INPUT EFFECT ***/ //EVENT -> INPUT
-function custom_input_change() {
-	const el = this;
-	if (el.classList.contains('has-content') && el.value.length === 0) el.classList.toggle('has-content');
-	else if (!el.classList.contains('has-content') && el.value.length > 0) el.classList.toggle('has-content');
-}
-
 /********************* CREATING OR EDITING VEHICLES *******************/
 const create_vehicle_finalize = async function() {
 
@@ -1322,8 +1092,8 @@ const create_vehicle_finalize = async function() {
 	transport_select = document.querySelector('.content-container.active .create-vehicle__transport-select'),
 	driver_tr = document.querySelector('.content-container.active .create-weight__change-driver tbody tr.selected'),
 	data = {
-		primary_plates: document.querySelector('.content-container.active .create-vehicle__primary-plates').value,
-		secondary_plates: document.querySelector('.content-container.active .create-vehicle__secondary-plates').value,
+		primary_plates: document.querySelector('.content-container.active .create-vehicle__primary-plates').value.toUpperCase(),
+		secondary_plates: document.querySelector('.content-container.active .create-vehicle__secondary-plates').value.toUpperCase(),
 		transport_id: transport_select.options[transport_select.selectedIndex].value,
 		driver_id: (driver_tr === null) ? null : driver_tr.getAttribute('data-driver-id')
 	}
@@ -1333,7 +1103,7 @@ const create_vehicle_finalize = async function() {
 		if (data.primary_plates.length < 6) throw 'Patente de vehículo necesita al menos 6 caracteres';
 
 		//SANITIZE OBJECT
-		for (let key in data) { data[key] = DOMPurify().sanitize(data[key]) }
+		for (let key in data) { data[key] = sanitize(data[key]) }
 		data.internal = (document.querySelector('.content-container.active .create-vehicle__internal-cbx').checked) ? true : false;
 		data.status = (document.querySelector('.content-container.active .create-vehicle__active-cbx').checked) ? true : false;
 
@@ -1358,9 +1128,9 @@ const create_vehicle_finalize = async function() {
 
 			const tr = document.createElement('tr');
 			tr.innerHTML = `
-				<td class="primary-plates">${DOMPurify().sanitize(response.created.primary_plates)}</td>
+				<td class="primary-plates">${sanitize(response.created.primary_plates)}</td>
 				<td class="secondary-plates"></td>
-				<td class="driver">${DOMPurify().sanitize(response.created.driver)}</td>
+				<td class="driver">${sanitize(response.created.driver)}</td>
 				<td class="phone"></td>
 				<td class="internal">
 					<div>
@@ -1404,9 +1174,9 @@ const create_vehicle_finalize = async function() {
 			<div class="td internal">
 				<div><i></i></div>
 			</div>
-			<div class="td primary-plates">${DOMPurify().sanitize(response.created.primary_plates)}</div>
+			<div class="td primary-plates">${sanitize(response.created.primary_plates)}</div>
 			<div class="td secondary-plates"></div>
-			<div class="td driver">${DOMPurify().sanitize(response.created.driver)}</div>
+			<div class="td driver">${sanitize(response.created.driver)}</div>
 			<div class="td transport"></div>
 		`;
 
@@ -1441,7 +1211,7 @@ const edit_vehicle_finalize = async function() {
 	}
 
 	//SANITIZE OBJECT
-	for (let key in data) { data[key] = DOMPurify().sanitize(data[key]) }
+	for (let key in data) { data[key] = sanitize(data[key]) }
 
 	try {
 
@@ -1487,7 +1257,7 @@ const create_vehicle_choose_driver = async () => {
 
 	const
 	modal = document.querySelector('.content-container.active .create-vehicle__vehicle-data'),
-	plates = DOMPurify().sanitize(modal.querySelector('.create-vehicle__primary-plates').value.replace(/[^a-zA-Z0-9]/gm, '').toUpperCase()),
+	plates = sanitize(modal.querySelector('.create-vehicle__primary-plates').value.replace(/[^a-zA-Z0-9]/gm, '').toUpperCase()),
 	tooltip = modal.querySelector('.create-vehicle__vehicle-data .create-vehicle-data .widget-tooltip');
 
 	if (plates.length < 6) {	
@@ -1555,8 +1325,8 @@ const create_vehicle_choose_driver = async () => {
 					tr.className = 'selected';
 					tr.setAttribute('data-driver-id', default_driver.id);
 					tr.innerHTML = `
-						<td class="driver">${DOMPurify().sanitize(default_driver.name)}</td>
-						<td class="rut">${DOMPurify().sanitize(default_driver.rut)}</td>
+						<td class="driver">${sanitize(default_driver.name)}</td>
+						<td class="rut">${sanitize(default_driver.rut)}</td>
 						<td class="phone"></td>
 						<td class="internal">
 							<div>
@@ -1618,12 +1388,13 @@ const create_vehicle_choose_driver = async () => {
 			document.querySelector('.content-container.active .create-weight__change-driver-container').setAttribute('data-default-driver', JSON.stringify(default_driver));
 			
 			let default_driver_in_response = false;
-			for (let i = 0; i < drivers_response.drivers.length; i++) {
-				if (drivers_response.drivers[i].id === default_driver.id) {
+			for (driver of drivers_response.drivers) {
+				if (driver.id === default_driver.id) {
 					default_driver_in_response = true;
 					break;
 				}
 			}
+
 			if (!default_driver_in_response) drivers_response.drivers.unshift(default_driver);	
 		}
 
@@ -1688,7 +1459,7 @@ const create_vehicle_choose_driver = async () => {
 	} catch(error) { error_handler('Error en patente del vehículo.', error) }
 }
 
-document.getElementById('user-profile').addEventListener('click', () => {
+document.getElementById('menu-user').addEventListener('click', () => {
 
 	const container = document.createElement('div');
 	container.id = 'user-profile-module';
@@ -1700,15 +1471,44 @@ document.getElementById('user-profile').addEventListener('click', () => {
 						<h3>PREFERENCIAS USUARIO</h3>
 					</div>
 					<div class="body">
-						<div id="user-profile__qz-tray" onclick="(this.querySelector('input').checked) ? this.querySelector('input').checked = false : this.querySelector('input').checked = true;">
-							<input class="create-vehicle__active-cbx" type="checkbox" data-prev-tab-selector="#create-vehicle__internal-cbx" data-next-tab-selector="#create-weight__create-vehicle__back-to-create-weight" value="">
-							<label class="cbx"></label>
-							<label class="lbl">IMPRESORA A PUNTO</label>
+
+						<div id="user-profile__preferences">
+							<div id="user-profile__qz-tray" onclick="(this.querySelector('input').checked) ? this.querySelector('input').checked = false : this.querySelector('input').checked = true;">
+								<input class="create-vehicle__active-cbx" type="checkbox" data-prev-tab-selector="#create-vehicle__internal-cbx" data-next-tab-selector="#create-weight__create-vehicle__back-to-create-weight" value="">
+								<label class="cbx"></label>
+								<label class="lbl">IMPRESORA A PUNTO</label>
+							</div>
+							<div id="user-profile__tutorial" onclick="(this.querySelector('input').checked) ? this.querySelector('input').checked = false : this.querySelector('input').checked = true;">
+								<input class="create-vehicle__active-cbx" type="checkbox" data-prev-tab-selector="#create-vehicle__internal-cbx" data-next-tab-selector="#create-weight__create-vehicle__back-to-create-weight" value="">
+								<label class="cbx"></label>
+								<label class="lbl">TUTORIAL</label>
+							</div>
+							<div id="user-profile__session-alive" onclick="(this.querySelector('input').checked) ? this.querySelector('input').checked = false : this.querySelector('input').checked = true;">
+								<input class="create-vehicle__active-cbx" type="checkbox" data-prev-tab-selector="#create-vehicle__internal-cbx" data-next-tab-selector="#create-weight__create-vehicle__back-to-create-weight" value="">
+								<label class="cbx"></label>
+								<label class="lbl">MANTENER SESION ACTIVA</label>
+							</div>
 						</div>
-						<div id="user-profile__tutorial" onclick="(this.querySelector('input').checked) ? this.querySelector('input').checked = false : this.querySelector('input').checked = true;">
-							<input class="create-vehicle__active-cbx" type="checkbox" data-prev-tab-selector="#create-vehicle__internal-cbx" data-next-tab-selector="#create-weight__create-vehicle__back-to-create-weight" value="">
-							<label class="cbx"></label>
-							<label class="lbl">TUTORIAL</label>
+
+						<div id="user-profiles__footer-btns">
+
+							<div id="user-profile__close-session">
+								<div>
+									<i class="far fa-user-lock"></i>
+								</div>
+								<div>
+									<p>CAMBIAR<br>PASSWORD</p>
+								</div>
+							</div>
+
+							<div id="user-profile__close-session">
+								<div>
+									<i class="far fa-user-times"></i>
+								</div>
+								<div>
+									<p>CERRAR<br>SESION</p>
+								</div>
+							</div>
 						</div>
 
 					</div>
@@ -1744,11 +1544,16 @@ document.getElementById('user-profile').addEventListener('click', () => {
 
 	container.querySelector('#user-profile__cancel-btn').addEventListener('click', async () => {
 
+		if (clicked) return;
+		prevent_double_click();
 		container.remove();
 
 	});
 
-	container.querySelector('#user-profile__accept-btn').addEventListener('click', async () => {
+	container.querySelector('#user-profile__accept-btn').addEventListener('click', async function() {
+
+		const btn = this;
+		if (btn_double_clicked(btn)) return;
 
 		const data = {
 			qz_tray: container.querySelector('#user-profile__qz-tray input').checked,
@@ -1775,6 +1580,8 @@ document.getElementById('user-profile').addEventListener('click', () => {
 
 			token.value = response.token;
         	token.expiration = jwt_decode(token.value).exp;
+
+			document.querySelector('#user-profile__cancel-btn').click();
 
 		} catch(e) { error_handler('Error al guardar preferencias de usuario.', e) }
 	});
@@ -1817,19 +1624,19 @@ document.getElementById('menu-weights').addEventListener('click', async function
 	try {
 
 		//ASSIGN WEIGHT OBJECT TO ACTIVE WEIGHT IN WEIGHT MODULE
-		for (let i = 0; i < weight_objects_array.length; i++) {
-			if (!weight_objects_array[i].active.status && weight_objects_array[i].active.module === 'weight') {
+		for (let weight of weight_objects_array) {
+			if (!weight.active.status && weight.active.module === 'weight') {
 
-				weight_objects_array[i].active.status = true;
-				weight_object = weight_objects_array[i];
+				weight.active.status = true;
+				weight_object = weight;
 
 				//CHOOSE DOCUMENT OBJECT IF IT WAS ACTIVE
 				document_object = null;
-				for (let j = 0; j < weight_object.documents.length; j++) {
-					if (weight_object.documents[j].active) document_object = weight_object.documents[j];
+				for (let doc of weight_object.documents) {
+					if (doc.active) document_object = doc;
 				}
 			}
-			else weight_objects_array[i].active.status = false;
+			else weight.active.status = false;
 		}
 
 		const 
@@ -1877,7 +1684,7 @@ document.getElementById('menu-weights').addEventListener('click', async function
 document.getElementById('menu-documents').addEventListener('click', async function() {
 
 	const btn = this;
-	if (btn_double_clicked(btn) || animating) return;
+	if (btn.classList.contains('active') || btn_double_clicked(btn) || animating) return;
 
 	const active_container = document.querySelector('#main__content > .active');
 	if (!!active_container) {
@@ -1895,24 +1702,24 @@ document.getElementById('menu-documents').addEventListener('click', async functi
 			await load_script('js/documents.js');
 		}
 
-		for (let i = 0; i < weight_objects_array.length; i++) {
-				
-			if (!weight_objects_array[i].active.status && weight_objects_array[i].active.module === 'documents') {
-				weight_objects_array[i].active.status = true;
-				weight_object = weight_objects_array[i];
+		for (let weight of weight_objects_array) {
+			if (!weight.active.status && weight.active.module === 'documents') {
+
+				weight.active.status = true;
+				weight_object = weight;
 
 				//CHOOSE DOCUMENT OBJECT IF IT WAS ACTIVE
 				document_object = null;
-				for (let j = 0; j < weight_object.documents.length; j++) {
-					if (weight_object.documents[j].active) document_object = weight_object.documents[j];
+				for (let doc of weight_object.documents) {
+					if (doc.active) document_object = doc;
 				}
 			}
-			else weight_objects_array[i].active.status = false;
+			else weight.active.status = false;
 		}
 
 		if (!!active_container) {
 			
-			while (animating) { await delay(10) }
+			while (animating) await delay(10);
 
 			document.querySelector('.menu-item.active').classList.remove('active');
 			active_container.classList.remove('active');
@@ -1922,7 +1729,10 @@ document.getElementById('menu-documents').addEventListener('click', async functi
 
 			main_content_animation();
 
-		}		
+			await delay(600);
+			document.querySelector('#documents__doc-number').focus();
+
+		}
 
 	} catch(error) { error_handler('Error al intentar cargar documentos.', error); animating = false }
 
@@ -1952,9 +1762,24 @@ document.getElementById('menu-analytics').addEventListener('click', async functi
 			await load_script('js/analytics.js');
         }
 
+		for (let weight of weight_objects_array) {
+			if (!weight.active.status && weight.active.module === 'analytics') {
+
+				weight.active.status = true;
+				weight_object = weight;
+
+				//CHOOSE DOCUMENT OBJECT IF IT WAS ACTIVE
+				document_object = null;
+				for (let doc of weight_object.documents) {
+					if (doc.active) document_object = doc;
+				}
+			}
+			else weight.active.status = false;
+		}
+
 		if (!!active_container) {
 			
-			while (animating) { await delay(10) }
+			while (animating) await delay(10);
 
 			document.querySelector('.menu-item.active').classList.remove('active');
 			active_container.classList.remove('active');

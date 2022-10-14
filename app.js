@@ -2,8 +2,7 @@ const express = require('express');
 const https = require('https');
 const fs = require('fs');
 const morgan = require('morgan');
-const puppeteer = require('puppeteer');
-//const helmet = require('helmet');
+
 const path = require('path');
 const axios = require('axios');
 const app = express();
@@ -12,8 +11,6 @@ const dotenv = require('dotenv');
 dotenv.config({ path: './config/config.env' })
 
 const conn = require('./config/db');
-const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
 const uuid = require('uuid');
 
 let engine;
@@ -31,50 +28,6 @@ else {
 
 app.use(express.json());
 
-/*
-app.use(
-    helmet({
-        contentSecurityPolicy: {
-            directives: {
-                'default-src' : [
-                    "'self'",
-                    'localhost', 
-                    'localhost:3000', 
-                    'localhost:3001', 
-                    'localhost:3100', 
-                    '192.168.1.90'
-                ],
-
-                'base-uri' : ["'self'"],
-                'style-src' : ["'self'", 'localhost'],
-                'script-src' : [
-                    "'self'", 
-                    'localhost', 
-                    'localhost:3000', 
-                    'localhost:3001', 
-                    'localhost:3100', 
-                    '192.168.1.90'
-                ]
-            }
-        }
-    })
-);
-app.use(helmet.crossOriginEmbedderPolicy());
-app.use(helmet.crossOriginOpenerPolicy());
-app.use(helmet.crossOriginResourcePolicy({ policy: "cross-origin" }));
-app.use(helmet.dnsPrefetchControl());
-app.use(helmet.expectCt());
-app.use(helmet.frameguard());
-app.use(helmet.hidePoweredBy());
-app.use(helmet.hsts());
-app.use(helmet.ieNoOpen());
-app.use(helmet.noSniff());
-app.use(helmet.originAgentCluster());
-app.use(helmet.permittedCrossDomainPolicies());
-app.use(helmet.referrerPolicy());
-app.use(helmet.xssFilter());
-*/
-
 // Handlebars
 app.engine('.hbs', engine({ defaultLayout: 'main', extname: '.hbs' }));
 app.set('view engine', '.hbs');
@@ -83,12 +36,16 @@ app.set('view engine', '.hbs');
 app.use(express.static(path.join(__dirname, 'public')));
 
 // ROUTES -> NEEDS TO BE AFTER MORGAN
-const endpoints = require('./routes/endpoints');
-const error_handler = endpoints.error_handler;
-app.use('/', endpoints.router);
+const { router, error_handler, format_date, delay } = require('./routes/endpoints');
+app.use('/', router);
+
+const { documents_router } = require('./routes/documents_endpoints');
+app.use('/', documents_router);
+
+const { home_router } = require('./routes/home_endpoints');
+app.use('/', home_router);
 
 const PORT = process.env.PORT || 3443;
-
 
 const puppeteer_script = require('./puppeteer_script');
 const generate_electronic_document = puppeteer_script.generate_document;
@@ -132,27 +89,6 @@ if (process.env.NODE_ENV === 'production') {
 server.listen(PORT, () => {
     console.log(`Server running in ${process.env.NODE_ENV} mode in port ${PORT} - MYSQL Status is: ${conn.state}`);
 });
-
-const delay = ms => { return new Promise(resolve => setTimeout(resolve, ms)) }
-
-const format_date = date => {
-    let
-    current_date = date.getDate(),
-    current_month = date.getMonth() + 1,
-    current_year = date.getFullYear(),
-    current_hrs = date.getHours(),
-    current_mins = date.getMinutes(),
-    current_secs = date.getSeconds();
-
-    // Add 0 before date, month, hrs, mins or secs if they are less than 0
-    current_date = current_date < 10 ? '0' + current_date : current_date;
-    current_month = current_month < 10 ? '0' + current_month : current_month;
-    current_hrs = current_hrs < 10 ? '0' + current_hrs : current_hrs;
-    current_mins = current_mins < 10 ? '0' + current_mins : current_mins;
-    current_secs = current_secs < 10 ? '0' + current_secs : current_secs;
-
-    return current_year + '-' + current_month + '-' + current_date + ' ' + current_hrs + ':' + current_mins + ':' + current_secs;
-}
 
 let weight_interval, weight_value = 0, serial_value, serial_opened = false;
 
@@ -394,19 +330,6 @@ const get_created_weight = weight_id => {
     })
 }
 
-let browser;
-(async () => {
-    if (process.env.NODE_ENV === 'production') {
-        try {
-        
-            browser = await puppeteer.launch({ headless: false });
-            console.log('browser launched');
-    
-        } catch(e) { `Couldn't launch browser. ${e}` }    
-    }
-})();
-
-
 io.on('connection', socket => {
 
     socket.emit('chat-message', 'socket connected');
@@ -575,7 +498,8 @@ io.on('connection', socket => {
         
         console.log(doc_id)
 
-        await generate_electronic_document(doc_id, browser, socket);
+        try { await generate_electronic_document(doc_id, socket) }
+        catch(e) { socket.emit('error generating electronic document', e) }
 
     })
 });

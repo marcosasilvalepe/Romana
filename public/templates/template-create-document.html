@@ -390,10 +390,16 @@
                                 data-next-tab-selector=".content-container.active .create-document__footer__electronic .widget"
                             >
                                 <div class="widget-container">
-                                    <div class="widget-icon"></div>
-                                    <div class="widget-button">
-                                        
-                                        <span>TIPO DOC.<br>TRASLADO</span>
+                                    <div class="select-effect has-content">
+                                        <p>TRASLADO</p>
+                                        <select>
+                                            <option value="" hidden=""></option>
+                                            <option value="1">TRASLADO</option>
+                                            <option value="2">VENTA</option>
+                                            <option value="3">DEVOLUCION</option>
+                                        </select>
+                                        <i class="far fa-chevron-down"></i>
+                                        <label>TIPO DOC.</label>
                                     </div>
                                 </div>
                             </div>
@@ -459,6 +465,12 @@
                         </div>										
                     </div>
                 </div>
+            </div>
+        </div>
+
+        <div class="close-btn-absolute">
+            <div>
+                <i class="fas fa-times"></i>
             </div>
         </div>
 

@@ -1,0 +1,99 @@
+DELIMITER $$
+CREATE FUNCTION rut_formatter(rut CHAR(12))
+	RETURNS CHAR(12)
+    BEGIN
+    	DECLARE formatted CHAR(12);
+        DECLARE rut_length INT(2);
+        DECLARE first_digits CHAR(2);
+        DECLARE middle_digits CHAR(3);
+        DECLARE last_digits CHAR(3);
+        DECLARE dv CHAR(1);
+        
+        SET rut_length = CHAR_LENGTH(rut);
+        IF rut_length < 9 THEN
+        	SET first_digits = SUBSTRING(rut, 1, 1);
+        ELSE
+        	SET first_digits = SUBSTRING(rut, 1, 2);
+        END IF;
+        
+        SET middle_digits = SUBSTRING(rut, -7, 3);
+        SET last_digits = SUBSTRING(rut, -4, 3);
+        SET dv = SUBSTRING(rut, -1, 1);
+        SET formatted = CONCAT(first_digits, '.', middle_digits, '.', last_digits, '-', dv);
+        RETURN (formatted);
+	END
+$$
+DELIMITER ;
+
+DELIMITER $$
+CREATE FUNCTION rut_formatter()
+	RETURNS CHAR(12)
+    BEGIN
+   	DECLARE arut CHAR(12);
+    	DECLARE formatted CHAR(12);
+        DECLARE rut_length INT(2);
+        DECLARE first_digits CHAR(2);
+        DECLARE middle_digits CHAR(3);
+        DECLARE last_digits CHAR(3);
+        DECLARE dv CHAR(1);
+        
+        SELECT rut INTO arut FROM drivers WHERE id=1;
+        
+        SET rut_length = CHAR_LENGTH(arut);
+        IF rut_length < 9 THEN
+        	SET first_digits = SUBSTRING(arut, 1, 1);
+        ELSE
+        	SET first_digits = SUBSTRING(arut, 1, 2);
+        END IF;
+        
+        SET middle_digits = SUBSTRING(arut, -7, 3);
+        SET last_digits = SUBSTRING(arut, -4, 3);
+        SET dv = SUBSTRING(arut, -1, 1);
+        SET formatted = CONCAT(first_digits, '.', middle_digits, '.', last_digits, '-', dv);
+        RETURN (formatted);
+	END
+$$
+DELIMITER ;
+
+
+
+DELIMITER $$
+CREATE PROCEDURE fix_rut()
+	BEGIN
+    	DECLARE i INT DEFAULT 0;
+        DECLARE d_id INT DEFAULT 0;
+        DECLARE d_rut CHAR(12);
+        DECLARE f_rut CHAR(12);
+        SET i = 1;
+        SELECT MAX(id) INTO d_id FROM drivers;
+        WHILE i < d_id DO
+			  SELECT rut INTO d_rut FROM drivers WHERE id=i;
+              SET f_rut = rut_formatter(d_rut);
+              UPDATE drivers SET rut=f_rut WHERE id=i;
+              SET i = i+1;
+    	END WHILE;
+	END;
+$$
+DELIMITER ;
+
+
+
+
+DELIMITER $$
+CREATE PROCEDURE fix_entities_rut()
+	BEGIN
+    	DECLARE i INT DEFAULT 0;
+        DECLARE d_id INT DEFAULT 0;
+        DECLARE d_rut CHAR(12);
+        DECLARE f_rut CHAR(12);
+        SET i = 1;
+        SELECT MAX(id) INTO d_id FROM entities;
+        WHILE i < d_id DO
+			  SELECT rut INTO d_rut FROM entities WHERE id=i;
+              SET f_rut = rut_formatter(d_rut);
+              UPDATE entities SET rut=f_rut WHERE id=i;
+              SET i = i+1;
+    	END WHILE;
+	END;
+$$
+DELIMITER ;

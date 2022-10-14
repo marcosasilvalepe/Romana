@@ -1,0 +1,190 @@
+<div id="entity-stock__entity-header">
+    <h2></h2>
+</div>
+
+<div id="entity-stock__filters">
+    <div>
+
+        <div>
+            <div class="select-effect has-content">
+                <p>TODOS</p>
+                <select id="entities-stock__cycle-select">
+                    <option value="" hidden=""></option>
+                    <option selected="" value="All">TODOS</option>
+                    <option value="1">RECEPCION</option>
+                    <option value="2">DESPACHO</option>
+                    <option value="3">INTERNO</option>
+                </select>
+                <i class="far fa-chevron-down"></i>
+                <label>CICLO</label>
+                <span class="focus-border"></span>
+            </div>
+        </div>
+    
+        <div>
+            <input id="entities-stock__doc-number" type="text" class="input-effect">
+            <label>Nº DOC.</label>
+            <span class="focus-border"></span>
+        </div>
+    
+        <div>
+            <input id="entities-stock__start-date" type="date" class="input-effect has-content">
+            <label>FECHA INICIAL</label>
+            <span class="focus-border"></span>
+        </div>
+    
+        <div>
+            <input id="entities-stock__end-date" type="date" class="input-effect has-content">
+            <label>FECHA FINAL</label>
+            <span class="focus-border"></span>							
+        </div>
+
+        <div>
+            <div class="select-effect has-content">
+                <p>TODAS</p>
+                <select id="entities-stock__branch-select">
+                    <option value="" hidden=""></option>
+                    <option selected="" value="All">TODAS</option>
+                </select>
+                <i class="far fa-chevron-down"></i>
+                <label>SUCURSAL</label>
+                <span class="focus-border"></span>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<div class="analytics__entities-stock-movements">
+
+    <div class="table-header">
+        <div class="table">
+            <div class="thead">
+                <div class="tr">
+                    <div class="th line">Nº</div>
+                    
+                    <div class="th weight_id selected" data-ascending-order="false">
+                        <div>
+                            <i class="fas fa-chevron-down"></i>
+                            <span>PESAJE</span>
+                        </div>
+                    </div>
+
+                    <div class="th cycle">
+                        <div>
+                            <i class="fas fa-chevron-down"></i>
+                            <span>CICLO</span>
+                        </div>
+                    </div>
+
+                    <div class="th doc_number">
+                        <div>
+                            <i class="fas fa-chevron-down"></i>
+                            <span>DOC.</span>
+                        </div>
+                    </div>
+
+                    <div class="th date">
+                        <div>
+                            <i class="fas fa-chevron-down"></i>
+                            <span>FECHA</span>
+                        </div>
+                    </div>
+
+                    <div class="th doc_status">
+                        <div>
+                            <i class="fas fa-chevron-down"></i>
+                            <span>ESTADO DOC.</span>
+                        </div>
+                    </div>
+
+                    <div class="th branch">
+                        <div>
+                            <i class="fas fa-chevron-down"></i>
+                            <span>SUCURSAL CLIENTE</span>
+                        </div>
+                    </div>
+
+                    <div class="th internal-entity">
+                        <div>
+                            <i class="fas fa-chevron-down"></i>
+                            <span>ENTIDAD INTERNA</span>
+                        </div>
+                    </div>
+
+                    <div class="th containers">
+                        <div>
+                            <i class="fas fa-chevron-down"></i>
+                            <span>TOTAL BINS</span>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="table-content">
+        <div class="table">
+            <div class="tbody">
+
+            </div>
+        </div>
+    </div>
+
+    <div class="table-totals">
+        <p>STOCK ACTUAL</p>
+        <p></p>
+    </div>
+
+    <div class="close-btn-absolute">
+        <div>
+            <i class="fas fa-times"></i>
+        </div>
+    </div>
+
+</div>
+
+<div id="analytics__entities-stock-total" class="analytics__entities-stock-movements" style="display: none;">
+
+    <div>
+        <h4></h4>
+    </div>
+
+    <div data-report-type="simple">
+        <div class="analytics__entities-stock-movements-btn">
+            <div>
+                <i class="fal fa-file-edit"></i>
+            </div>
+            <p>Exportar Excel<br>Simple</p>
+        </div>
+    </div>
+
+    <div data-report-type="by-document">
+        <div class="analytics__entities-stock-movements-btn">
+            <div>
+                <i class="fal fa-file-edit"></i>
+            </div>
+            <p>Exportar Excel<br>Por Guía</p>
+        </div>
+    </div>
+
+    <div data-report-type="by-weight">
+        <div class="analytics__entities-stock-movements-btn">
+            <div>
+                <i class="fal fa-file-edit"></i>
+            </div>
+            <p>Exportar Excel<br>Por Pesaje</p>
+        </div>
+    </div>
+
+    <div data-report-type="noformat">
+        <div class="analytics__entities-stock-movements-btn">
+            <div>
+                <i class="fal fa-file-edit"></i>
+            </div>
+            <p>Exportar Excel<br>Sin Formato</p>
+        </div>
+    </div>
+
+</div>

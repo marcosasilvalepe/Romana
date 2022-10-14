@@ -1,5 +1,23 @@
 "use strict";
 
+const electronic_document_progress_bar = async (start, end, text) => {
+
+	const 
+	range_input = document.querySelector('#electronic-document__progress-steps > div'),
+	percentage = document.querySelector('#electronic-document__progress-step p'),
+	progress_description = document.querySelector('#electronic-document__progress-description p');
+
+	for (let i = start; i <= end; i++) {
+		range_input.setAttribute('data-progress', end);
+		range_input.style.left = end + '%';
+		percentage.innerText = i + '%'
+		await delay(50)
+	}
+
+	progress_description.innerText = text;
+
+}
+
 let socket;
 try {
 
@@ -130,11 +148,11 @@ try {
 			tr.setAttribute('data-weight-id', weight.id);
 			tr.innerHTML = `
 				<td class="weight-id">${thousand_separator(weight.id)}</td>
-				<td class="created">${DOMPurify().sanitize(new Date(weight.created).toLocaleString('es-CL'))}</td>
+				<td class="created">${sanitize(new Date(weight.created).toLocaleString('es-CL'))}</td>
 				<td class="cycle"></td>
 				<td class="gross-brute">-</td>
-				<td class="primary-plates">${DOMPurify().sanitize(weight.primary_plates)}</td>
-				<td class="driver">${DOMPurify().sanitize(weight.driver)}</td>
+				<td class="primary-plates">${sanitize(weight.primary_plates)}</td>
+				<td class="driver">${sanitize(weight.driver)}</td>
 				<td class="client">-</td>
 			`;
 
@@ -180,20 +198,60 @@ try {
 		})
 
 		//GENERATE ELECTRONIC DOCUMENT
-		socket.on('electronic document - SII Login successful', () => {
-			console.log('loggen in')
+		socket.on('error generating electronic document', e => {
+			document.querySelector('#generate-electronic-document .footer .enabled.red').click();
+			error_handler('No se pudo generar el documento electrónico.', e)
 		})
+
+		socket.on('loading sii website', async () => {
+			electronic_document_progress_bar(0, 10, 'Ingresando a SII');
+		});
+
+		socket.on('electronic document - destination entity done', () => {
+			electronic_document_progress_bar(11, 15, 'Ingresando datos del encabezado');
+		})
+
+		socket.on('electronic document - document date done', () => {
+			electronic_document_progress_bar(16, 20, 'Ingresando datos del encabezado');
+		})
+
+		socket.on('electronic document - destination city done', () => {
+			electronic_document_progress_bar(21, 25, 'Ingresando datos del encabezado');
+		})
+
+		socket.on('electronic document - vehicle data done', () => {
+			electronic_document_progress_bar(26, 30, 'Ingresando datos del encabezado');
+		});
 
 		socket.on('electronic document - header done', () => {
-			console.log('header done')
+			electronic_document_progress_bar(31, 40, 'Encabezado de documento ingresado');
 		})
 
+		socket.on('electronic document - row done', progress => {
+
+			const progress_bar = document.querySelector('#electronic-document__progress-steps > div');
+			const current_progress = parseInt(progress_bar.getAttribute('data-progress'));
+
+			progress_bar.setAttribute('data-progress', progress + current_progress);
+			progress_bar.style.left = (progress + current_progress) + '%';
+			console.log(progress)
+
+		});
+
 		socket.on('electronic document - body done', () => {
-			console.log('body done')
+			electronic_document_progress_bar(61, 70, 'Ingresando cuerpo del documento');
 		})
 
 		socket.on('electronic document - document done', () => {
-			console.log('document done')
+			electronic_document_progress_bar(71, 80, 'Firmando documento');
+		});
+
+		socket.on('electronic document - document signed', () => {
+			electronic_document_progress_bar(81, 90, 'Guardando documento');
+		})
+
+		socket.on('electronic document - file saved', doc_number => {
+			electronic_document_progress_bar(91, 100, 'Documento generado correctamente');
 		})
 
 	});
@@ -324,11 +382,11 @@ function create_pending_weights_tr(pending_weights) {
 		tr.setAttribute('data-weight-id', weight.id);
 		tr.innerHTML = `
 			<td class="weight-id">${thousand_separator(weight.id)}</td>
-			<td class="created">${new Date(weight.created).toLocaleString('es-CL')}</td>
+			<td class="created">${new Date(weight.created).toLocaleString('es-CL').replace(/[,]/gm, '')}</td>
 			<td class="cycle"></td>
 			<td class="gross-brute"></td>
-			<td class="primary-plates">${DOMPurify().sanitize(weight.primary_plates)}</td>
-			<td class="driver">${DOMPurify().sanitize(weight.driver)}</td>
+			<td class="primary-plates">${sanitize(weight.primary_plates)}</td>
+			<td class="driver">${sanitize(weight.driver)}</td>
 			<td class="client"></td>`
 		;
 
@@ -383,10 +441,10 @@ document.getElementById('weights-menu__create').addEventListener('click', async 
 
 			const tr = document.createElement('tr');
             tr.innerHTML = `
-				<td class="primary-plates">${DOMPurify().sanitize(vehicle.primary_plates)}</td>
+				<td class="primary-plates">${sanitize(vehicle.primary_plates)}</td>
 				<td class="secondary-plates"></td>
-				<td class="driver">${DOMPurify().sanitize(vehicle.driver)}</td>
-				<td class="phone">${DOMPurify().sanitize(vehicle.phone)}</td>
+				<td class="driver">${sanitize(vehicle.driver)}</td>
+				<td class="phone">${sanitize(vehicle.phone)}</td>
 				<td class="internal">
 					<div>
 						<i></i>
@@ -657,7 +715,7 @@ const get_finished_weight_filters = () => {
 	};
 	
 	//SANITIZE OBJECT
-	for (let key in data) { data[key] = DOMPurify().sanitize(data[key]) }
+	for (let key in data) { data[key] = sanitize(data[key]) }
 
 	return data;
 }
@@ -673,8 +731,8 @@ function finished_weights_create_trs(rows) {
 				<td class="line">${i + 1}</td>
 				<td class="weight">${thousand_separator(rows[i].weight)}</td>
 				<td class="cycle"></td>
-				<td class="created">${new Date(rows[i].created).toLocaleString('es-CL')}</td>
-				<td class="plates">${DOMPurify().sanitize(rows[i].plates)}</td>
+				<td class="created">${new Date(rows[i].created).toLocaleString('es-CL').replace(/[,]/gm, '')}</td>
+				<td class="plates">${sanitize(rows[i].plates)}</td>
 				<td class="driver"></td>
 				<td class="brute"></td>
 				<td class="tare"></td>
@@ -754,7 +812,7 @@ const get_finished_weights = async weight_status => {
 		})).text();
 
 		//ANIMATION STUFF
-		while (!fade_out_div.classList.contains('animationend')) { await delay(10) }
+		while (!fade_out_div.classList.contains('animationend')) await delay(10);
 		fade_out_div.classList.remove('animationend', 'active');
 
 		fade_in_div.innerHTML = template;
@@ -812,7 +870,6 @@ const get_finished_weights = async weight_status => {
 
 				const select = e.target;
 				finished_weights.cycle = select.options[select.selectedIndex].value;
-				console.log(finished_weights.cycle)
 				await finished_weight_get_records_from_filters();
 			
 				select.parentElement.setAttribute('data-cycle', finished_weights.cycle);
@@ -893,7 +950,7 @@ const finished_weight_id_keydown = async e => {
 
 	if (e.code !== 'Tab' && e.key!== 'Enter') return;
 
-	const weight_id = DOMPurify().sanitize(e.target.value.replace(/[^0-9]/gm, ''));
+	const weight_id = sanitize(e.target.value.replace(/[^0-9]/gm, ''));
 	if (weight_id.length === 0) {
 
 	}
@@ -1088,8 +1145,8 @@ async function finished_weights_annul_document() {
 //FINISHED WEIGHTS -> CHANGE WEIGHT STATUS
 const change_weight_status = async (weight_id, status) => {
 
-	weight_id = DOMPurify().sanitize(weight_object.frozen.id);
-	status = DOMPurify().sanitize(status);
+	weight_id = sanitize(weight_object.frozen.id);
+	status = sanitize(status);
 
 	try {
 
@@ -1107,7 +1164,7 @@ const change_weight_status = async (weight_id, status) => {
 		if (response.error !== undefined) throw response.error;
 		if (!response.success) throw 'Success response from server is false.';
 
-		document.querySelector('#message-container-2').innerHTML = `<p id="annul-weight-p">PESAJE ${thousand_separator(weight_id)}<br>${DOMPurify().sanitize(response.status)}</p>`;
+		document.querySelector('#message-container-2').innerHTML = `<p id="annul-weight-p">PESAJE ${thousand_separator(weight_id)}<br>${sanitize(response.status)}</p>`;
 
 		document.getElementById('message-section-2').classList.add('active');
 
@@ -1193,7 +1250,12 @@ const finished_weights_table = async e => {
 
 					const weight_id = tr.getAttribute('data-weight-id');
 
-					if (container.classList.contains('edit')) await edit_finished_weight(weight_id, document.getElementById('finished-weight__modal'));
+					if (container.classList.contains('edit')) {
+						const modal = document.createElement('div');
+						modal.className = 'finished-weight__modal';
+						document.querySelector('#finished-weight__containers').appendChild(modal);
+						await visualize_finished_weight(weight_id, modal, true);
+					}
 					else if (container.classList.contains('print')) finished_weights_print_weight(weight_id);
 					else if (container.classList.contains('excel-simple')) finished_weights_export_to_excel_simple();
 					else if (container.classList.contains('excel-detailed')) finished_weights_export_to_excel_detailed();
@@ -1217,7 +1279,7 @@ const finished_weights_table = async e => {
 	}
 }
 
-const edit_finished_weight = (weight_id, modal) => {
+const visualize_finished_weight = (weight_id, modal, edit) => {
 	return new Promise(async (resolve, reject) => {
 		try {
 
@@ -1237,9 +1299,7 @@ const edit_finished_weight = (weight_id, modal) => {
 
 			//SET WEIGHT OBJECTS IN ARRAY TO INACTIVE
 			const weights_array = weight_objects_array;
-			for (let i = 0; i < weights_array.length; i++) {
-				weights_array[i].active.status = false;
-			}
+			for (let weight of weights_array) { weight.active.status = false }
 
 			weight_object = new create_weight_object(response.weight_object);
 			response.weight_object.documents.forEach(doc => { 
@@ -1249,7 +1309,11 @@ const edit_finished_weight = (weight_id, modal) => {
 				}) 
 				weight_object.documents.push(new_doc);
 			});
-			weight_object.active = { status: true, module: document.querySelector('#main__content > .active').id };
+			weight_object.active = {
+				edit: edit,
+				status: true, 
+				module: document.querySelector('#main__content > .active').id 
+			};
 
 			weight_objects_array.push(weight_object);
 
@@ -1266,7 +1330,7 @@ const edit_finished_weight = (weight_id, modal) => {
 			modal.querySelector('.finished-weight__modal__user .widget-data p').innerText = weight.frozen.created_by.name.toUpperCase();
 			modal.querySelector('.finished-weight__modal__net-weight .widget-data p').innerText = thousand_separator(weight.final_net_weight) + ' KG';
 			modal.querySelector('.finished-weight__modal__vehicle .widget-data p').innerText = weight.frozen.primary_plates;
-			modal.querySelector('.finished-weight__modal__driver .widget-data p').innerText = weight.driver.name.toUpperCase();
+			modal.querySelector('.finished-weight__modal__driver .widget-data p').innerText = (weight.driver.name === null) ? '-' : weight.driver.name.toUpperCase();
 			
 			//GROSS WEIGHT
 			modal.querySelector(`${gross_selector} .date`).innerText = (weight.gross_weight.date === null) ? '-' : weight.gross_weight.date;
@@ -1323,7 +1387,7 @@ const edit_finished_weight = (weight_id, modal) => {
 				}
 
 				const 
-				doc_date = (doc.date === null) ? '-' : new Date(doc.date).toLocaleString('es-CL').split(' ')[0],
+				doc_date = (doc.date === null) ? '-' : new Date(doc.date).toLocaleString('es-CL').split(' ')[0].replace(/[,]/gm, ''),
 				doc_number = (doc.number === null) ? '-' : thousand_separator(doc.number);
 
 				document_header.className = 'document-header';
@@ -1461,27 +1525,38 @@ const edit_finished_weight = (weight_id, modal) => {
 			//CLOSE WEIGHT MODAL
 			modal.querySelector('.close-btn-absolute').addEventListener('click', async () => {
 
-				let close_btn, modal;
+				let modal, breadcrumb_selector;
+
+				//CLOSING MODAL IN WEIGHT MODULE
 				if (!!document.querySelector('.content-container.active #finished-weight__containers')) {
-					close_btn = document.querySelector('#finished-weight__containers > .close-btn-absolute')
-					modal = document.getElementById('finished-weight__modal');
+					modal = document.querySelector('.content-container.active .finished-weight__modal');
+					breadcrumb_selector = 'weight';
 				}
-				else modal = document.querySelector('#documents__modal');
+				
+				//CLOSING MODAL IN DOCUMENTS MODULE	
+				else if (!!document.querySelector('.content-container.active #documents__table-grid')) {
+					modal = document.querySelector('#documents__modal');
+					breadcrumb_selector = 'documents';
+				}
+
+				//CLOSING MODAL IN ANALYTICS STOCK MODAL
+				else if (!!document.querySelector('.content-container.active #entity-stock__entity-header')) {
+
+					modal = document.querySelector('#analytics__containers-stock .finished-weight__modal');
+					breadcrumb_selector = 'analytics';
+
+					const close_btn = document.querySelector('#analytics__entities-stock-movements .analytics__entities-stock-movements .close-btn-absolute');
+					fade_in_animation(close_btn);
+					close_btn.classList.remove('hidden');
+
+				}
 
 				await fade_out(modal);
+				modal.remove();
+				breadcrumbs('remove', breadcrumb_selector);
 
 				modal.classList.remove('active');
-
-				if (!!document.querySelector('.content-container.active #finished-weight__containers')) {
-					modal.innerHTML = '';
-					breadcrumbs('remove', 'weight');
-				} else {
-					modal.remove();
-					breadcrumbs('remove', 'documents');
-				} 
-
 				await remove_weight_from_weights_array();
-
 				weight_object = null;
 
 			}, { once: true });
@@ -1491,17 +1566,16 @@ const edit_finished_weight = (weight_id, modal) => {
 			//KILOS BREAKDOWN EVENT LISTENER
 			modal.querySelector('.finished-weight__kilos_breakdown').addEventListener('click', async () => {
 
-				if (clicked) return;
+				if (clicked || !weight_object.active.edit) return;
 				prevent_double_click();
 
 				let document_with_product = false;
 				const docs = weight_object.documents;
-				for (let i = 0; i < docs.length; i++) {
-					const rows = docs[i].rows;
-					for (let j = 0; j < rows.length; j++) {
-						if (rows[j].product.code !== null) {
+				for (let doc of docs) {
+					for (let row of doc.rows) {
+						if (row.product.code !== null) {
 							document_with_product = true;
-							break;
+							break
 						}
 					}
 				}
@@ -1513,10 +1587,8 @@ const edit_finished_weight = (weight_id, modal) => {
 				let modal;
 				if (!!document.querySelector('#finished-weight__documents_modal')) modal = document.querySelector('#finished-weight__documents_modal');
 				else {
-
 					modal = document.createElement('div');
 					modal.id = 'finished-weight__documents_modal';	
-
 				}
 
 				finished_weight.classList.remove('active');
@@ -1527,7 +1599,7 @@ const edit_finished_weight = (weight_id, modal) => {
 			//ADD DOCUMENTS BTN EVENT LISTENER
 			modal.querySelector('.finished-weight__add-docs').addEventListener('click', async () => {
 
-				if (clicked) return;
+				if (clicked || !weight_object.active.edit) return;
 				prevent_double_click();
 
 				const modal_selector = document.querySelector('.content-container.active .finished-weight__documents_modal');
@@ -1549,7 +1621,7 @@ const edit_finished_weight = (weight_id, modal) => {
 			//ADD TARE CONTAINERS BTN EVENT LISTENER
 			modal.querySelector('.finished-weight__add-tare-containers').addEventListener('click', async () => {
 				
-				if (clicked) return;
+				if (clicked || !weight_object.active.edit) return;
 				prevent_double_click();
 
 				const 
@@ -1565,12 +1637,19 @@ const edit_finished_weight = (weight_id, modal) => {
 
 			//PRINT WEIGHT
 			modal.querySelector('.finished-weight__print').addEventListener('click', async () => {
-				try {await weight_object.print_weight() } 
+
+				if (clicked) return;
+				prevent_double_click();
+
+				try { await weight_object.print_weight() } 
 				catch(error) { console.log('Error al intentar imprimir pesaje') }
 			});
 
 			//CHANGE WEIGHT STATUS TO PENDING
 			modal.querySelector('.finished-weight__change-to-pending').addEventListener('click', e => {
+
+				if (clicked || !weight_object.active.edit) return;
+				prevent_double_click();
 
 				if (document.getElementById('message-section').classList.contains('active')) return;
 
@@ -1629,10 +1708,9 @@ const edit_finished_weight = (weight_id, modal) => {
 				weight_status = document.querySelector('#finished-weight__containers > .card').getAttribute('data-weight-status');
 			
 			//OPENING WEIGHT IN DOCUMENTS
-			else
+			else if (!!document.querySelector('.content-container.active #documents__table-grid'))
 				weight_status = document.querySelector('#documents__table .tbody .tr.selected').getAttribute('data-weight-status');
 			
-
 			if (weight_status === 'T') {
 			
 				modal.querySelector('.finished-weight__annul').addEventListener('click', async function() {
@@ -1681,7 +1759,7 @@ const edit_finished_weight = (weight_id, modal) => {
 						try {
 		
 							const
-							weight_id = DOMPurify().sanitize(weight_object.frozen.id),
+							weight_id = sanitize(weight_object.frozen.id),
 							delete_weight = await fetch('/annul_weight', {
 								method: 'POST', 
 								headers: { 
@@ -1719,7 +1797,9 @@ const edit_finished_weight = (weight_id, modal) => {
 			else {
 				modal.querySelector('.finished-weight__annul > i').className = 'far fa-check';
 				modal.querySelector('.finished-weight__annul .widget-tooltip span').innerText = 'CAMBIAR ESTADO A TERMINADO';
-				modal.querySelector('.finished-weight__annul').addEventListener('click', e => {
+				modal.querySelector('.finished-weight__annul').addEventListener('click', () => {
+					if (clicked || !weight_object.active.edit) return;
+					prevent_double_click();
 					change_weight_status(weight_object.frozen.id, 'T');
 				});
 			}
@@ -1727,12 +1807,15 @@ const edit_finished_weight = (weight_id, modal) => {
 			fade_in(modal, 0, 'flex');
 			modal.classList.add('active');
 
+			let breadcrumb_selector;
 			if (!!document.querySelector('.content-container.active #finished-weight__containers'))
-				breadcrumbs('add', 'weight', 'PESAJE ' + thousand_separator(weight.frozen.id));
-			else
-				breadcrumbs('add', 'documents', 'PESAJE ' + thousand_separator(weight.frozen.id));
-
-
+				breadcrumb_selector = 'weight';
+			else if (!!document.querySelector('.content-container.active #documents__table-grid'))
+				breadcrumb_selector = 'documents';
+			else if (!!document.querySelector('.content-container.active #analytics__entities-stock-movements'))
+				breadcrumb_selector = 'analytics';
+			
+			breadcrumbs('add', breadcrumb_selector, 'PESAJE ' + thousand_separator(weight.frozen.id));
 			return resolve();
 		} catch(error) { return reject(error) }
 	})
@@ -1796,7 +1879,7 @@ const finished_weights_export_to_excel_simple = async () => {
 		}
 
 		//SANITIZE OBJECT
-		for (let key in row_data) { row_data[key] = DOMPurify().sanitize(row_data[key]) }	
+		for (let key in row_data) { row_data[key] = sanitize(row_data[key]) }	
 
 		data.push(row_data)
 
@@ -1878,10 +1961,10 @@ function create_weight_filter_vehicles(filter) {
 			response.data.forEach(vehicle => {
 				const tr = document.createElement('tr');
 				tr.innerHTML = `
-					<td class="primary-plates">${DOMPurify().sanitize(vehicle.primary_plates)}</td>
+					<td class="primary-plates">${sanitize(vehicle.primary_plates)}</td>
 					<td class="secondary-plates"></td>
-					<td class="driver">${DOMPurify().sanitize(vehicle.driver)}</td>
-					<td class="phone">${DOMPurify().sanitize(vehicle.phone)}</td>
+					<td class="driver">${sanitize(vehicle.driver)}</td>
+					<td class="phone">${sanitize(vehicle.phone)}</td>
 					<td class="internal">
 						<div>
 							<i></i>
@@ -1924,7 +2007,7 @@ async function create_weight_search_vehicle(e) {
 		return;
 	}
 
-	const partial_plate = DOMPurify().sanitize(input.value);
+	const partial_plate = sanitize(input.value);
 
 	try {
 
@@ -1997,7 +2080,7 @@ async function create_vehicle_select_driver() {
 	prevent_double_click();
 
 	const
-	plates = DOMPurify().sanitize(document.querySelector('#create-vehicle__primary-plates').value.replace(/[^a-zA-Z0-9]/gm, '').toUpperCase()),
+	plates = sanitize(document.querySelector('#create-vehicle__primary-plates').value.replace(/[^a-zA-Z0-9]/gm, '').toUpperCase()),
 	tooltip = document.querySelector('#create-weight__create-vehicle__vehicle-data .create-vehicle-data .widget-tooltip');
 
 	if (plates.length < 6) {	
@@ -2179,10 +2262,11 @@ async function create_vehicle_select_driver_choose_transport_btn() {
 		const
 		entities = response.entities,
 		ul = document.querySelector('#create-document__origin-entity-list ul');
-		for (let i = 0; i < entities.length; i++) {
+
+		for (let entity of entities) {
 			const li = document.createElement('li');
-			li.setAttribute('data-entity-id', entities[i].id);
-			li.innerText = entities[i].name;
+			li.setAttribute('data-entity-id', entity.id);
+			li.innerText = entity.name;
 			li.addEventListener('click', e => {
 				if (e.target.parentElement.querySelector('.selected'))
 					e.target.parentElement.querySelector('.selected').classList.remove('selected');
@@ -2298,6 +2382,16 @@ function create_weight(response) {
 			create_documents_table_row(new_doc);
 		});
 
+		weight_object.active = {
+			edit: true,
+			status: true, 
+			module: document.querySelector('#main__content > .active').id 
+		};
+
+		//ADD WEIGHT OBJECT TO WEIGHTS ARRAY
+		weight_objects_array.forEach(weight => { weight.active.status = false });
+		weight_objects_array.push(weight_object);
+
 		if (weight_object.kilos_breakdown) {
 			try {
 
@@ -2344,7 +2438,7 @@ function create_weight(response) {
 		
 				tr.append(td1, td2, td3);
 				td1.innerText = thousand_separator(weight.id);
-				td2.innerText = new Date(weight.tare_date).toLocaleString('es-CL').split(' ')[0];
+				td2.innerText = new Date(weight.tare_date).toLocaleString('es-CL').split(' ')[0].replace(/[,]/gm, '');
 				td3.innerText = thousand_separator(weight.tare_net);
 				document.querySelector('#tara-history-table .tbl-content tbody').appendChild(tr);
 			})
@@ -2390,6 +2484,11 @@ function create_weight(response) {
 		document.getElementById('tare__final-net-weight').innerText = `${thousand_separator(weight_object.final_net_weight)} KG`;
 
 		/********************** EVENT LISTENERS *********************/
+
+		//CLOSE WEIGHT MODULE MODULE
+		document.querySelector('#create-weight-step-2 > .close-btn-absolute').addEventListener('click', () => {
+			document.querySelector('#weight__breadcrumb > li:first-child').click();
+		})
 
 		//CYCLE WIDGET
 		document.getElementById('new-weight__widget__cycle-type').addEventListener('click', change_cycle_widget);
@@ -2463,12 +2562,6 @@ function create_weight(response) {
 
 		//FINALIZE WEIGHT WIDGET
 		document.getElementById('new-weight__widget__finalize').addEventListener('click', finalize_weight_widget);
-
-		//ADD WEIGHT OBJECT TO WEIGHTS ARRAY
-		for (let i = 0; i < weight_objects_array.length; i++) { weight_objects_array[i].active.status = false }
-
-		weight_object.active = { status: true, module: document.querySelector('#main__content > .active').id };
-		weight_objects_array.push(weight_object);
 		
 		if (screen_width < 576) {
 			const kilos_grid = document.querySelector('#create-weight-step-2 .grid.kilos > .widget');
@@ -2581,9 +2674,9 @@ async function select_tara_type_accept_btn() {
 	if (btn_double_clicked(this)) return;
 
 	const 
-	type = DOMPurify().sanitize(document.querySelector('#create-weight__change-tara-type .select-tara-type.active').getAttribute('data-type')),
-	weight_id = DOMPurify().sanitize(weight_object.frozen.id),
-	process = DOMPurify().sanitize(weight_object.process);
+	type = sanitize(document.querySelector('#create-weight__change-tara-type .select-tara-type.active').getAttribute('data-type')),
+	weight_id = sanitize(weight_object.frozen.id),
+	process = sanitize(weight_object.process);
 
 	if (type === weight_object.tara_type) {
 		document.querySelector('#create-weight__change-tara__close-modal').click();
@@ -2694,7 +2787,7 @@ async function change_cycle_type_accept_btn() {
 		return;
 	}
 
-	const weight_id = DOMPurify().sanitize(weight_object.frozen.id);
+	const weight_id = sanitize(weight_object.frozen.id);
 
 	try {
 		const
@@ -2848,7 +2941,7 @@ async function change_process_accept_btn() {
 			<h4>PROCESO ACTUALIZADO</h4>
 			<div class="message-h3">
 				<i class="fad fa-check"></i>
-				<h3><b>${DOMPurify().sanitize(description)}</b></h3>
+				<h3><b>${sanitize(description)}</b></h3>
 			</div>
 		`;
 		document.querySelector('#create-weight__change-process__close-modal').click();
@@ -2876,10 +2969,10 @@ async function add_secondary_plates(e) {
 
 	if (e.code !== 'Tab' && e.key !== 'Enter') return;
 	
-	const plates = (e.target.value.length === 0) ? null : DOMPurify().sanitize(e.target.value).toUpperCase();
+	const plates = (e.target.value.length === 0) ? null : sanitize(e.target.value).toUpperCase();
 	if (plates === weight_object.secondary_plates) return;
 
-	const weight_id = DOMPurify().sanitize(weight_object.frozen.id);
+	const weight_id = sanitize(weight_object.frozen.id);
 	try {
 
 		const
@@ -2955,9 +3048,9 @@ function change_driver_create_tr(drivers) {
 			const tr = document.createElement('tr');
 			tr.setAttribute('data-driver-id', driver.id);
 			tr.innerHTML = `
-			<td class="driver">${DOMPurify().sanitize(driver.name)}</td>
-			<td class="rut">${DOMPurify().sanitize(driver.rut)}</td>
-			<td class="phone">${DOMPurify().sanitize(driver.phone)}</td>
+			<td class="driver">${sanitize(driver.name)}</td>
+			<td class="rut">${sanitize(driver.rut)}</td>
+			<td class="phone">${sanitize(driver.phone)}</td>
 			<td class="internal">
 				<div>
 					<i></i>
@@ -3137,7 +3230,7 @@ async function select_driver_search_driver(e) {
 	if (e.target.value.length === 0 && e.target.classList.contains('has-content')) e.target.classList.remove('has-content');
 	else if (e.target.value.length > 0 && !e.target.classList.contains('has-content')) e.target.classList.add('has-content');
 	const 
-	driver = DOMPurify().sanitize(e.target.value),
+	driver = sanitize(e.target.value),
 	active_container = document.querySelector('.content-container.active');
 
 	if (driver.length === 0) {
@@ -3279,7 +3372,7 @@ async function select_driver_create_driver() {
 	}
 
 	//SANITIZE OBJECT
-	for (let key in data) { data[key] = DOMPurify().sanitize(data[key]) }
+	for (let key in data) { data[key] = sanitize(data[key]) }
 
 	data.internal = (document.getElementById('create-driver__internal-cbx').checked) ? 1 : 0,
 	data.active = (document.getElementById('create-driver__active-cbx').checked) ? 1 : 0;
@@ -3309,9 +3402,9 @@ async function select_driver_create_driver() {
 
 		tr.setAttribute('data-driver-id', response.driver.id);
 		tr.innerHTML = `
-			<td class="driver">${DOMPurify().sanitize(response.driver.name)}</td>
-			<td class="rut">${DOMPurify().sanitize(response.driver.rut)}</td>
-			<td class="phone">${DOMPurify().sanitize(response.driver.phone)}</td>
+			<td class="driver">${sanitize(response.driver.name)}</td>
+			<td class="rut">${sanitize(response.driver.rut)}</td>
+			<td class="phone">${sanitize(response.driver.phone)}</td>
 			<td class="internal">
 				<div>
 					<i></i>
@@ -3412,7 +3505,7 @@ const get_vehicle_history = async () => {
 			tr.innerHTML = `
 				<td class="line">${i + 1}</td>
 				<td class="weight">${thousand_separator(data[i].weight_id)}</td>
-				<td class="created">${new Date(data[i].created).toLocaleString('es-CL')}</td>
+				<td class="created">${new Date(data[i].created).toLocaleString('es-CL').replace(/[,]/gm, '')}</td>
 				<td class="tare">${thousand_separator(data[i].tare_net)}</td>
 			`;
 
@@ -3678,13 +3771,20 @@ const document_rows_tutorial_widget = async e => {
 
 //OPEN MODAL TO CREATE NEW DOCUMENT
 let create_document_origin_list, mutation_observer;
-function modal_event_listeners(modal) {
+function document_modal_event_listeners(modal) {
 	return new Promise(resolve => {
 
 		modal.querySelector('.create-document__details-container').setAttribute('data-cycle-id', weight_object.cycle.id);
 
 		modal.querySelector('.create-document__doc-number input').addEventListener('keydown', create_document_update_doc_number);
 		modal.querySelector('.create-document__doc-number input').addEventListener('input', e => {
+			
+			//DO NOTHING IF WEIGHT IS NOT EDITABLE
+			if (!weight_object.active.edit) {
+				e.target.value = (document_object.number === null) ? '' : thousand_separator(document_object.number);
+				return
+			}
+
 			const number = e.target.value.replace(/[^0-9]/gm, '');
 			e.target.value = thousand_separator(number);
 			if (number.length === 0 && e.target.classList.contains('has-content')) {
@@ -3720,7 +3820,21 @@ function modal_event_listeners(modal) {
 	
 		modal.querySelector('.create-document__back-to-origin-btn').addEventListener('click', create_document_back_to_entities);
 	
-		modal.querySelector('.create-document__comments').addEventListener('input', comments_textarea);
+		modal.querySelector('.create-document__comments').addEventListener('input', function() {
+
+			if (!weight_object.active.edit) {
+				this.value = document_object.comments;
+				return;
+			}
+
+			const textarea = this;
+			if (
+				textarea.value.length === 0 && textarea.classList.contains('has-content') 
+				||
+				textarea.value.length > 0 && !textarea.classList.contains('has-content') 
+			) textarea.classList.toggle('has-content')
+
+		});
 		modal.querySelector('.create-document__comments').addEventListener('keydown', create_document_comments_save);
 
 		const client_list = modal.querySelector('.create-document__origin-entity-list ul');
@@ -3737,6 +3851,7 @@ function modal_event_listeners(modal) {
 		modal.querySelector('.create-document__origin-branch-list .table-body').addEventListener('keydown', create_document_client_li);
 		
 		//CLOSE DOCUMENT MODAL
+		modal.querySelector('.close-btn-absolute').addEventListener('click', close_create_document_modal);
 		modal.querySelector('.create-document__footer__back-btn').addEventListener('click', close_create_document_modal);
 		modal.querySelector('.create-document__footer__back-btn .widget').addEventListener('keydown', function(e) {
 			console.log(e)
@@ -3746,7 +3861,7 @@ function modal_event_listeners(modal) {
 
 		//DELETE DOCUMENT
 		modal.querySelector('.create-document__footer__delete-btn').addEventListener('click', () => {
-			if (clicked) return;
+			if (clicked || !weight_object.active.edit) return;
 			prevent_double_click();
 			display_annul_document_message();
 		});
@@ -3769,95 +3884,40 @@ function modal_event_listeners(modal) {
 			this.parentElement.click();
 		});
 
-
 		modal.querySelector('.create-document__header__truck .widget-data p').innerText = weight_object.frozen.primary_plates;
 		modal.querySelector('.create-document__header__created .widget p').innerText = document_object.frozen.created;
 		modal.querySelector('.create-document__header__user .widget p').innerText = document_object.frozen.user.name;
 
 		//SALE OR TRANSPORT DOCUMENT
-		modal.querySelector('.create-document__footer__doc-type').addEventListener('click', async e => {
+		modal.querySelector('.create-document__footer__doc-type select').addEventListener('change', async function() {
+
+			const 
+			select = this,
+			doc_type = parseInt(select.options[select.selectedIndex].value);
 
 			try {
 
-				if (animating) return;
-				animating = true;
-
 				const
-				doc_id = DOMPurify().sanitize(document_object.frozen.id),
-				type = (document_object.sale) ? false : true, //TOGGLE TYPE OF DOC
-				change_doc_type = await fetch('/change_doc_type', {
+				change_type = await fetch('/change_type_of_document', {
 					method: 'POST',
 					headers: {
 						"Content-Type" : "application/json",
 						"Authorization" : token.value
 					},
-					body: JSON.stringify({ doc_id, type })
+					body: JSON.stringify({doc_id: document_object.frozen.id, doc_type})
 				}),
-				response = await change_doc_type.json();
+				response = await change_type.json();
 
 				if (response.error !== undefined) throw response.error;
 				if (!response.success) throw 'Success response from server is false.';
 
-				const document_comments = document.querySelector('.content-container.active .create-document__comments');
-				let type_txt;
-
-				if (type) {
-					type_txt = 'VENTA';
-					document_comments.classList.add('has-content');
-					document_comments.value = 'FRUTA PROVENIENTE DE AREA REGLAMENTADA POR LOBESIA BOTRANA';
-				} else {
-					type_txt = 'TRASLADO';
-					document_comments.value = '';
-					document_comments.classList.remove('has-content');
-				}
-
-				document_comments.dispatchEvent(new KeyboardEvent('keydown', { 'code': 'Tab' }))
-
-				document_object.sale = type;
-				document.querySelector('.content-container.active .create-document__footer__doc-type .widget-button span').innerHTML = `TIPO DOC.<br>${type_txt}`;
-
-				if (jwt_decode(token.value).tutorial) {
-					document.querySelector('.document-tooltip-tutorial.row-widget.widget-tooltip span').innerHTML = (type) ? 'Haz click para cambiar el tipo<br>de documento a Traslado' : 'Haz click para cambiar el tipo<br>de documento a Venta'
-				}
+				document_object.type = doc_type;
+				const option_text = (weight_object.cycle.id === 1 && doc_type === 2) ? 'COMPRA' : select.options[select.selectedIndex].innerText;
+				select.previousElementSibling.innerText = option_text;
 
 			}
-			catch(error) { error_handler('Error al intentar cambiar tipo de documento.', error) }
-			finally { animating = false }
+			catch(e) { error_handler('Error al intentar cambiar tipo de documento.', e) }
 		});
-
-		if (document_object.sale) 
-			modal.querySelector('.create-document__footer__doc-type .widget-button span').innerHTML = 'TIPO DOC.<br>VENTA';
-
-
-		if (jwt_decode(token.value).tutorial) {
-
-			modal.querySelector('.create-document__doc-number input').addEventListener('focus', document_rows_tutorial_widget);
-			modal.querySelector('.create-document__doc-date input').addEventListener('focus', document_rows_tutorial_widget);
-			modal.querySelector('.create-document__header__origin-entity .widget').addEventListener('focus', document_rows_tutorial_widget);
-			modal.querySelector('.create-document__header__destination-entity .widget').addEventListener('focus', document_rows_tutorial_widget);
-			modal.querySelector('.create-document__header__destination-branch .widget').addEventListener('focus', document_rows_tutorial_widget);
-			modal.querySelector('.create-document__comments').addEventListener('focus', document_rows_tutorial_widget);
-			modal.querySelector('.create-document__footer__back-btn .widget').addEventListener('focus', document_rows_tutorial_widget);
-			modal.querySelector('.create-document__footer__print-document .widget').addEventListener('focus', document_rows_tutorial_widget);
-			modal.querySelector('.create-document__footer__delete-btn .widget').addEventListener('focus', document_rows_tutorial_widget);
-			modal.querySelector('.create-document__footer__electronic .widget').addEventListener('focus', document_rows_tutorial_widget);
-			modal.querySelector('.create-document__footer__doc-type .widget').addEventListener('focus', document_rows_tutorial_widget);
-
-			/*
-			modal.querySelector('.create-document__header__origin-entity .widget').addEventListener('mouseenter', document_rows_tutorial_widget);
-			modal.querySelector('.create-document__doc-number input').addEventListener('mouseenter', document_rows_tutorial_widget);
-			modal.querySelector('.create-document__doc-date input').addEventListener('mouseenter', document_rows_tutorial_widget);
-			modal.querySelector('.create-document__header__origin-entity .widget').addEventListener('mouseenter', document_rows_tutorial_widget);
-			modal.querySelector('.create-document__header__destination-entity .widget').addEventListener('mouseenter', document_rows_tutorial_widget);
-			modal.querySelector('.create-document__header__destination-branch .widget').addEventListener('mouseenter', document_rows_tutorial_widget);
-			modal.querySelector('.create-document__comments').addEventListener('mouseenter', document_rows_tutorial_widget);
-			modal.querySelector('.create-document__footer__back-btn .widget').addEventListener('mouseenter', document_rows_tutorial_widget);
-			modal.querySelector('.create-document__footer__print-document .widget').addEventListener('mouseenter', document_rows_tutorial_widget);
-			modal.querySelector('.create-document__footer__delete-btn .widget').addEventListener('mouseenter', document_rows_tutorial_widget);
-			modal.querySelector('.create-document__footer__electronic .widget').addEventListener('mouseenter', document_rows_tutorial_widget);
-			modal.querySelector('.create-document__footer__doc-type .widget').addEventListener('mouseenter', document_rows_tutorial_widget);
-			*/
-		}
 
 		if (weight_object.cycle.id === 3) {
 
@@ -3882,7 +3942,6 @@ function modal_event_listeners(modal) {
 
 			if (weight_object.cycle.id === 1) {
 
-				modal.querySelector('.create-document__footer__doc-type').remove();
 				modal.querySelector('.create-document__footer__print-document').remove();
 
 				modal.querySelector('.create-document__footer__back-btn .widget').setAttribute('data-next-tab-selector', '.content-container.active .create-document__footer__delete-btn .widget');
@@ -3901,6 +3960,21 @@ function modal_event_listeners(modal) {
 			modal.querySelector('.create-document__header__origin-entity .widget').addEventListener('click', open_entity_modal);
 			modal.querySelector('.create-document__header__origin-entity .widget').addEventListener('keydown', open_entity_modal);			
 		}
+
+		//TUTORIAL STUFF
+		if (jwt_decode(token.value).tutorial) {
+			modal.querySelector('.create-document__doc-number input').addEventListener('focus', document_rows_tutorial_widget);
+			modal.querySelector('.create-document__doc-date input').addEventListener('focus', document_rows_tutorial_widget);
+			modal.querySelector('.create-document__header__origin-entity .widget').addEventListener('focus', document_rows_tutorial_widget);
+			modal.querySelector('.create-document__header__destination-entity .widget').addEventListener('focus', document_rows_tutorial_widget);
+			modal.querySelector('.create-document__header__destination-branch .widget').addEventListener('focus', document_rows_tutorial_widget);
+			modal.querySelector('.create-document__comments').addEventListener('focus', document_rows_tutorial_widget);
+			modal.querySelector('.create-document__footer__back-btn .widget').addEventListener('focus', document_rows_tutorial_widget);
+			modal.querySelector('.create-document__footer__print-document .widget').addEventListener('focus', document_rows_tutorial_widget);
+			modal.querySelector('.create-document__footer__delete-btn .widget').addEventListener('focus', document_rows_tutorial_widget);
+			modal.querySelector('.create-document__footer__electronic .widget').addEventListener('focus', document_rows_tutorial_widget);
+			modal.querySelector('.create-document__footer__doc-type .widget').addEventListener('focus', document_rows_tutorial_widget);
+		}		
 
 		return resolve();
 	})
@@ -3974,7 +4048,7 @@ async function add_doc_widget(modal) {
 		create_document_create_body_row(document_object.rows[0]);
 
 		if (weight_object.cycle.id !== 3) modal_internal_entities(response.internal);
-		await modal_event_listeners(modal);
+		await document_modal_event_listeners(modal);
 		
 		//WATCH FOR CHANGES IF KILOS BREAKDOWN HAS BEEN DONE
 		if (weight_object.kilos_breakdown) document_object.watch_object();
@@ -4005,14 +4079,25 @@ function create_documents_table_row(doc) {
 	else {
 		tr = document.createElement('tr');
 		tr.setAttribute('data-doc-id', doc_id);
-		tr.innerHTML = `<td class="line-number"></td><td class="delete"><i class="fas fa-times-circle"></i></td><td class="entity"></td><td class="date"></td><td class="doc-number"></td><td class="containers"></td><td class="kilos"></td><td class="total"></td>`;
+		tr.innerHTML = `
+			<td class="line-number"></td>
+			<td class="delete">
+				<i class="fas fa-times-circle"></i>
+			</td>
+			<td class="entity"></td>
+			<td class="date"></td>
+			<td class="doc-number"></td>
+			<td class="containers"></td>
+			<td class="kilos"></td>
+			<td class="total"></td>
+		`;
 		documents_table.appendChild(tr);	
 	}
 
 	tr.querySelector('.line-number').innerText = Array.from(tr.parentElement.children).indexOf(tr) + 1;
 	
 	let date = doc.date;
-	if (date !== null) date = new Date(date).toLocaleString('es-CL').split(' ')[0];
+	if (date !== null) date = new Date(date).toLocaleString('es-CL').split(' ')[0].replace(/[,]/gm, '');
 	tr.querySelector('.date').innerText = date;
 
 	let doc_number = doc.number;
@@ -4032,7 +4117,6 @@ function create_documents_table_row(doc) {
 	let doc_total = doc.total;
 	if (doc_total !== null ) doc_total = `$ ${thousand_separator(doc.total)}`;
 	tr.querySelector('.total').innerText = doc_total;
-
 }
 
 //CLOSE MODAL TO CREATE NEW DOCUMENT
@@ -4046,8 +4130,9 @@ async function close_create_document_modal() {
 	//CHECK ROWS INPUTS DATA
 	let doc_with_data = false;
 	const inputs = document.querySelectorAll('.content-container.active .create-document__body__table-container input');
-	for (let i = 0; i < inputs.length; i++) {
-		if (inputs[i].value.length > 0 && inputs[i].parentElement.classList.contains('saved')) {
+	
+	for (let input of inputs) {
+		if (input.value.length > 0 && input.parentElement.classList.contains('saved')) {
 			doc_with_data = true;
 			break;
 		}
@@ -4059,7 +4144,7 @@ async function close_create_document_modal() {
 		doc.kilos === 0 && doc.containers === 0 && doc.total === 0) {
 		try {
 			const
-			doc_id = DOMPurify().sanitize(document_object.frozen.id),
+			doc_id = sanitize(document_object.frozen.id),
 			update_doc_status = await fetch('/update_doc_status', {
 				method: 'POST', 
 				headers: { 
@@ -4072,7 +4157,7 @@ async function close_create_document_modal() {
 			
 			if (response.error !== undefined) throw response.error;
 			if (!response.success) throw 'Success response from server is false.';
-			
+
 			const docs = weight_object.documents;
 			for (let i = 0; i < docs.length; i++) {
 				if (docs[i].frozen.id === parseInt(doc_id)) {
@@ -4095,10 +4180,12 @@ async function close_create_document_modal() {
 
 		//RECYCLE LAST DOCUMENT ROW IF IT'S EMPTY
 		if (doc.rows.length > 1) {
-			let last_row_with_content = false;
+			
 			const last_row_inputs = document.querySelectorAll('.content-container.active .create-document__body .tbl-content tr:last-child input');
-			for (let i = 0; i < last_row_inputs.length; i++) {
-				if (last_row_inputs[i].value !== '') {
+			
+			let last_row_with_content = false;
+			for (let input of last_row_inputs) {
+				if (input.value !== '') {
 					last_row_with_content = true;
 					break;
 				}
@@ -4120,13 +4207,15 @@ async function close_create_document_modal() {
 
 					if (response.error !== undefined) throw response.error;
 					if (!response.success) throw 'Success response from server is false.';
+
 					document_object.rows.splice(document_object.rows.length - 1, 1);
+					
 				} catch(err) { error_handler('Error al reciclar fila vacía en /recycle_row', err) }
 			}
 		}
 
 		//SAVE DOCUMENT
-		const weight_id = DOMPurify().sanitize(weight_object.frozen.id);
+		const weight_id = sanitize(weight_object.frozen.id);
 
 		try {
 
@@ -4175,7 +4264,8 @@ async function close_create_document_modal() {
 				document.getElementById('gross__final-net-weight').innerText = `${thousand_separator(weight_object.gross_weight.net - weight_object.average_weight)} KG`;
 			
 			else if (weight_object.gross_weight.status > 1 && weight_object.tare_weight.status > 1)
-				document.getElementById('gross__final-net-weight').innerText = `${thousand_separator(weight_object.final_net_weight)} KG`;	
+				document.getElementById('gross__final-net-weight').innerText = `${thousand_separator(weight_object.final_net_weight)} KG`;
+
 		}
 	
 		document.getElementById('create-weight__modal').classList.remove('active');
@@ -4307,7 +4397,7 @@ async function close_create_document_modal() {
 			}
 
 			const 
-			doc_date = (doc.date === null) ? '-' : `<b>${new Date(doc.date).toLocaleString('es-CL').split(' ')[0]}</b>`,
+			doc_date = (doc.date === null) ? '-' : `<b>${new Date(doc.date).toLocaleString('es-CL').split(' ')[0].replace(/[,]/gm, '')}</b>`,
 			doc_number = (doc.number === null) ? '-' : `<b>Nº Doc: ${thousand_separator(doc.number)}</b>`;
 
 			doc_widget.querySelector('.origin p:first-child').innerHTML = '<b>ORIGEN: </b>' + origin_entity;
@@ -4386,12 +4476,16 @@ async function close_create_document_modal() {
 		document.querySelector('#documents .finished-weight__modal-container').classList.add('active');
 	}
 
+	//EXITING IN ANAYLITICS STOCK MODULE
+	else if (!!document.querySelector('#analytics.active')) {
+		document.querySelector('#analytics__containers-stock .finished-weight__documents_modal').remove();
+		document.querySelector('#analytics__containers-stock .finished-weight__modal-container').classList.add('active');
+	}
+
 	if (jwt_decode(token.value).tutorial && !!document.querySelector('.document-tooltip-tutorial.row-widget')) 
 		document.querySelector('.document-tooltip-tutorial.row-widget').remove()
 
-	weight_object.documents.forEach(doc => {
-		doc.active = false;
-	});
+	weight_object.documents.forEach(doc => { doc.active = false });
 	document_object = null;
 
 	const active_breadcrumb = document.querySelector('.content-container.active').id;
@@ -4403,27 +4497,14 @@ async function close_create_document_modal() {
 }
 
 //DOCUMENT CHANGE ELECTRONIC STATUS
-function update_document_electronic_status(doc_id, new_status) {
-	return new Promise(async (resolve, reject) => {
-		try {
-
-			
-
-			
-
-		} catch(error) { return reject(error) }
-	})
-}
-
 async function change_document_electronic_status() {
 	
-	if (clicked) return;
+	if (clicked || !weight_object.active.edit) return;
 	prevent_double_click();
 
 	if (weight_object.cycle.id === 2) {
-		
-		return;
-		//if (document_object.electronic) return;
+
+		if (document_object.electronic) return;
 
 		try {
 
@@ -4434,11 +4515,29 @@ async function change_document_electronic_status() {
 			if (document_object.internal.branch.id === null) throw 'No hay una sucursal de origen seleccionada';
 			if (document_object.rows.length === 0) throw 'El cuerpo del documento está vacío';
 
+			const template = await (await fetch('./templates/template-electronic-document.html', {
+				method: 'GET',
+				headers: { "Cache-Control" : "no-cache" }
+			})).text();
+
+			const container = document.createElement('div');
+			container.id = 'electronic-document__container';
+			container.className = 'hidden';
+			container.innerHTML = template;
+
+			container.querySelector('button.svg-wrapper').addEventListener('click', async () => {
+				await fade_out(container);
+				container.remove();
+			});
+
+			document.querySelector('#create-weight__modal .modal-content').appendChild(container);
+
+			fade_in_animation(container);
+			socket.emit('generate electronic document', document_object.frozen.id);
+
+			return;
 			
 		} catch(e) { error_handler(`Error al intentar generar documento electrónico. ${e}`) }
-
-		socket.emit('generate electronic document', document_object.frozen.id);
-		return;
 	}
 
 	const 
@@ -4567,7 +4666,7 @@ function create_document_create_body_row(row) {
 		tr.querySelector('.product-name input').addEventListener('keydown', e => {
 
 			if (e.key !== 'Enter' || e.target.value.length > 0) return;
-			if (document_object.electronic && weight_object.cycle.id === 2) return;
+			if (document_object.electronic && weight_object.cycle.id === 2 || !weight_object.active.edit) return;
 
 			const row_id = e.target.parentElement.parentElement.getAttribute('data-row-id');
 			show_product_container_modal('Uva', row_id);
@@ -4578,17 +4677,41 @@ function create_document_create_body_row(row) {
 		tr.querySelector('.container-code input').addEventListener('input', container_code_set_to_null);
 
 		tr.querySelector('.container-name input').addEventListener('keydown', e => {
-			if (e.code !== 'F4') return;
+			if (e.code !== 'F4' || !weight_object.active.edit) return;
 			show_product_container_modal('containers', e.target.parentElement.parentElement.getAttribute('data-row-id'));
-		})
+		});
+		tr.querySelector('.container-name input').addEventListener('input', async e => {
+
+			const
+			row_element = e.target.parentElement.parentElement,
+			row_id = parseInt(row_element.getAttribute('data-row-id')),
+			row_object = await get_row_object(row_id);
+
+			if (document_object.electronic && weight_object.cycle.id === 2 || !weight_object.active.edit) {
+				e.target.value = row_object.container.name;
+				return;
+			}
+		});
 
 		tr.querySelector('.container-amount input').addEventListener('keydown', container_amount_update);
 		tr.querySelector('.container-amount input').addEventListener('input', countainer_amount_set_to_null);
 
 		tr.querySelector('.product-code input').addEventListener('input', product_code_set_to_null);
 		tr.querySelector('.product-name input').addEventListener('keydown', e => {
-			if (e.code !== 'F4') return;
+			if (e.code !== 'F4' || !weight_object.active.edit) return;
 			show_product_container_modal('Uva', e.target.parentElement.parentElement.getAttribute('data-row-id'));
+		});
+		tr.querySelector('.product-name input').addEventListener('input', async e => {
+
+			const
+			row_element = e.target.parentElement.parentElement,
+			row_id = parseInt(row_element.getAttribute('data-row-id')),
+			row_object = await get_row_object(row_id);
+
+			if (document_object.electronic && weight_object.cycle.id === 2 || !weight_object.active.edit) {
+				e.target.value = row_object.product.name;
+				return;
+			}
 		});
 
 		tr.querySelector('.product-price input').addEventListener('input', product_price_set_to_null);
@@ -4612,17 +4735,6 @@ function create_document_create_body_row(row) {
 			tr.querySelector('.product-price input').addEventListener('focus', document_rows_tutorial_widget);
 			tr.querySelector('.product-kilos input').addEventListener('focus', document_rows_tutorial_widget);
 
-			/*
-			tr.querySelector('.container-code input').addEventListener('mouseenter', document_rows_tutorial_widget);
-			tr.querySelector('.container-name input').addEventListener('mouseenter', document_rows_tutorial_widget);
-			tr.querySelector('.container-weight input').addEventListener('mouseenter', document_rows_tutorial_widget);			
-			tr.querySelector('.container-amount input').addEventListener('mouseenter', document_rows_tutorial_widget);
-			tr.querySelector('.product-code input').addEventListener('mouseenter', document_rows_tutorial_widget);
-			tr.querySelector('.product-name input').addEventListener('mouseenter', document_rows_tutorial_widget);
-			tr.querySelector('.cut select').addEventListener('mouseenter', document_rows_tutorial_widget);
-			tr.querySelector('.product-price input').addEventListener('mouseenter', document_rows_tutorial_widget);
-			tr.querySelector('.product-kilos input').addEventListener('mouseenter', document_rows_tutorial_widget);
-			*/
 		} 
 		
 		return resolve();
@@ -4653,9 +4765,9 @@ function edit_document_in_modal(doc_id, modal) {
 
 			modal.innerHTML = template;
 	
-			for (let i = 0; i < weight_object.documents.length; i++) {
-				if (weight_object.documents[i].frozen.id === doc_id) {
-					document_object = weight_object.documents[i];
+			for (let doc of weight_object.documents) {
+				if (doc.frozen.id === doc_id) {
+					document_object = doc;
 					document_object.active = true;
 					break;
 				}	
@@ -4665,7 +4777,7 @@ function edit_document_in_modal(doc_id, modal) {
 			if (weight_object.kilos_breakdown) document_object.watch_object();
 	
 			await modal_internal_entities(response.internal);
-			modal_event_listeners(modal);
+			await document_modal_event_listeners(modal);
 			
 			let doc_number = document_object.number;
 			if (doc_number !== null) {
@@ -4722,6 +4834,12 @@ function edit_document_in_modal(doc_id, modal) {
 	
 			const selects = table.querySelectorAll('.cut select');
 			selects.forEach(select => { if (select.value !== 'none') select.parentElement.classList.add('saved') });
+
+			const doc_type_select = document.querySelector('.create-document__footer__doc-type select');
+			doc_type_select.selectedIndex = document_object.type;
+
+			const doc_type_text = (weight_object.cycle.id === 1 && document_object.type === 2) ? 'COMPRA' : doc_type_select.options[document_object.type].innerText;
+			doc_type_select.previousElementSibling.innerText = doc_type_text;
 
 			if (document_object.electronic) document.querySelector('.create-document__footer__electronic').classList.add('enabled');
 	
@@ -4806,6 +4924,7 @@ async function document_table_click(e) {
 				const modal = document.getElementById('create-weight__modal');
 				check_loader();
 				await edit_document_in_modal(doc_id, modal);
+
 				modal.classList.add('active');
 				check_loader();
 			}
@@ -4825,15 +4944,9 @@ async function document_table_click(e) {
 //CREATE DOCUMENT -> UPDATE DOCUMENT NUMBER -> KEYDOWN EVENT
 async function create_document_update_doc_number(e) {
 
-	
-	if (document_object.electronic && weight_object.cycle.id === 2) {
-		e.target.value = thousand_separator(document_object.number);
-		return;
-	}
-	
-
 	if (e.code !== 'Tab' && e.key!== 'Enter' ) return;
-
+	if (document_object.electronic && weight_object.cycle.id === 2) return;
+	
 	e.preventDefault();
 
 	const doc_number = (e.target.value.replace(/\D/g, '').length === 0) ? null : parseInt(e.target.value.replace(/\D/g, ''));
@@ -4884,12 +4997,8 @@ async function create_document_update_doc_number(e) {
 //CREATE DOCUMENT -> UPDATE DOCUMENT DATE -> KEYDOWN EVENT
 async function create_document_doc_date_update(e) {
 	
-	if (document_object.electronic && weight_object.cycle.id === 2) {
-		e.target.value = document_object.date;
-		return;
-	}
-	
 	if (e.code !== 'Tab' && e.key !== 'Enter') return;
+	if (document_object.electronic && weight_object.cycle.id === 2) return;
 	if (e.target.value.length > 0 && !validate_date(e.target.value)) return;
 
 	const date = (e.target.value.length === 0) ? null : e.target.value;
@@ -4922,6 +5031,11 @@ async function create_document_doc_date_update(e) {
 
 async function create_document_doc_date_input(e) {
 
+	if (!weight_object.active.edit) {
+		e.target.value = (document_object.date === null) ? null : document_object.date.split(" ")[0];
+		return;
+	}
+
 	const date = e.target.value;
 
 	if (date.length < 10) return;
@@ -4948,13 +5062,13 @@ function create_document_select_entity_create_li(entities) {
 
 	const ul = document.querySelector('.content-container.active .create-document__origin-entity-list ul');
 
-	for (let i = 0; i < entities.length; i++) {
+	for (let entity of entities) {
 		const li = document.createElement('li');
-		li.setAttribute('data-entity-id', entities[i].id);
+		li.setAttribute('data-entity-id', entity.id);
 		li.setAttribute('tabindex', -1);
 		li.setAttribute('data-navigation', true);
 		li.setAttribute('data-prev-tab-selector', '.content-container.active .create-document__select-entity__select-branch');
-		li.innerText = entities[i].name;
+		li.innerText = entity.name;
 		ul.appendChild(li);
 	}
 }
@@ -5018,6 +5132,7 @@ function create_document_client_li(e) {
 //CREATE DOCUMENT -> ORIGIN WIDGET
 async function open_entity_modal(e) {
 
+	if (!weight_object.active.edit) return;
 	if (document_object.electronic && weight_object.cycle.id === 2) return;
 
 	if (e.type === 'click' || (e.type === 'keydown' && (e.code === 'Space' || e.key === 'Enter'))) {
@@ -5145,7 +5260,7 @@ async function create_document_search_client_entity(e) {
 
 	const
 	ul = document.querySelector('.content-container.active .create-document__origin-entity-list ul'),
-	entity_to_search = DOMPurify().sanitize(e.target.value);
+	entity_to_search = sanitize(e.target.value);
 	
 	try {
 		
@@ -5513,10 +5628,10 @@ async function create_document_comments_save(e) {
 	
 	const
 	comments_parent = e.target.parentElement,
-	comments = DOMPurify().sanitize(e.target.value),
-	doc_id = DOMPurify().sanitize(document_object.frozen.id);
+	comments = sanitize(e.target.value),
+	doc_id = sanitize(document_object.frozen.id);
 
-	if (document_object.electronic && weight_object.cycle.id === 2) {
+	if (document_object.electronic && weight_object.cycle.id === 2 || !weight_object.active.edit) {
 		e.target.value = document_object.comments;
 		return
 	}
@@ -5713,8 +5828,17 @@ async function delete_document_row(e) {
 		}
 
 		row_element.remove();
+
+		//UPDATE DOCUMENT TOTAL CONTAINERS
+		document_object.containers = 0;
+		for (let row of document_object.rows) {
+			document_object.containers += (1 * row.container.amount);
+		}
+
+		document.querySelector('.content-container.active .create-document__footer__total-containers p').innerText = thousand_separator(document_object.containers);
+
 		const row_number = tbody.querySelectorAll('.row-number span');
-		for (let i = 0; i < row_number.length; i++) { row_number[i].innerText = i + 1 }	
+		for (let i = 0; i < row_number.length; i++) { row_number[i].innerText = i + 1 }
 	
 	} catch(error) { console.log(error) }
 }
@@ -5789,20 +5913,20 @@ async function container_code_search(e) {
 	e.preventDefault();
 
 	const
-	container_code = (e.target.value.length === 0) ? null : DOMPurify().sanitize(e.target.value),
+	container_code = (e.target.value.length === 0) ? null : sanitize(e.target.value),
 	input = e.target,
 	row_element = input.parentElement.parentElement,
 	row_id = parseInt(row_element.getAttribute('data-row-id')),
 	row_object = await get_row_object(row_id);
 
-	//SEARCH FOR CONTAINER
-	if (e.code === 'F4') {
-		show_product_container_modal('containers', row_id);
+	if (document_object.electronic && weight_object.cycle.id === 2 || !weight_object.active.edit) {
+		e.target.value = row_object.container.name;
 		return
 	}
 
-	if (document_object.electronic && weight_object.cycle.id === 2) {
-		e.target.value = row_object.container.name;
+	//SEARCH FOR CONTAINER
+	if (e.code === 'F4') {
+		show_product_container_modal('containers', row_id);
 		return
 	}
 
@@ -5813,9 +5937,7 @@ async function container_code_search(e) {
 
 	if (container_code === row_object.container.code) {
 		if (e.shiftKey) row_element.querySelector('.product-kilos input').focus();
-		else {
-			row_element.querySelector('.container-name input').focus();
-		} 
+		else row_element.querySelector('.container-name input').focus();
 		return
 	}
 
@@ -5865,15 +5987,12 @@ async function container_code_set_to_null(e) {
 	row_id = parseInt(row_element.getAttribute('data-row-id')),
 	row_object = await get_row_object(row_id);
 
-	
-	if (document_object.electronic && weight_object.cycle.id === 2) {
+	if (document_object.electronic && weight_object.cycle.id === 2 || !weight_object.active.edit) {
 		e.target.value = row_object.container.code;
 		return;
 	}
-	
-	
-	if (e.target.value.length > 0) return;
-	if (row_object.container.code === null) return;
+		
+	if (e.target.value.length === 0 || row_object.container.code === null) return;
 
 	try {
 
@@ -5943,15 +6062,15 @@ const tutorial_total_containers = () => {
 }
 
 async function countainer_amount_set_to_null(e) {
-
 	try {
+
 		const
 		input = e.target,
 		row_element = input.parentElement.parentElement,
 		row_id = parseInt(row_element.getAttribute('data-row-id')),
 		row_object = await get_row_object(row_id);
 		
-		if (document_object.electronic && weight_object.cycle.id === 2) {
+		if (document_object.electronic && weight_object.cycle.id === 2 || !weight_object.active.edit) {
 			input.value = (row_object.container.amount === null) ? '' : thousand_separator(row_object.container.amount);
 			return;
 		}
@@ -5982,7 +6101,7 @@ async function container_amount_update(e) {
 	row_id = parseInt(row_element.getAttribute('data-row-id')),
 	row_object = await get_row_object(row_id);
 
-	if (document_object.electronic && weight_object.cycle.id === 2) {
+	if (document_object.electronic && weight_object.cycle.id === 2 || !weight_object.active.edit) {
 		e.target.value = (row_object.container.amount === null) ? '' : thousand_separator(row_object.container.amount);
 		return
 	}
@@ -6004,15 +6123,6 @@ async function container_amount_update(e) {
 	}
 
 	row_element.querySelector('.product-code input').focus();	
-}
-
-function comments_textarea(e) {
-	const textarea = this;
-	if (
-		textarea.value.length === 0 && textarea.classList.contains('has-content') 
-		||
-		textarea.value.length > 0 && !textarea.classList.contains('has-content') 
-	) textarea.classList.toggle('has-content')
 }
 
 /************************************* PRODUCT CODE RELATED FUNCTIONS *************************************/
@@ -6054,13 +6164,13 @@ const show_product_container_modal = async (type, row_id) => {
 	try {
 
 		await check_loader();
-		type = DOMPurify().sanitize(type);
+		type = sanitize(type);
 
 		const 
 		data = await show_product_container_modal__get_data(type),
 		div = document.createElement('div');
 
-		div.className = `create-document__search-product-container ${DOMPurify().sanitize(type)} hidden`;
+		div.className = `create-document__search-product-container ${sanitize(type)} hidden`;
 		div.setAttribute('data-row-id', row_id);
 		div.innerHTML = `
 			<div class="create-document-absolute">
@@ -6166,8 +6276,8 @@ const show_product_container_modal = async (type, row_id) => {
 
 			tr.innerHTML = `
 				<div class="td line">${i + 1}</div>
-				<div class="td code">${DOMPurify().sanitize(data[i].code)}</div>
-				<div class="td name">${DOMPurify().sanitize(data[i].name)}</div>
+				<div class="td code">${sanitize(data[i].code)}</div>
+				<div class="td name">${sanitize(data[i].name)}</div>
 			`;
 
 			if (type === 'containers') {
@@ -6217,7 +6327,7 @@ const show_product_container_modal = async (type, row_id) => {
 					check_loader();
 	
 					const 
-					type = DOMPurify().sanitize(btn.getAttribute('data-type')),
+					type = sanitize(btn.getAttribute('data-type')),
 					data = await show_product_container_modal__get_data(type);
 	
 					const fade_out_div = document.querySelector('.search-product-container-btn.active > div');
@@ -6239,8 +6349,8 @@ const show_product_container_modal = async (type, row_id) => {
 						tr.className = 'tr';
 						tr.innerHTML = `
 							<div class="td line">${i + 1}</div>
-							<div class="td code">${DOMPurify().sanitize(data[i].code)}</div>
-							<div class="td name">${DOMPurify().sanitize(data[i].name)}</div>
+							<div class="td code">${sanitize(data[i].code)}</div>
+							<div class="td name">${sanitize(data[i].name)}</div>
 						`;
 	
 						div.querySelector('.search-product-container__table .tbody').appendChild(tr);
@@ -6317,7 +6427,7 @@ const show_product_container_modal = async (type, row_id) => {
 			) e.target.classList.toggle('has-content');
 
 			const 
-			data = DOMPurify().sanitize(e.target.value),
+			data = sanitize(e.target.value),
 			endpoint = (type === 'containers') ? '/search_container_by_name' : '/search_product_by_name';
 
 			try {
@@ -6354,8 +6464,8 @@ const show_product_container_modal = async (type, row_id) => {
 		
 					tr.innerHTML = `
 						<div class="td line">${i + 1}</div>
-						<div class="td code">${DOMPurify().sanitize(results[i].code)}</div>
-						<div class="td name">${DOMPurify().sanitize(results[i].name)}</div>
+						<div class="td code">${sanitize(results[i].code)}</div>
+						<div class="td name">${sanitize(results[i].name)}</div>
 					`;
 		
 					div.querySelector('.search-product-container__table .tbody').appendChild(tr);
@@ -6490,17 +6600,14 @@ async function product_code_set_to_null(e) {
 	row_id = parseInt(row_element.getAttribute('data-row-id')),
 	row_object = await get_row_object(row_id),
 	product_price = row_object.product.price;
-
 	
-	if (document_object.electronic && weight_object.cycle.id === 2) {
+	if (document_object.electronic && weight_object.cycle.id === 2 || !weight_object.active.edit) {
 		e.preventDefault();
 		e.target.value = row_object.product.code;
 		return;
 	}
-	
 
-	if (e.target.value.length > 0) return;
-	if (row_object.product.code === null) return;
+	if (e.target.value.length > 0 || row_object.product.code === null) return;
 
 	try {
 		
@@ -6563,7 +6670,7 @@ async function product_name_search(e) {
 		return
 	}
 
-	const product = DOMPurify().sanitize(el.value);
+	const product = sanitize(el.value);
 	try {
 		const
 		search_name = await fetch('/search_product_by_name', {
@@ -6665,7 +6772,7 @@ async function update_traslado_description(e) {
 
 	if (row_object.product.code !== 'GEN') return;
 
-	if (document_object.electronic && weight_object.cycle.id === 2) {
+	if (document_object.electronic && weight_object.cycle.id === 2 || !weight_object.active.edit) {
 		e.target.value = row_object.product.name;
 		return
 	}
@@ -6678,7 +6785,7 @@ async function update_traslado_description(e) {
 
 		const
 		row_id = row_object.id,
-		description = DOMPurify().sanitize(e.target.value),
+		description = sanitize(e.target.value),
 		update_description = await fetch('/update_traslado_description', {
 			method: 'POST',
 			headers: {
@@ -6701,7 +6808,7 @@ const get_traslado_description = row_id => {
 	return new Promise(async (resolve, reject) => {
 		try {
 
-			row_id = DOMPurify().sanitize(row_id);
+			row_id = sanitize(row_id);
 			const
 			get_description = await fetch('/get_traslado_description', {
 				method: 'POST',
@@ -6726,8 +6833,6 @@ const get_traslado_description = row_id => {
 
 async function product_cut_select(e) {
 
-	if (document_object.electronic && weight_object.cycle.id === 2) return;
-
 	const 
 	select = e.target,
 	cut = select.options[select.selectedIndex].value,
@@ -6736,6 +6841,16 @@ async function product_cut_select(e) {
 	row_id = parseInt(row_element.getAttribute('data-row-id')),
 	row_object = await get_row_object(row_id),
 	product_price = row_object.product.price;
+
+	if (document_object.electronic && weight_object.cycle.id === 2 || !weight_object.active.edit) {
+		
+		let original_index;
+		if (select.parentElement.classList.contains('saved')) original_index = (select.selectedIndex === 1) ? 2 : 1;
+		else original_index = 0;
+		
+		select.selectedIndex = original_index;
+		return;
+	}
 	
 	if (row_object.product.cut === cut) return;
 	
@@ -6782,7 +6897,7 @@ async function product_price_update(e) {
 	row_id = parseInt(row_element.getAttribute('data-row-id')),
 	row_object = await get_row_object(row_id);
 
-	if (document_object.electronic && weight_object.cycle.id === 2) {
+	if (document_object.electronic && weight_object.cycle.id === 2 || !weight_object.active.edit) {
 		e.target.value = (row_object.product.price === null) ? '' : '$' + thousand_separator(row_object.product.price);
 		return
 	}
@@ -6828,7 +6943,7 @@ async function product_price_set_to_null(e) {
 	row_id = parseInt(row_element.getAttribute('data-row-id')),
 	row_object = await get_row_object(row_id);
 
-	if (document_object.electronic && weight_object.cycle.id === 2) {
+	if (document_object.electronic && weight_object.cycle.id === 2 || !weight_object.active.edit) {
 		e.target.value = (row_object.product.price === null) ? '' : '$' + thousand_separator(row_object.product.price);
 		return;
 	}
@@ -6900,16 +7015,15 @@ async function product_kilos_update(e) {
 	}
 
 	//CHECKS IF ANY INPUT HAS CONTENT
-	let row_with_content = false;
 	const row_inputs = row_element.querySelectorAll('input');
-	for (let i = 0; i < row_inputs.length; i++) { 
-		if (row_inputs[i].value.length > 0) {
+	
+	let row_with_content = false;
+	for (let input of row_inputs) {
+		if (input.value.length > 0) {
 			row_with_content = true;
 			break;
 		}
 	}
-
-	console.log(row_with_content)
 
 	if (1 * kilos === 1 * row_kilos) {
 
@@ -7006,15 +7120,13 @@ async function product_kilos_set_to_null(e) {
 	row_id = parseInt(row_element.getAttribute('data-row-id')),
 	row_object = await get_row_object(row_id);
 
-	if (document_object.electronic && weight_object.cycle.id === 2) {
+	if (document_object.electronic && weight_object.cycle.id === 2 || !weight_object.active.edit) {
 		e.target.value = (row_object.product.informed_kilos === null) ? '' : thousand_separator(row_object.product.informed_kilos);
 		return
 	}
 	
 	const target_kilos = row_object.informed_kilos;
-
-	if (e.target.value.length > 0) return;
-	if (target_kilos === null) return;
+	if (e.target.value.length > 0 || target_kilos === null) return;
 
 	try {
 
@@ -7103,13 +7215,16 @@ function custom_select_navigate_li(e) {
 	//e.preventDefault();
 	//e.stopPropagation();
 
-	if (e.code==='Space' || e.key==='Enter') e.target.nextElementSibling.querySelector('.selected-option').click();
-	else if (e.code==='ArrowDown')
+	if (!weight_object.active.edit) return;
+
+	if (e.code === 'Space' || e.key === 'Enter') e.target.nextElementSibling.querySelector('.selected-option').click();
+	else if (e.code === 'ArrowDown')
 	return;
 }
 
 function custom_select_hover(e) {
 
+	if (!weight_object.active.edit) return;
 	if (document_object.electronic && weight_object.cycle.id === 2) return;
 
 	const div = this;
@@ -7213,12 +7328,12 @@ async function take_weight_accept_btn() {
 	prevent_double_click();
 
 	const weight_data = {
-		id: DOMPurify().sanitize(weight_object.frozen.id),
-		primary_plates: DOMPurify().sanitize(weight_object.frozen.primary_plates),
+		id: sanitize(weight_object.frozen.id),
+		primary_plates: sanitize(weight_object.frozen.primary_plates),
 		user: jwt_decode(token.value).userId, 
-		tara_type: DOMPurify().sanitize(weight_object.tara_type), 
-		process: DOMPurify().sanitize(weight_object.process),
-		input_weight: DOMPurify().sanitize(document.getElementById('take-weight__manual-input').value)
+		tara_type: sanitize(weight_object.tara_type), 
+		process: sanitize(weight_object.process),
+		input_weight: sanitize(document.getElementById('take-weight__manual-input').value)
 	}
 	socket.emit('close-serial', weight_data);
 }
@@ -7246,8 +7361,8 @@ async function save_cancel_click() {
 		try {
 
 			const
-				weight_id = DOMPurify().sanitize(weight_object.frozen.id),
-				process = DOMPurify().sanitize(weight_object.process),
+				weight_id = sanitize(weight_object.frozen.id),
+				process = sanitize(weight_object.process),
 				reset_weight = await fetch('/reset_weight_data', {
 					method: 'POST', 
 					headers: { 
@@ -7316,16 +7431,15 @@ async function save_cancel_click() {
 async function weight_comments_update(e) {
 
 	if (e.code !== 'Tab') return;
+	e.preventDefault();
 
 	const 
-	comments = DOMPurify().sanitize(e.target.value),
-	process = DOMPurify().sanitize(weight_object.process),
+	comments = sanitize(e.target.value),
+	process = sanitize(weight_object.process),
 	target = (process === 'gross') ? weight_object.gross_weight : weight_object.tare_weight;
 
 	if (comments === target.comments) return;
-	e.preventDefault();
-	
-	const weight_id = DOMPurify().sanitize(weight_object.frozen.id);
+	const weight_id = sanitize(weight_object.frozen.id);
 
 	try {
 
@@ -7346,7 +7460,7 @@ async function weight_comments_update(e) {
 		target.comments = comments;
 
 		document.getElementById('message-container').innerHTML = `
-			<p style="font-weight:700">COMENTARIOS<br>ACTUALIZADOS</p>
+			<p style="font-weight:700; margin: auto 45px">COMENTARIOS<br>ACTUALIZADOS</p>
 		`;
 
 		document.getElementById('message-section').classList.add('active');
@@ -7453,14 +7567,13 @@ async function tare_containers_widget(modal) {
 
 			const watch = [];
 
-			for (let i = 0; i < weight_object.tare_containers.length; i++) {
-				const tci = {
-					amount: weight_object.tare_containers[i].amount,
-					code: weight_object.tare_containers[i].code,
-					name: weight_object.tare_containers[i].name,
-					weight: weight_object.tare_containers[i].weight
-				}
-				watch.push(tci);
+			for (let tare_container of weight_object.tare_containers) {
+				watch.push({
+					amount: tare_container.amount,
+					code: tare_container.code,
+					name: tare_container.name,
+					weight: tare_container.weight
+				});
 			}
 	
 			watch_tare_containers = setInterval(async () => {
@@ -7650,10 +7763,10 @@ async function add_containers_set_code(e) {
 	}
 
 	const
-	code = DOMPurify().sanitize(e.target.value),
+	code = sanitize(e.target.value),
 	td = e.target.parentElement.parentElement,
 	tr = td.parentElement,
-	row_id = DOMPurify().sanitize(tr.getAttribute('data-row-id')),
+	row_id = sanitize(tr.getAttribute('data-row-id')),
 	row_index = Array.from(tr.parentElement.children).indexOf(tr);
 
 	if (code === weight_object.tare_containers[row_index].code) {
@@ -7713,7 +7826,7 @@ async function add_containers_search_by_name(e) {
 	}
 
 	const
-	partial_name = DOMPurify().sanitize(e.target.value),
+	partial_name = sanitize(e.target.value),
 	ul = e.target.parentElement.querySelector('ul');
 
 	ul.querySelectorAll('li').forEach(li => { li.remove() })
@@ -7858,10 +7971,11 @@ async function add_containers_update_amount(e) {
 	}
 	
 	//CREATE NEW ROW IF INPUTS ARE EMPTY
-	let row_with_content = false;
 	const inputs = tr.querySelectorAll('input');
-	for (let i = 0; i < inputs.length; i++) {
-		if (inputs[i].value.length > 0) {
+	
+	let row_with_content = false;
+	for (let input of inputs) {
+		if (input.value.length > 0) {
 			row_with_content = true;
 			break;
 		}
@@ -8021,7 +8135,7 @@ async function tare_containers_delete(e) {
 
 	const
 	tr = e.target.parentElement.parentElement,
-	row_id = DOMPurify().sanitize(tr.getAttribute('data-row-id')),
+	row_id = sanitize(tr.getAttribute('data-row-id')),
 	first_row = false;
 
 	try {
@@ -8105,7 +8219,7 @@ async function annul_weight_widget() {
 		document.getElementById('message-annul-weight').remove();
 	});
 
-	document.getElementById('message-section').classList.add('active');
+	document.getElementById('message-section').classList.add('active', 'centered');
 	await delay(500);
 }
 
@@ -8113,7 +8227,7 @@ async function annul_weight() {
 
 	try {
 		const
-		weight_id = DOMPurify().sanitize(weight_object.frozen.id),
+		weight_id = sanitize(weight_object.frozen.id),
 		delete_weight = await fetch('/annul_weight', {
 			method: 'POST', 
 			headers: { 
@@ -8160,12 +8274,12 @@ async function finalize_weight_widget() {
 		let weight_with_products = false;
 		weight_object.documents.forEach(document => {
 			if (!weight_with_products) {
-				for (let i = 0; i < document.rows.length; i++) {
-					if (document.rows[i].product.code !== null && document.rows[i].product.code !== 'GEN') {
+				for (let row of document.rows) {
+					if (row.product.code !== null && row.product.code !== 'GEN') {
 						weight_with_products = true;
 						break;
 					}
-				}	
+				}
 			}
 		});
 		
@@ -8293,10 +8407,10 @@ async function documents_kilos_breadown(modal) {
 				table_container.querySelector('tbody').appendChild(tr);
 				tr.innerHTML = `
 					<td class="line-number"></td>
-					<td class="container">${DOMPurify().sanitize(row.container.name)}</td>
-					<td class="container-amount">${DOMPurify().sanitize(row.container.amount)}</td>
-					<td class="product">${DOMPurify().sanitize(row.product.name)}</td>
-					<td class="cut">${DOMPurify().sanitize(row.product.cut)}</td>
+					<td class="container">${sanitize(row.container.name)}</td>
+					<td class="container-amount">${sanitize(row.container.amount)}</td>
+					<td class="product">${sanitize(row.product.name)}</td>
+					<td class="cut">${sanitize(row.product.cut)}</td>
 					<td class="informed"></td>
 					<td class="difference">-</td>
 					<td class="breakdown">
@@ -8848,7 +8962,7 @@ async function finalize_weight() {
 
 	if (btn_double_clicked(this)) return;
 
-	const weight_id = DOMPurify().sanitize(weight_object.frozen.id);
+	const weight_id = sanitize(weight_object.frozen.id);
 
 	try {
 
