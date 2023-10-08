@@ -100,8 +100,8 @@ entities_router.post('/get_entity_data', userMiddleware.isLoggedIn, async (req, 
         const get_entity_data = () => {
             return new Promise((resolve, reject) => {
                 conn.query(`
-                    SELECT entities.id, entities.status, entities.type, entities.rut, 
-                    entities.name, entities.phone, entities.email, entities.giro
+                    SELECT entities.id, entities.status, entities.type, entities.billing_type AS billing, 
+                    entities.rut, entities.name, entities.phone, entities.email, entities.giro
                     FROM entities
                     INNER JOIN giros ON entities.giro=giros.id
                     WHERE entities.id=${conn.escape(entity_id)}; 
@@ -240,7 +240,7 @@ entities_router.get('/get_regions', userMiddleware.isLoggedIn, async (req, res) 
 entities_router.post('/clients_save_data', userMiddleware.isLoggedIn, async (req, res) => {
 
     const
-    { client_id, name, rut, giro, type, phone, email, status } = req.body,
+    { client_id, name, rut, giro, type, phone, email, status, billing } = req.body,
     response = { success: false }
 
     try {
@@ -251,6 +251,7 @@ entities_router.post('/clients_save_data', userMiddleware.isLoggedIn, async (req
                     UPDATE entities
                     SET
                         status=${conn.escape(status)},
+                        billing_type=${parseInt(billing)},
                         type=${conn.escape(type)},
                         rut=${conn.escape(formatted_rut)},
                         name=${conn.escape(name)},
@@ -410,8 +411,10 @@ entities_router.post('/delete_branch', userMiddleware.isLoggedIn, async (req, re
 entities_router.post('/create_entity', userMiddleware.isLoggedIn, async (req, res) => {
 
     const
-    { name, rut, giro, type, phone, email, status } = req.body,
+    { name, rut, giro, type, phone, email, status, billing } = req.body,
     response = { success: false }
+
+    console.log(req.body)
 
     try {
 
@@ -436,10 +439,11 @@ entities_router.post('/create_entity', userMiddleware.isLoggedIn, async (req, re
         const create_entity = () =>  {
             return new Promise((resolve, reject) => {
                 conn.query(`
-                    INSERT INTO entities (status, type, rut, name, phone, email, giro)
+                    INSERT INTO entities (status, type, billing_type, rut, name, phone, email, giro)
                     VALUES (
-                        ${conn.escape(status)}, 
-                        ${conn.escape(type)}, 
+                        ${parseInt(status)}, 
+                        ${conn.escape(type)},
+                        ${parseInt(billing)},
                         ${conn.escape(formatted_rut)}, 
                         ${conn.escape(name)}, 
                         ${conn.escape(phone)}, 

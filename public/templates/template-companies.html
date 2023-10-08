@@ -1,0 +1,223 @@
+<div id="companies-grid" class=""></div>
+
+<div id="companies__entities-list" class="hidden">
+    <div class="close-btn-absolute">
+        <div>
+            <i class="fas fa-times"></i>
+        </div>
+    </div>
+    <div class="header">
+        <div class="table-header">
+            <table>
+                <thead>
+                    <tr>
+                        <th class="type">
+                            <div>
+                                <i class="fas fa-chevron-down"></i>
+                                <span>TIPO</span>
+                            </div>
+                        </th>
+                        <th class="rut">
+                            <div>
+                                <i class="fas fa-chevron-down"></i>
+                                <span>RUT</span>
+                            </div>
+                        </th>
+                        <th class="name active">
+                            <div>
+                                <i class="fas fa-chevron-down"></i>
+                                <span>RAZON SOCIAL</span>
+                            </div>
+                        </th>
+                        <th class="debits">
+                            <div>
+                                <i class="fas fa-chevron-down"></i>
+                                <span>ABONOS</span>
+                            </div>
+                        </th>
+                        <th class="credits">
+                            <div>
+                                <i class="fas fa-chevron-down"></i>
+                                <span>CARGOS</span>
+                            </div>
+                        </th>
+                        <th class="balance">
+                            <div>
+                                <i class="fas fa-chevron-down"></i>
+                                <span>SALDO</span>
+                            </div>
+                        </th>
+                    </tr>
+                </thead>
+            </table>
+        </div>
+    </div>
+
+    <div class="body">
+        <div class="table-body">
+            <table>
+                <tbody></tbody>
+            </table>
+        </div>
+    </div>
+
+</div>
+
+<div id="companies__entity-movements" class="hidden">
+
+    <div class="company-name">
+        <h3></h3>
+    </div>
+
+    <div id="companies__entity-movements__filters">
+
+        <div>
+            <div class="select-effect has-content">
+                <p>TODAS</p>
+                <select id="companies__filters__internal-entities">
+                    <option value="" hidden=""></option>
+                    <option selected="" value="All">TODAS</option>
+                </select>
+                <i class="far fa-chevron-down"></i>
+                <label>EMPRESAS</label>
+                <span class="focus-border"></span>
+            </div>
+        </div>
+
+        <div>
+            <div class="select-effect has-content">
+                <p>2023</p>
+                <select id="companies__filters__season">
+                    <option value="" hidden=""></option>
+                    <option value="5" selected>TEMPORADA 2023</option>
+                </select>
+                <i class="far fa-chevron-down"></i>
+                <label>TEMPORADA</label>
+                <span class="focus-border"></span>
+            </div>
+        </div>
+
+        <div>
+            <div class="select-effect has-content">
+                <p>TODOS</p>
+                <select id="companies__filters__imports">
+                    <option value="" hidden=""></option>
+                    <option value="All">TODOS</option>
+                    <option value="I">ABONOS</option>
+                    <option selected="" value="T">CARGOS</option>
+                </select>
+                <i class="far fa-chevron-down"></i>
+                <label>IMPORTES</label>
+                <span class="focus-border"></span>
+            </div>
+        </div>
+
+        <div>
+            <div class="select-effect has-content">
+                <p>TODOS</p>
+                <select id="companies__filters__doc-types">
+                    <option value="" hidden=""></option>
+                    <option value="All">TODOS</option>
+                    <option selected="" value="I">CHEQUES</option>
+                    <option value="N">GUIAS</option>
+                    <option value="N">FACTURAS</option>
+                </select>
+                <i class="far fa-chevron-down"></i>
+                <label>TIPO DOC.</label>
+                <span class="focus-border"></span>
+            </div>
+        </div>
+
+    </div>
+
+    <div class="header">
+        <div class="close-btn-absolute">
+            <div>
+                <i class="fas fa-times"></i>
+            </div>
+        </div>
+        <div class="table-header">
+            <table>
+                <thead>
+                    <tr>
+                        <th class="line-number">
+                            <div>
+                                <i class="fas fa-chevron-down"></i>
+                                <span>Nº</span>
+                            </div>
+                        </th>
+                        <th class="date active">
+                            <div>
+                                <i class="fas fa-chevron-down"></i>
+                                <span>FECHA</span>
+                            </div>
+                        </th>
+                        <th class="entity">
+                            <div>
+                                <i class="fas fa-chevron-down"></i>
+                                <span>EMPRESA</span>
+                            </div>
+                        </th>
+                        <th class="doc-number">
+                            <div>
+                                <i class="fas fa-chevron-down"></i>
+                                <span>Nº DOC.</span>
+                            </div>
+                        </th>
+                        <th class="status">
+                            <div>
+                                <i class="fas fa-chevron-down"></i>
+                                <span>ESTADO</span>
+                            </div>
+                        </th>
+                        <th class="import">
+                            <div>
+                                <i class="fas fa-chevron-down"></i>
+                                <span>IMPORTE</span>
+                            </div>
+                        </th>
+                        <th class="type">
+                            <div>
+                                <i class="fas fa-chevron-down"></i>
+                                <span>TIPO</span>
+                            </div>
+                        </th>
+                        <th class="amount">
+                            <div>
+                                <i class="fas fa-chevron-down"></i>
+                                <span>MONTO</span>
+                            </div>
+                        </th>
+                        <th class="balance">
+                            <div>
+                                <i class="fas fa-chevron-down"></i>
+                                <span>SALDO</span>
+                            </div>
+                        </th>
+                    </tr>
+                </thead>
+            </table>
+        </div>
+    </div>
+
+    <div class="body">
+        <div class="table-body">
+            <table>
+                <tbody></tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="btns">
+        <button class="svg-wrapper enabled green" >
+            <svg height="45" width="160" xmlns="http://www.w3.org/2000/svg">
+                <rect class="shape" height="45" width="160"></rect>
+            </svg>
+            <div class="desc-container">
+                <i class="fad fa-money-check-alt"></i>
+                <p>NUEVO PAGO</p>
+            </div>
+        </button>
+    </div>
+
+</div>

@@ -1,6 +1,8 @@
 //ENTITIES
 document.getElementById('config__entities').addEventListener('click', async function() {
 
+    if (clicked) return;
+
     const
     fade_out_div = document.getElementById('config-grid'),
     fade_in_div = document.getElementById('config-content'),
@@ -24,6 +26,8 @@ document.getElementById('config__entities').addEventListener('click', async func
 
 //PRODUCTS
 document.getElementById('config__products').addEventListener('click', async e => {
+
+    if (clicked) return;
 
     const
     fade_out_div = document.getElementById('config-grid'),

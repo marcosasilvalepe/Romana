@@ -10,8 +10,8 @@ home_router.get('/grapes_data', userMiddleware.isLoggedIn, async (req, res) => {
         success: false,
         seasons: [],
         total: { packing: 0, parron: 0 },
-        cycle: 2,
-        type: 'Pasas'
+        cycle: 1,
+        type: 'Uva'
     };
 
     try {
@@ -188,17 +188,19 @@ home_router.post('/get_products_by_date', userMiddleware.isLoggedIn, async (req,
     const
     { cycle, product_type, start_date, end_date} = req.body,
     response = { 
-        success: false, 
+        cycle: parseInt(cycle),
+        products: [],
         season: { 
             name: null, 
             start: req.body.start_date, 
             end: req.body.end_date 
         },
+        type: product_type,
         total: { 
             packing: 0, 
             parron: 0 
         },
-        products: []
+        success: false
     };
 
     try {
@@ -221,7 +223,7 @@ home_router.post('/get_products_by_date', userMiddleware.isLoggedIn, async (req,
             })
         }
     
-        const get_grapes_varietes = () => {
+        const get_product_varietes = () => {
             return new Promise((resolve, reject) => {
                 conn.query(`
                     SELECT products.code, products.name, products.type, products.color, products.image,
@@ -230,10 +232,11 @@ home_router.post('/get_products_by_date', userMiddleware.isLoggedIn, async (req,
                     INNER JOIN products ON body.product_code=products.code
                     INNER JOIN documents_header header ON body.document_id=header.id
                     INNER JOIN weights ON header.weight_id=weights.id
-                    WHERE weights.cycle=${conn.escape(cycle)} AND weights.status='T' AND products.type=${conn.escape(product_type)}
-                    AND (header.status='I' OR header.status='T') AND (body.status='I' OR body.status='T')
+                    WHERE weights.cycle=${parseInt(cycle)} AND weights.status='T' AND 
+                    products.type=${conn.escape(product_type)} AND (header.status='I' OR header.status='T') 
+                    AND (body.status='I' OR body.status='T')
                     AND (weights.created BETWEEN '${start_date} 00:00:00' AND '${end_date} 23:59:59')
-                    AND body.product_code IS NOT NULL
+                    AND body.product_code IS NOT NULL AND header.type <> 3
                     ORDER BY products.name ASC;
                 `, async (error, results, fields) => {
                         
@@ -312,7 +315,7 @@ home_router.post('/get_products_by_date', userMiddleware.isLoggedIn, async (req,
                     WHERE body.product_code='${code}' AND cut='${cut}'
                     AND weights.status='T' AND products.type=${conn.escape(product_type)}
                     ${cycle_sql} AND (header.status='I' OR header.status='T')
-                    AND (body.status='I' OR body.status='T')
+                    AND (body.status='I' OR body.status='T') AND header.type <> 3
                     AND (weights.created BETWEEN '${start_date} 00:00:00' AND '${end_date} 23:59:59');
                 `, (error, results, fields) => {
                     if (error || results.length === 0) return reject(error);
@@ -332,7 +335,7 @@ home_router.post('/get_products_by_date', userMiddleware.isLoggedIn, async (req,
                     WHERE (weights.cycle=3 OR weights.cycle=1) AND header.internal_branch=3
                     AND weights.status='T' AND products.type=${conn.escape(product_type)}
                     AND (header.status='I' OR header.status='T') 
-                    AND (body.status='I' OR body.status='T')
+                    AND (body.status='I' OR body.status='T') AND header.type <> 3
                     AND (weights.created BETWEEN '${start_date} 00:00:00' AND '${end_date} 23:59:59')
                     GROUP BY products.name ORDER BY products.name ASC;
                 `, async (error, results, fields) => {
@@ -376,20 +379,21 @@ home_router.post('/get_products_by_date', userMiddleware.isLoggedIn, async (req,
 
                     response.products = results;
 
-                    for (let i = 0; i < response.products.length; i++) {
-                        
+                    for (let row of response.products) {
+
                         const 
-                        reception_packing = await get_warehouse_kilos(1, response.products[i].code, 'Packing'),
-                        reception_parron = await get_warehouse_kilos(1, response.products[i].code, 'Parron'),
-                        dispatch_packing = await get_warehouse_kilos(2, response.products[i].code, 'Packing'),
-                        dispatch_parron = await get_warehouse_kilos(2, response.products[i].code, 'Parron'),
+                        reception_packing = await get_warehouse_kilos(1, row.code, 'Packing'),
+                        reception_parron = await get_warehouse_kilos(1, row.code, 'Parron'),
+                        dispatch_packing = await get_warehouse_kilos(2, row.code, 'Packing'),
+                        dispatch_parron = await get_warehouse_kilos(2, row.code, 'Parron'),
                         packing = (reception_packing - dispatch_packing),
                         parron = (reception_parron - dispatch_parron);
 
-                        response.products[i].total = packing + parron;
-                        response.products[i].kilos = { packing, parron };
+                        row.total = packing + parron;
+                        row.kilos = { packing, parron };
                         response.total.packing += packing;
                         response.total.parron += parron;
+
                     }
 
                     return resolve();
@@ -397,12 +401,12 @@ home_router.post('/get_products_by_date', userMiddleware.isLoggedIn, async (req,
             })
         }
 
-        if (!validate_date(start_date)) throw 'Fecha inválida.';
-        if (!validate_date(end_date)) throw 'Fecha inválida.';
+        if (!validate_date(start_date) || !validate_date(end_date)) throw 'Fecha inválida.';
 
         if (cycle === 3) await get_warehouse_receptions();
         else if (cycle === 0) await get_warehouse_stock();
-        else await get_grapes_varietes();
+        else await get_product_varietes();
+
         response.success = true;
     }
     catch(e) { 
@@ -437,7 +441,8 @@ home_router.post('/get_products_movements', userMiddleware.isLoggedIn, async (re
                     WHERE body.product_code=${conn.escape(product_code)} AND body.cut='${cut}'
                     AND (weights.created BETWEEN '${start_date} 00:00:00' AND '${end_date} 23:59:59') 
                     AND (header.status='I' OR header.status='T') AND (body.status='I' OR body.status='T')
-                    ${cycle_sql} AND header.client_entity=${id} AND weights.status='T';
+                    ${cycle_sql} AND header.client_entity=${id} AND weights.status='T'
+                    AND header.type <> 3;
                 `, (error, results, fields) => {
                     if (error || results.length === 0) return reject(error);
                     return resolve(1 * results[0].kilos);
@@ -456,22 +461,23 @@ home_router.post('/get_products_movements', userMiddleware.isLoggedIn, async (re
                     WHERE body.product_code=${conn.escape(product_code)} 
                     AND (weights.created BETWEEN '${start_date} 00:00:00' AND '${end_date} 23:59:59') 
                     AND (header.status='I' OR header.status='T') AND (body.status='I' OR body.status='T') 
-                    ${cycle_sql} AND weights.status='T'
+                    ${cycle_sql} AND weights.status='T' AND header.type <> 3
                     GROUP BY header.client_entity;
                 `, async (error, results, fields) => {
 
                     if (error) return reject(error);
                     response.clients = results;
 
-                    for (let i = 0; i < response.clients.length; i++) {
-                        response.clients[i].kilos = {};                    
-                        response.clients[i].kilos.packing = await get_client_kilos(response.clients[i].id, 'packing');
-                        response.clients[i].kilos.parron = await get_client_kilos(response.clients[i].id, 'parron');
-                        response.clients[i].total = response.clients[i].kilos.packing + response.clients[i].kilos.parron;
+                    for (let row of response.clients) {
+                        row.kilos = {};                    
+                        row.kilos.packing = await get_client_kilos(row.id, 'packing');
+                        row.kilos.parron = await get_client_kilos(row.id, 'parron');
+                        row.total = row.kilos.packing + row.kilos.parron;
                         
-                        response.packing += response.clients[i].kilos.packing;
-                        response.parron += response.clients[i].kilos.parron;
+                        response.packing += row.kilos.packing;
+                        response.parron += row.kilos.parron;
                     }
+
                     return resolve();
                 })
             })
@@ -489,20 +495,18 @@ home_router.post('/get_products_movements', userMiddleware.isLoggedIn, async (re
         console.error(`Error getting products movements. ${e}`);
         error_handler(`Endpoint: /get_products_movements -> User Name: ${req.userData.userName}\r\n${e}`);
     }
-    finally { res.json(response); console.log(response) }
+    finally { res.json(response) }
 });
 
 home_router.post('/get_product_documents', userMiddleware.isLoggedIn, async (req, res) => {
 
     const
     { client_id, product_code, cycle, start_date, end_date } = req.body,
-    cycle_sql = (client_id === '183') ? `weights.cycle=${parseInt(cycle)}` : `(weights.cycle=3 OR weights.cycle=1)`,
+    cycle_sql = (parseInt(cycle) === 1) ? `(weights.cycle=1 OR weights.cycle=3)` : `weights.cycle=${parseInt(cycle)}`,
     response = { 
         data: [],
         success: false 
     };
-
-    console.log(req.body);
 
     try {
 
@@ -527,8 +531,7 @@ home_router.post('/get_product_documents', userMiddleware.isLoggedIn, async (req
             })
         }        
 
-        if (!validate_date(start_date)) throw 'Fecha inválida.';
-        if (!validate_date(end_date)) throw 'Fecha inválida.';
+        if (!validate_date(start_date) || !validate_date(end_date)) throw 'Fecha inválida.';
 
         const documents = await get_documents();
 

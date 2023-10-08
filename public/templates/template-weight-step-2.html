@@ -219,8 +219,9 @@
                                     <th class="delete">ELIMINAR</th>
                                     <th class="code">CODIGO</th>
                                     <th class="description">DESCRIPCION</th>
-                                    <th class="weight">PESO</th>
                                     <th class="amount">CANTIDAD</th>
+                                    <th class="weight">PESO</th>
+                                    <th class="total">TOTAL</th>
                                 </tr>
                             </thead>
                         </table>
@@ -282,14 +283,25 @@
                     <i class="fal fa-info-circle"></i>
                 </div>
                 <div id="gross-weight__data-grid" class="active">
+
                     <div class="kilos-data">
-                        <h3 id="gross-weight__containers">0 KG</h3>
-                        <h5>ENVASES BRUTO</h5>
+                        <h3 id="gross-weight__brute">-</h3>
+                        <h5>PESO BRUTO</h5>
                     </div>
 
                     <div class="kilos-data">
-                        <h3 id="gross-weight__brute">0 KG</h3>
-                        <h5>PESO BRUTO</h5>
+                        <h3 id="gross-weight__net">-</h3>
+                        <h5>BRUTO SIN ENVASES</h5>
+                    </div>
+
+                    <div class="kilos-data">
+                        <h3 id="gross__final-net-weight">-</h3>
+                        <h5>NETO APROXIMADO</h5>
+                    </div>
+
+                    <div class="kilos-data">
+                        <h3 id="gross-weight__containers">-</h3>
+                        <h5>ENVASES BRUTO</h5>
                     </div>
 
                     <div class="kilos-data">
@@ -298,52 +310,43 @@
                     </div>
                     
                     <div class="kilos-data">
-                        <h3 id="gross-weight__docs-weight">0 KG</h3>
+                        <h3 id="gross-weight__docs-weight">-</h3>
                         <h5>NETO DOCUMENTOS</h5>
                     </div>
 
+                </div>
+                <div id="tare-weight__data-grid">
+
                     <div class="kilos-data">
-                        <h3 id="gross-weight__net">0 KG</h3>
-                        <h5>PESO NETO BRUTO</h5>
+                        <h3 id="tare-weight__brute">-</h3>
+                        <h5>PESO TARA</h5>
+                    </div>
+                    
+                    <div class="kilos-data">
+                        <h3 id="tare-weight__net">-</h3>
+                        <h5>TARA SIN ENVASES</h5>
                     </div>
 
                     <div class="kilos-data">
-                        <h3 id="gross__final-net-weight">0 KG</h3>
-                        <h5>NETO APROXIMADO</h5>
+                        <h3 id="tare__final-net-weight">-</h3>
+                        <h5>PESO NETO FINAL</h5>
                     </div>
-                    
-                </div>
-                <div id="tare-weight__data-grid">
-                    
+
                     <div class="kilos-data">
-                        <h3 id="tare-weight__containers">0 KG</h3>
+                        <h3 id="tare-weight__containers">-</h3>
                         <h5>ENVASES TARA</h5>
                     </div>
 
                     <div class="kilos-data">
-                        <h3 id="tare-weight__brute">0 KG</h3>
-                        <h5>PESO TARA</h5>
+                        <h3 id="tare-weight__gross-weight">-</h3>
+                        <h5>BRUTO SIN ENVASES</h5>
                     </div>
 
                     <div class="kilos-data">
-                        <h3 id="tare-weight__gross-weight">0 KG</h3>
-                        <h5>PESO NETO BRUTO</h5>
-                    </div>
-
-                    <div class="kilos-data">
-                        <h3 id="tare-weight__docs-weight">0 KG</h3>
+                        <h3 id="tare-weight__docs-weight">-</h3>
                         <h5>NETO DOCUMENTOS</h5>
                     </div>
 
-                    <div class="kilos-data">
-                        <h3 id="tare-weight__net">0 KG</h3>
-                        <h5>PESO NETO TARA</h5>
-                    </div>
-
-                    <div class="kilos-data">
-                        <h3 id="tare__final-net-weight">0 KG</h3>
-                        <h5>PESO NETO FINAL</h5>
-                    </div>
                 </div>
             </div>
         </div>

@@ -11,31 +11,7 @@
     <div id="documents__table-grid">
 
         <div id="documents__filters">
-            
-            <div>
-                <input id="documents__doc-number" type="text" class="input-effect">
-                <label>Nº DOC.</label>
-                <span class="focus-border"></span>
-            </div>
-    
-            <div>
-                <input id="documents__entity" type="text" class="input-effect">
-                <label>RAZON SOCIAL</label>
-                <span class="focus-border"></span>
-            </div>
 
-            <div>
-                <input id="documents__start-date" type="date" class="input-effect has-content">
-                <label>FECHA INICIAL</label>
-                <span class="focus-border"></span>
-            </div>
-    
-            <div>
-                <input id="documents__end-date" type="date" class="input-effect has-content">
-                <label>FECHA FINAL</label>
-                <span class="focus-border"></span>							
-            </div>
-    
             <div>
                 <div class="select-effect has-content">
                     <p>TERMINADOS</p>
@@ -50,6 +26,40 @@
                     <label>ESTADO PESAJE</label>
                     <span class="focus-border"></span>
                 </div>
+            </div>
+
+            <div>
+                <div class="select-effect has-content">
+                    <p>TODOS</p>
+                    <select id="documents__cycle-select">
+                        <option value="" hidden=""></option>
+                        <option selected value="All">TODOS</option>
+                        <option value="1">RECEPCION</option>
+                        <option value="2">DESPACHO</option>
+                        <option value="3">INTERNO</option>
+                    </select>
+                    <i class="far fa-chevron-down"></i>
+                    <label>CICLO</label>
+                    <span class="focus-border"></span>
+                </div>
+            </div>
+            
+            <div>
+                <input id="documents__start-date" type="date" class="input-effect has-content">
+                <label>FECHA INICIAL</label>
+                <span class="focus-border"></span>
+            </div>
+    
+            <div>
+                <input id="documents__end-date" type="date" class="input-effect has-content">
+                <label>FECHA FINAL</label>
+                <span class="focus-border"></span>							
+            </div>
+
+            <div>
+                <input id="documents__doc-number" type="text" class="input-effect">
+                <label>Nº DOC.</label>
+                <span class="focus-border"></span>
             </div>
     
             <div>
@@ -66,25 +76,13 @@
                     <span class="focus-border"></span>
                 </div>
             </div>
-    
+
             <div>
-                <div class="select-effect has-content">
-                    <p>TODOS</p>
-                    <select id="documents__cycle-select">
-                        <option value="" hidden=""></option>
-                        <option selected value="All">TODOS</option>
-                        <option value="1">RECEPCION</option>
-                        <option value="2">DESPACHO</option>
-                        <option value="3">INTERNO</option>
-                    </select>
-                    <i class="far fa-chevron-down"></i>
-                    <label>CICLO</label>
-                    <span class="focus-border"></span>
-                </div>
+                <input id="documents__entity" type="text" class="input-effect">
+                <label>RAZON SOCIAL</label>
+                <span class="focus-border"></span>
             </div>
     
-            
-            
         </div>
     
         <div id="documents__table">
@@ -111,6 +109,12 @@
                                     <span>CICLO</span>
                                 </div>
                             </div>
+                            <div class="th plates">
+                                <div>
+                                    <i class="fas fa-chevron-down"></i>
+                                    <span>PATENTE</span>
+                                </div>
+                            </div>
                             <div class="th date">
                                 <div>
                                     <i class="fas fa-chevron-down"></i>
@@ -121,12 +125,6 @@
                                 <div>
                                     <i class="fas fa-chevron-down"></i>
                                     <span>DOC.</span>
-                                </div>
-                            </div>
-                            <div class="th doc_status">
-                                <div>
-                                    <i class="fas fa-chevron-down"></i>
-                                    <span>ESTADO DOC.</span>
                                 </div>
                             </div>
                             <div class="th entity">

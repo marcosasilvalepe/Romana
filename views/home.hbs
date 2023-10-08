@@ -11,7 +11,7 @@
 	</div>
 </div>
 
-<main class="hidden">
+<main style="display: none">
 
 	<section id="error-section">
 		<div id="error-container">
@@ -59,6 +59,15 @@
 				<div class="menu-icon"><i class="fal fa-analytics"></i></div>
 				<div class="menu-description">
 					<p>Informes<br>Estadisticas</p>
+				</div>
+			</div>
+
+			<div class="menu-item" id="menu-companies">
+				<div class="menu-icon">
+					<i class="fal fa-building"></i>
+				</div>
+				<div class="menu-description">
+					<p>Empresas</p>
 				</div>
 			</div>
 
@@ -111,15 +120,6 @@
 				</div>
 			</div>
 			
-			<div class="menu-item" id="menu-errors">
-				<div class="menu-icon">
-					<i class="fal fa-question"></i>
-				</div>
-				<div class="menu-description">
-					<p>Ayuda</p>
-				</div>
-			</div>
-
 			<div class="menu-item" id="menu-user">
 				<div class="menu-icon"><i class="fal fa-user-alt"></i></div>
 				<div class="menu-description">
@@ -327,6 +327,19 @@
 
 		<div id="analytics" class="content-container"></div>
 
+		<div id="companies" class="content-container">
+			<nav class="breadcrumb">
+				<ul id="companies__breadcrumb">
+					<li>
+						<i class="fal fa-building"></i>
+						<h4>EMPRESAS</h4>
+					</li>
+				</ul>
+			</nav>
+
+			<div class="content config"></div>
+		</div>
+
 		<div id="clients" class="content-container">
 
 			<nav class="breadcrumb">
@@ -357,7 +370,28 @@
 
 		</div>
 
-		<div id="containers" class="content-container"></div>
+		<div id="containers" class="content-container">
+
+			<nav class="breadcrumb">
+				<ul id="containers__breadcrumb">
+					<li>
+						<i class="fal fa-cogs"></i>
+						<h4>ENVASES</h4>
+					</li>
+				</ul>
+			</nav>
+
+			<div class="content config">
+
+				<div id="companies-charts">
+					<div class="companies-charts">
+
+					</div>
+				</div>
+
+			</div>
+			
+		</div>
 
 		<div id="vehicles" class="content-container">
 
@@ -375,6 +409,8 @@
 		</div>
 
 		<div id="drivers" class="content-container"></div>
+
+		<div id="errors" class="content-container"></div>
 
 		<div id="config" class="content-container">
 			<nav class="breadcrumb">
@@ -470,6 +506,19 @@
 			<div id="message-container-2"></div>
 		</div>
 
+	</section>
+
+	<section id="serial-weight-data">
+		<div>
+
+			<div id="serial-weight-data__indicator">
+				<div>
+					<i class="fas fa-check"></i>
+				</div>
+				<p>PESAJE EN<br>PROCESO</p>
+			</div>
+
+		</div>
 	</section>
 
 </main>

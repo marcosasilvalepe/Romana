@@ -4,15 +4,16 @@
     </div>
     <div class="body">
         <div id="electronic-document__body">
-            
-            <div id="electronic-document__progress-line"></div>
 
             <div id="electronic-document__progress-steps">
-                <div>
-                    <div id="electronic-document__progress-circle"></div>
-                    <div id="electronic-document__progress-step">
-                        <p>0%</p>
+                <div class="progress-container">
+                    <div data-pct="0">
+                        <svg width="100" height="100" viewPort="0 0 100 100" version="1.1" xmlns="http://www.w3.org/2000/svg">
+                            <circle r="45" cx="50" cy="50" fill="transparent" stroke-dasharray="282.74" stroke-dashoffset="0"></circle>
+                            <circle r="45" cx="50" cy="50" fill="transparent" stroke-dasharray="282.74" stroke-dashoffset="0" style="stroke-dashoffset: 282.743px;"></circle>
+                        </svg>
                     </div>
+                    <input name="percent" type="hidden" value="0">
                 </div>
             </div>
 

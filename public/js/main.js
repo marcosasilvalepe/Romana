@@ -1,22 +1,8 @@
 "use strict"; 
 
-let domain;
-(async () => {
-	try {
-
-		const 
-		socket_domain = await fetch('/get_socket_domain', {
-			method: 'GET',
-			headers: {
-				"Cache-Control" : "no-cache"
-			}
-		}),
-		response = await socket_domain.json();
-
-		domain = response.domain;
-
-	} catch(e) { console.log(`Couldnt get domain name. ${e}`) }	
-})();
+const global = {
+	errors: []
+}
 
 //WEIGHT AND DOCUMENT OBJECTS STUFF
 let weight_object, document_object, watch_document;
@@ -46,8 +32,10 @@ class create_weight_object {
 		this.driver = weight_object.driver;
 		this.frozen = weight_object.frozen;
 		Object.freeze(this.frozen);
+		this.ignore_errors = weight_object.ignore_errors;
 		this.gross_weight = weight_object.gross_weight;
 		this.last_weights = weight_object.last_weights;
+		this.last_dispatch = weight_object.last_dispatch;
 		this.final_net_weight = weight_object.final_net_weight;
 		this.kilos = weight_object.kilos;
 		this.kilos_breakdown = weight_object.kilos_breakdown;
@@ -58,6 +46,7 @@ class create_weight_object {
 		this.tare_containers = weight_object.tare_containers;
 		this.tare_weight = weight_object.tare_weight;
 		this.transport = weight_object.transport;
+		this.weight_view = jwt_decode(token.value).weight_view;
 	}
 
 	print_weight() {
@@ -210,8 +199,8 @@ class create_document_object {
 		Object.freeze(this.frozen);
 		this.number = doc.number;
 		this.date = doc.date;
-		this.sale = doc.sale;
 		this.type = doc.type;
+		this.harvest = doc.harvest;
 		this.electronic = doc.electronic;
 		this.comments = doc.comments;
 		this.client = doc.client;
@@ -249,6 +238,32 @@ class create_document_object {
 			}
 
 		}, 50);
+	}
+
+	print_electronic_document() {
+		return new Promise(async (resolve, reject) => {
+			try {
+
+				const
+				doc_id = this.frozen.id,
+				get_doc_data = await fetch('/get_doc_data_for_printing', {
+					method: 'POST',
+					headers: {
+						"Content-Type" : "application/json",
+						"Authorization" : token.value
+					},
+					body: JSON.stringify({ doc_id })
+				}),
+				response = await get_doc_data.json();
+
+				console.log(response);
+				window.open(`${domain}:3000/download_electronic_document?file_name=${response.file_name}`, 'GUIA ELECTRONICA DE DESPACHO');
+				window.focus();
+				//window.print();
+				
+				return resolve();
+			} catch(e) { return reject(e); }
+		})
 	}
 
 	print_document() {
@@ -382,10 +397,14 @@ class create_document_object {
 				while (data.length < 42) { data.push(line_jump) }
 
 				//PRINT FOR PATACON - CHANGE LATER!!!!
-				if (doc_data.entity.rut === '89.069.300-8')
-					data.push(print_doc_center_text('CODIGO CSP BODEGA: 7175335'), '\r\n');
+				//if (doc_data.entity.rut === '89.069.300-8')
+					//data.push(print_doc_center_text('CODIGO CSP BODEGA: 3126951'), '\r\n');
 
-				if (doc_data.comments !== null) data.push(print_doc_center_text(replace_spanish_chars(doc_data.comments.toUpperCase())), '\r\n');
+				//if (doc_data.comments !== null) data.push(print_doc_center_text(replace_spanish_chars(doc_data.comments.toUpperCase())), '\r\n');
+
+				if (doc_data.comments !== null) doc_data.comments.split('\n').forEach(line => {
+					data.push(print_doc_center_text(replace_spanish_chars(line.toUpperCase())), '\n');
+				})
 
 				const
 				driver_name = replace_spanish_chars(doc_data.driver.name),
@@ -393,9 +412,9 @@ class create_document_object {
 				primary_plates = replace_spanish_chars(doc_data.vehicle.primary_plates),
 				secondary_plates = (doc_data.vehicle.secondary_plates === null) ? '' : ' - ' + replace_spanish_chars(doc_data.vehicle.secondary_plates),
 				plates = primary_plates + secondary_plates,
-				sag_id = (document_object.sale) ? '05379020' : '05375101',
-				sale_type_first_list = (document_object.sale) ? 'GUIA CONSTITUYE VENTA' : 'GUIA NO CONSTITUYE VENTA',
-				sale_type_second_line = (document_object.sale) ? '' : 'SOLO TRASLADO DE MATERIAL PROPIO';
+				sag_id = (document_object.type === 2) ? '05379020' : '05375101',
+				sale_type_first_list = (document_object.type === 2) ? 'GUIA CONSTITUYE VENTA' : 'GUIA NO CONSTITUYE VENTA',
+				sale_type_second_line = (document_object.type === 2) ? '' : 'SOLO TRASLADO DE MATERIAL PROPIO';
 
 			  			//'01234567890123456789012345678901234567890123456789012345678901234567890123456789',
 			  			//'1         1         2         3         4         5         6         7         ',
@@ -520,6 +539,7 @@ class create_document_object {
 	}
 
 	update_branch(branch_id) {
+		
 		if (!weight_object.active.edit) return;
 		return new Promise(async (resolve,reject) => {
 			
@@ -528,7 +548,7 @@ class create_document_object {
 			const
 			doc_number = sanitize(document_object.number),
 			document_id = sanitize(this.frozen.id),
-			document_electronic = this.electronic;
+			electronic_document = this.electronic;
 
 			try {
 				const
@@ -538,7 +558,7 @@ class create_document_object {
 						"Content-Type" : "application/json",
 						"Authorization" : token.value 
 					}, 
-					body: JSON.stringify({ branch_id, doc_number, document_id, document_electronic })
+					body: JSON.stringify({ branch_id, doc_number, document_id, electronic_document })
 				}),
 				response = await update.json();
 
@@ -549,44 +569,102 @@ class create_document_object {
 				this.client.branch.name = response.branch_name;
 				
 				//if (response.existing_document) this.number = null;
-				this.electronic = response.last_document_electronic;
+				this.electronic = response.electronic;
 
-				return resolve(true);
+				return resolve();
 			} catch(error) { error_handler('Error al actualizar sucursal de cliente/proveedor en /document_update_branch', error); return reject(error) }
 		})
 	}
 
-	update_internal(target_id, target_table) {
+	update_internal_entity(entity_id) {
+
 		if (!weight_object.active.edit) return;
 		return new Promise(async (resolve, reject) => {
-			target_id = sanitize(target_id);
-			target_table = sanitize(target_table);
+			
+			entity_id = sanitize(entity_id);
 			const document_id = sanitize(this.frozen.id);
 
 			try {
 				const
-				update = await fetch('/document_select_internal', {
+				update = await fetch('/document_select_internal_entity', {
 					method: 'POST', 
 					headers: { 
 						"Content-Type" : "application/json",
 						"Authorization" : token.value 
 					}, 
-					body: JSON.stringify({ target_id, target_table, document_id })
+					body: JSON.stringify({ entity_id, document_id })
 				}),
 				response = await update.json();
 
 				if (response.error !== undefined) throw response.error;
 				if (!response.success) throw 'Success response from server is false.';
 
-				if (target_table==='internal-entities') {
-					this.internal.entity.id = response.id;
-					this.internal.entity.name = response.name
-				} else {
-					this.internal.branch.id = response.id;
-					this.internal.branch.name = response.name
-				}
-				return resolve(true);
+				this.internal.entity.id = response.entity.id;
+				this.internal.entity.name = response.entity.name;
+				this.internal.entity.csg_1 = response.entity.csg_1;
+				this.internal.entity.csg_2 = response.entity.csg_2;
+
+				return resolve();
 			} catch (error) { error_handler('Error al seleccionar entidad interna en /document_select_internal', error); reject(error) }
+		})
+
+	}
+
+	update_internal_branch(branch_id) {
+		if (!weight_object.active.edit) return;
+		return new Promise(async (resolve, reject) => {
+
+			branch_id = sanitize(branch_id);
+			const document_id = parseInt(this.frozen.id);
+
+			try {
+
+				const
+				update = await fetch('/document_select_internal_branch', {
+					method: 'POST', 
+					headers: { 
+						"Content-Type" : "application/json",
+						"Authorization" : token.value 
+					}, 
+					body: JSON.stringify({ branch_id, document_id })
+				}),
+				response = await update.json();
+
+				if (response.error !== undefined) throw response.error;
+				if (!response.success) throw 'Success response from server is false.';
+
+				this.internal.branch.id = response.branch.id;
+				this.internal.branch.name = response.branch.name
+
+				return resolve();
+			} catch (error) { error_handler('Error al seleccionar entidad interna en /document_select_internal', error); reject(error) }
+
+		})
+	}
+
+	update_comments(comments) {
+		return new Promise(async (resolve, reject) => {
+			const document_id = parseInt(this.frozen.id);
+			try {
+	
+				const
+				save_comments = await fetch('/update_document_comments', {
+					method: 'POST',
+					headers: {
+						"Content-Type" : "application/json",
+						"Authorization" : token.value
+					},
+					body: JSON.stringify({ comments: sanitize(comments), document_id })
+				}),
+				response = await save_comments.json();
+	
+				if (response.error !== undefined) throw response.error;
+				if (!response.success) throw 'Success response from server is false.';
+
+				this.comments = comments;
+	
+				return resolve();
+			} catch(e) { return reject(e) }	
 		})
 	}
 }
@@ -668,6 +746,35 @@ class document_row {
 		});
 	}
 
+	update_product_description(description) {
+		if (!weight_object.active.edit) return;
+		return new Promise(async (resolve, reject) => {
+			try {
+
+				description = sanitize(description);
+
+				const
+				update_description = await fetch('/update_product_description', {
+					method: 'POST',
+					headers: {
+						"Content-Type" : "application/json",
+						"Authorization" : token.value
+					},
+					body: JSON.stringify({ row_id: this.id, description })
+				}),
+				response = await update_description.json();
+
+				if (response.error !== undefined) throw response.error;
+				if (!response.success) throw 'Success response from server is false.';
+
+				this.product.name = description;
+
+				return resolve();
+
+			} catch(error) { return reject(error) }
+		})
+	}
+
 	update_price(price) {
 		if (!weight_object.active.edit) return;
 		return new Promise(async (resolve, reject) => {
@@ -719,17 +826,11 @@ class document_row {
 				if (!response.success) throw 'Success response from server is false.';
 
 				this.product.total = response.product_total;
-
-				/*
-				if (weight_object.cycle.id === 1) this.product.informed_kilos = response.kilos;
-				else this.product.kilos = response.kilos;
-				*/
-
 				this.product.informed_kilos = response.kilos;
 
 				document_object.kilos = response.doc_kilos;
 				document_object.total = response.doc_total;
-				resolve(true);
+				return resolve();
 			}
 			catch (error) { error_handler('Error al actualizar kilos en /update_kilos', error); return reject(error) }
 		})
@@ -739,7 +840,7 @@ class document_row {
 		if (!weight_object.active.edit) return;
 		return new Promise(async (resolve, reject) => {
 
-			code = sanitize(code.trim());
+			if (code !== null) code = sanitize(code.trim());
 			const row_id = sanitize(this.id);
 			try {	
 				const
@@ -881,7 +982,6 @@ async function valid_session() {
 
 setInterval(valid_session, 60000); //CHECK VALID SESSION EVERY MINUTE
 
-
 Array.prototype.sortBy = function(p) {
     return this.slice(0).sort(function(a,b) {
         return (a[p] < b[p]) ? 1 : (a[p] > b[p]) ? -1 : 0;
@@ -899,22 +999,24 @@ const toggle_custom_input_class = function() {
 const main_content = document.getElementById('main__content');
 
 function main_content_animation() {
+	return new Promise(resolve => {
+		if (!animating) {
+			main_content.classList.remove('hidden');
+			main_content.classList.add('fadeout-scaled-down');
+			main_content.addEventListener('animationend', () => {
+				main_content.classList.remove('fadeout-scaled-down');
+			}, { once: true })		
+			return resolve();
+		}
 	
-	if (!animating) {
-		main_content.classList.remove('hidden');
-		main_content.classList.add('fadeout-scaled-down');
+		main_content.classList.add('fadeout-scaled-up');
 		main_content.addEventListener('animationend', () => {
-			main_content.classList.remove('fadeout-scaled-down');
-		}, { once: true })		
-		return;
-	}
-
-	main_content.classList.add('fadeout-scaled-up');
-	main_content.addEventListener('animationend', () => {
-		main_content.classList.add('hidden');
-		main_content.classList.remove('fadeout-scaled-up');
-		animating = false;	
-	}, { once: true });
+			main_content.classList.add('hidden');
+			main_content.classList.remove('fadeout-scaled-up');
+			animating = false;	
+		}, { once: true });	
+		return resolve();
+	})
 }
 
 /************************ MAIN MENU FUNCTIONS ************************/
@@ -1196,7 +1298,7 @@ const create_vehicle_finalize = async function() {
 const edit_vehicle_finalize = async function() {
 
 	if (clicked) return;
-	prevent_double_click();
+	
 
 	const 
 	modal = document.getElementById('vehicles__vehicle-template'),
@@ -1253,7 +1355,6 @@ const edit_vehicle_finalize = async function() {
 const create_vehicle_choose_driver = async () => {
 
 	if (clicked) return;
-	prevent_double_click();
 
 	const
 	modal = document.querySelector('.content-container.active .create-vehicle__vehicle-data'),
@@ -1459,9 +1560,24 @@ const create_vehicle_choose_driver = async () => {
 	} catch(error) { error_handler('Error en patente del vehículo.', error) }
 }
 
+document.getElementById('user-profile').addEventListener('click', function() {
+	if (btn_double_clicked(this)) return;
+	document.getElementById('menu-user').click();
+})
+
 document.getElementById('menu-user').addEventListener('click', () => {
 
+	if (clicked || animating) return;
+	animating = true;
+
+	if (!!document.querySelector('#user-profile-module')) {
+		document.querySelector('#user-profile__accept-btn').click();
+		animating = false;
+		return;
+	}
+
 	const container = document.createElement('div');
+	container.className = 'hidden';
 	container.id = 'user-profile-module';
 	container.innerHTML = `
 		<div class="content-container">
@@ -1471,44 +1587,103 @@ document.getElementById('menu-user').addEventListener('click', () => {
 						<h3>PREFERENCIAS USUARIO</h3>
 					</div>
 					<div class="body">
+						
+						<div id="user-profile__preferences-container">
+							<div id="user-profile__preferences">
+								<div id="user-profile__qz-tray" onclick="(this.querySelector('input').checked) ? this.querySelector('input').checked = false : this.querySelector('input').checked = true;">
+									<input class="create-vehicle__active-cbx" type="checkbox"  value="">
+									<label class="cbx"></label>
+									<label class="lbl">IMPRESORA A PUNTO</label>
+								</div>
+								<div id="user-profile__tutorial" onclick="(this.querySelector('input').checked) ? this.querySelector('input').checked = false : this.querySelector('input').checked = true;">
+									<input class="create-vehicle__active-cbx" type="checkbox" value="">
+									<label class="cbx"></label>
+									<label class="lbl">TUTORIAL ACTIVO</label>
+								</div>
+								<div id="user-profile__session-alive" onclick="(this.querySelector('input').checked) ? this.querySelector('input').checked = false : this.querySelector('input').checked = true;">
+									<input class="create-vehicle__active-cbx" type="checkbox" value="">
+									<label class="cbx"></label>
+									<label class="lbl">MANTENER SESION ACTIVA</label>
+								</div>
+								<div id="user-profile__notify_errors" onclick="(this.querySelector('input').checked) ? this.querySelector('input').checked = false : this.querySelector('input').checked = true;">
+									<input class="create-vehicle__active-cbx" type="checkbox" value="">
+									<label class="cbx"></label>
+									<label class="lbl">NOTIFICAR ERRORES</label>
+								</div>
+							</div>
 
-						<div id="user-profile__preferences">
-							<div id="user-profile__qz-tray" onclick="(this.querySelector('input').checked) ? this.querySelector('input').checked = false : this.querySelector('input').checked = true;">
-								<input class="create-vehicle__active-cbx" type="checkbox" data-prev-tab-selector="#create-vehicle__internal-cbx" data-next-tab-selector="#create-weight__create-vehicle__back-to-create-weight" value="">
-								<label class="cbx"></label>
-								<label class="lbl">IMPRESORA A PUNTO</label>
-							</div>
-							<div id="user-profile__tutorial" onclick="(this.querySelector('input').checked) ? this.querySelector('input').checked = false : this.querySelector('input').checked = true;">
-								<input class="create-vehicle__active-cbx" type="checkbox" data-prev-tab-selector="#create-vehicle__internal-cbx" data-next-tab-selector="#create-weight__create-vehicle__back-to-create-weight" value="">
-								<label class="cbx"></label>
-								<label class="lbl">TUTORIAL</label>
-							</div>
-							<div id="user-profile__session-alive" onclick="(this.querySelector('input').checked) ? this.querySelector('input').checked = false : this.querySelector('input').checked = true;">
-								<input class="create-vehicle__active-cbx" type="checkbox" data-prev-tab-selector="#create-vehicle__internal-cbx" data-next-tab-selector="#create-weight__create-vehicle__back-to-create-weight" value="">
-								<label class="cbx"></label>
-								<label class="lbl">MANTENER SESION ACTIVA</label>
+							<div id="user-profiles__footer-btns">
+								<div id="user-profile__change-password" class="user-profile-btn">
+									<div>
+										<i class="far fa-user-lock"></i>
+									</div>
+									<div>
+										<p>CAMBIAR<br>CONTRASEÑA</p>
+									</div>
+								</div>
+								<div id="user-profile__close-session" class="user-profile-btn">
+									<div>
+										<i class="far fa-user-times"></i>
+									</div>
+									<div>
+										<p>CERRAR<br>SESION</p>
+									</div>
+								</div>
 							</div>
 						</div>
 
-						<div id="user-profiles__footer-btns">
-
-							<div id="user-profile__close-session">
+						<div id="change-password-container" class="hidden">
+							<h4>CAMBIAR CONTRASEÑA</h4>
+							<div id="change-password-inputs">
 								<div>
-									<i class="far fa-user-lock"></i>
+									<input spellcheck="false" type="password" class="input-effect" maxlength="32">
+									<label>Clave Actual</label>
+									<span class="focus-border"></span>
+									<i class="fal fa-unlock-alt"></i>
 								</div>
 								<div>
-									<p>CAMBIAR<br>PASSWORD</p>
+									<input spellcheck="false" type="password" class="input-effect" maxlength="32">
+									<label>Clave Nueva</label>
+									<span class="focus-border"></span>
+									<i class="fal fa-unlock-alt"></i>
+									<div class="icon-container">
+										<div class="not-found"><i class="fas fa-times"></i></div>
+										<div class="found"><i class="fas fa-check"></i></div>
+									</div> 
+								</div>
+								<div>
+									<input spellcheck="false" type="password" class="input-effect" maxlength="32">
+									<label>Confirmar Clave</label>
+									<span class="focus-border"></span>
+									<i class="fal fa-unlock-alt"></i>
+									<div class="icon-container">
+										<div class="not-found"><i class="fas fa-times"></i></div>
+										<div class="found"><i class="fas fa-check"></i></div>
+									</div>
 								</div>
 							</div>
 
-							<div id="user-profile__close-session">
-								<div>
-									<i class="far fa-user-times"></i>
-								</div>
-								<div>
-									<p>CERRAR<br>SESION</p>
-								</div>
+							<div id="change-password-btns">
+								<button class="svg-wrapper enabled red">
+									<svg height="45" width="160" xmlns="http://www.w3.org/2000/svg">
+										<rect class="shape" height="45" width="160"></rect>
+									</svg>
+									<div class="desc-container">
+										<i class="fas fa-chevron-double-left"></i>
+										<p>VOLVER</p>
+									</div>
+								</button>
+								<button class="svg-wrapper icon-left green">
+									<svg height="45" width="160" xmlns="http://www.w3.org/2000/svg">
+										<rect class="shape" height="45" width="160"></rect>
+									</svg>
+									<div class="desc-container">
+										<i class="far fa-cloud-upload"></i>
+										<p>GUARDAR</p>
+									</div>
+								</button>
 							</div>
+
 						</div>
 
 					</div>
@@ -1541,23 +1716,187 @@ document.getElementById('menu-user').addEventListener('click', () => {
 
 	if (jwt_decode(token.value).qzTray) container.querySelector('#user-profile__qz-tray input').checked = true;
 	if (jwt_decode(token.value).tutorial) container.querySelector('#user-profile__tutorial input').checked = true;
+	if (jwt_decode(token.value).keepSessionAlive) container.querySelector('#user-profile__session-alive input').checked = true;
+	if (jwt_decode(token.value).notifyErrors) container.querySelector('#user-profile__notify_errors input').checked = true;
 
-	container.querySelector('#user-profile__cancel-btn').addEventListener('click', async () => {
+	//SHOW CHANGE PASSWORD DIV
+	container.querySelector('#user-profile__change-password').addEventListener('click', async () => {
 
-		if (clicked) return;
-		prevent_double_click();
+		const 
+		fade_out_div = document.getElementById('user-profile__preferences-container'),
+		fade_in_div = document.getElementById('change-password-container');
+
+		await fade_out_animation(fade_out_div);
+		fade_out_div.classList.add('hidden');
+
+		fade_in_animation(fade_in_div);
+		fade_in_div.classList.remove('hidden');
+
+	});
+
+	//BACK TO USER PREFERENCES DIV
+	container.querySelector('#change-password-btns button.red').addEventListener('click', async () => {
+
+		const 
+		fade_out_div = document.getElementById('change-password-container'),
+		fade_in_div = document.getElementById('user-profile__preferences-container');
+
+		await fade_out_animation(fade_out_div);
+		fade_out_div.classList.add('hidden');
+
+		fade_in_animation(fade_in_div);
+		fade_in_div.classList.remove('hidden');
+
+	});
+
+	container.querySelectorAll('#change-password-inputs input').forEach(input => {
+		input.addEventListener('input', custom_input_change);
+	});
+
+	//CURRENT PASSWORD INPUT
+	container.querySelector('#change-password-inputs > div:first-child input').addEventListener('input', e => {
+
+		if (e.target.value.length < 6) {
+			document.querySelector('#change-password-btns button.green').classList.remove('enabled');
+			return
+		}
+
+		const 
+		new_password_icon = document.querySelector('#change-password-inputs > div:nth-child(2) .icon-container .found'),
+		confirm_password_icon = document.querySelector('#change-password-inputs > div:last-child .icon-container .found');
+
+		if (new_password_icon.classList.contains('active') && confirm_password_icon.classList.contains('active'))
+			document.querySelector('#change-password-btns button.green').classList.add('enabled');
+
+	})
+
+	//NEW PASSWORD INPUT
+	container.querySelector('#change-password-inputs > div:nth-child(2) input').addEventListener('input', e => {
+		
+		const 
+		input = e.target,
+		icon_container = input.parentElement.querySelector('.icon-container'),
+		confirm_password_input = container.querySelector('#change-password-inputs > div:last-child input');
+
+		if (input.value !== confirm_password_input.value) {
+			container.querySelector('#change-password-inputs > div:last-child .icon-container .found').classList.remove('active');
+			container.querySelector('#change-password-inputs > div:last-child .icon-container .not-found').classList.add('active');
+			container.querySelector('#change-password-btns button.green').classList.remove('enabled');
+		} else {
+			container.querySelector('#change-password-inputs > div:last-child .icon-container .found').classList.add('active');
+			container.querySelector('#change-password-btns button.green').classList.add('enabled');
+		}
+
+		if (input.value.length < 6) {
+			icon_container.lastElementChild.classList.remove('active');
+			icon_container.firstElementChild.classList.add('active');
+		}
+		
+		else {
+			icon_container.firstElementChild.classList.remove('active');
+			icon_container.lastElementChild.classList.add('active');
+		}
+	})
+
+	//CONFIRM PASSWORD INPUT
+	container.querySelector('#change-password-inputs > div:last-child input').addEventListener('input', e => {
+
+		const 
+		new_password = container.querySelector('#change-password-inputs > div:nth-child(2) input').value,
+		confirm_password = e.target.value,
+		icon_container = container.querySelector('#change-password-inputs > div:last-child .icon-container');
+
+		if (new_password !== confirm_password) {
+			icon_container.firstElementChild.classList.add('active');
+			icon_container.lastElementChild.classList.remove('active');
+			container.querySelector('#change-password-btns button.green').classList.remove('enabled');
+		}
+		else {
+
+			container.querySelector('#change-password-btns button.green').classList.add('enabled');
+
+			if (icon_container.firstElementChild.classList.contains('active') || !icon_container.lastElementChild.classList.contains('active'))
+				icon_container.lastElementChild.classList.add('active');
+		}
+
+	});
+
+	//SAVE NEW PASSWORD BUTTON
+	container.querySelector('#change-password-btns button.green').addEventListener('click', async function() {
+		
+		if (!this.classList.contains('enabled')) return;
+
+		const
+		current_password = sanitize(document.querySelector('#change-password-inputs > div:first-child input').value),
+		new_password = sanitize(document.querySelector('#change-password-inputs > div:nth-child(2) input').value),
+		confirm_password = sanitize(document.querySelector('#change-password-inputs > div:last-child input').value);
+
+		try {
+
+			if (new_password !== confirm_password) throw 'Contraseñas no coinciden';
+			if (new_password < 6 || confirm_password < 6) throw 'La contraseña debe tener por lo menos 6 caracteres';
+
+			const
+			update_password = await fetch('/change_user_password', {
+				method: 'POST',
+				headers: {
+					"Content-Type" : "application/json",
+					"Authorization" : token.value
+				},
+				body: JSON.stringify({ current_password, new_password, confirm_password })
+			}),
+			response = await update_password.json();
+
+			if (response.error !== undefined) throw response.error;
+			if (!response.success) throw 'Success response from server is false.';
+
+			alert('success')
+
+		} catch(e) { error_handler('No se puede guardar nueva contraseña.', e) }
+	})
+
+	container.querySelectorAll('#change-password-inputs i').forEach(el => {
+		el.addEventListener('click', function() {
+			const 
+			input = this.parentElement.querySelector('input'),
+			new_type = (input.getAttribute('type') === "password") ? 'text' : 'password';
+			input.setAttribute('type', new_type);
+		})
+	})
+
+	container.querySelector('#user-profile__close-session').addEventListener('click', async () => {
+		try {
+
+			const
+			close_session = await fetch('/close_user_session', {
+				method: 'GET',
+				"Authorization" : token.value
+			}),
+			response = await close_session.json();
+
+			if (response.error !== undefined) throw response.error;
+			if (!response.success) throw 'Success response from server is false.';
+
+			window.location = '/'
+
+		} catch(e) { error_handler('No se pudo cerrar la sesión', e) }
+	});
+
+	container.querySelector('#user-profile__cancel-btn').addEventListener('click', async function() {
+		if (btn_double_clicked(this)) return;
+		await fade_out(container);
 		container.remove();
-
 	});
 
 	container.querySelector('#user-profile__accept-btn').addEventListener('click', async function() {
 
-		const btn = this;
-		if (btn_double_clicked(btn)) return;
+		if (btn_double_clicked(this)) return;
 
 		const data = {
 			qz_tray: container.querySelector('#user-profile__qz-tray input').checked,
-			tutorial: container.querySelector('#user-profile__tutorial input').checked
+			tutorial: container.querySelector('#user-profile__tutorial input').checked,
+			keep_session_alive: container.querySelector('#user-profile__session-alive input').checked,
+			notify_errors: container.querySelector('#user-profile__notify_errors input').checked
 		}
 
 		try {
@@ -1569,26 +1908,152 @@ document.getElementById('menu-user').addEventListener('click', () => {
 					"Content-Type" : "application/json",
 					"Authorization" : token.value
 				},
-				body: JSON.stringify({data})
+				body: JSON.stringify(data)
 			}),
 			response = await save_preferences.json();
 
 			if (response.error !== undefined) throw response.error;
 			if (!response.success) throw 'Success response from server is false.';
 
-			console.log(response)
-
 			token.value = response.token;
         	token.expiration = jwt_decode(token.value).exp;
 
 			document.querySelector('#user-profile__cancel-btn').click();
 
+			if (data.notify_errors) {
+				if (global.errors.length > 0) document.querySelector('#menu-errors').classList.add('error-active');
+			}
+			else document.querySelector('#menu-errors').classList.remove('error-active');
+
 		} catch(e) { error_handler('Error al guardar preferencias de usuario.', e) }
 	});
 
 	document.getElementById('main__content').prepend(container);
-
+	fade_in(container);
+	container.classList.remove('hidden');
+	animating = false;
 })
+
+document.getElementById('serial-weight-data').addEventListener('click', function() {
+
+	//if (this.getAttribute('data-serial-open') === 'false') return;
+
+	const serial_data_div = document.createElement('section');
+	serial_data_div.id = 'serial-weight-data__info';
+	serial_data_div.className = 'hidden';
+	serial_data_div.setAttribute('data-cycle', 2);
+	serial_data_div.innerHTML = `
+		<div>
+			<div class="create-document-absolute">
+
+				<div class="header">
+					<h3>PESAJE EN PROCESO</h3>
+				</div>
+				
+				<div class="body">
+					<div>
+
+						<div class="widget">
+							<div class="widget-container">
+								<div class="widget-icon">
+									<i class="fal fa-info"></i>
+								</div>
+								<div class="widget-data">
+									<h5>Nº PESAJE</h5>
+									<p>27.485</p>
+								</div>
+							</div>
+						</div>
+
+						<div class="widget">
+							<div class="widget-container">
+								<div class="widget-icon">
+									<i class="fad fa-exchange"></i>
+								</div>
+								<div class="widget-data">
+									<h5>CICLO</h5>
+									<p>RECEPCION</p>
+								</div>
+							</div>
+						</div>
+
+						<div class="widget">
+							<div class="widget-container">
+								<div class="widget-icon">
+									<i class="fad fa-users"></i>
+								</div>
+								<div class="widget-data">
+									<h5>USUARIO</h5>
+									<p>Marcos</p>
+								</div>
+							</div>
+						</div>
+
+						<div class="widget">
+							<div class="widget-container">
+								<div class="widget-icon">
+									<i class="fal fa-sync-alt"></i>
+								</div>
+								<div class="widget-data">
+									<h5>PROCESO</h5>
+									<p>Peso Bruto</p>
+								</div>
+							</div>
+						</div>
+
+						<div class="widget">
+							<div class="widget-container">
+								<div class="widget-icon">
+									<i class="fad fa-users-cog"></i>
+								</div>
+								<div class="widget-data">
+									<h5>CHOFER</h5>
+									<p>Rodolfo Villanueva</p>
+								</div>
+							</div>
+						</div>
+
+						<div class="widget">
+							<div class="widget-container">
+								<div class="widget-icon">
+									<i class="fal fa-truck-container"></i>
+								</div>
+								<div class="widget-data">
+									<h5>CAMION</h5>
+									<p>FKPS28</p>
+								</div>
+							</div>
+						</div>
+						
+					</div>
+
+					<div id="serial-weight-data__info__weight">
+						<p>34.960</p>
+					</div>
+
+				</div>
+
+				<div class="close-btn-absolute">
+					<div>
+						<i class="fas fa-times"></i>
+					</div>
+				</div>
+				
+			</div>
+		</div>
+	`;
+
+	serial_data_div.addEventListener('click', async () => {
+		await fade_out(serial_data_div);
+		serial_data_div.remove();
+		global.serial_data = null;
+	})
+
+	document.querySelector('#main__content').appendChild(serial_data_div)
+	fade_in(serial_data_div);
+	serial_data_div.classList.remove('hidden');
+
+});
 
 /*********** WEIGHTS ***********/
 document.getElementById('menu-weights').addEventListener('click', async function() {
@@ -1617,6 +2082,7 @@ document.getElementById('menu-weights').addEventListener('click', async function
 	
 	//ACTIVE CONTAINER IS NOT WEIGHT
 	if (!!active_container && active_container.id !== 'weight') {
+		if (screen_width <= 768) document.getElementById('hamburguer-menu').click();
 		animating = true;
 		main_content_animation();
 	}
@@ -1744,8 +2210,14 @@ document.getElementById('menu-analytics').addEventListener('click', async functi
 	const btn = this;
 	if (btn_double_clicked(btn) || animating) return;
 
+	if (document.getElementById('menu-analytics').classList.contains('active')) return;
+
+	document.querySelector('#analytics').classList.add('hidden');
+
 	const active_container = document.querySelector('#main__content > .active');
 	if (!!active_container) {
+
+		if (screen_width <= 768) document.getElementById('hamburguer-menu').click();
 		animating = true;		
 		main_content_animation();
 	}
@@ -1760,6 +2232,9 @@ document.getElementById('menu-analytics').addEventListener('click', async functi
 
 			await load_css('css/analytics.css');
 			await load_script('js/analytics.js');
+
+			if (screen_width < 576)
+				document.querySelector('#analytics__entities-table .th.stock').innerText = 'STOCK';
         }
 
 		for (let weight of weight_objects_array) {
@@ -1783,14 +2258,19 @@ document.getElementById('menu-analytics').addEventListener('click', async functi
 
 			document.querySelector('.menu-item.active').classList.remove('active');
 			active_container.classList.remove('active');
-			
-			document.getElementById('menu-analytics').classList.add('active');
-			document.getElementById('analytics').classList.add('active');
 
 			main_content_animation();
 
 		}
-	} catch(error) { error_handler('Error al intentar cargar reportes.', error); animating = false }
+
+		document.getElementById('menu-analytics').classList.add('active');
+		document.getElementById('analytics').classList.add('active');
+
+		document.querySelector('#analytics').classList.remove('hidden');
+
+	} 
+	catch(error) { error_handler('Error al intentar cargar reportes.', error) }
+	finally { animating = false }
 });
 
 /*********** CLIENTS ***********/
@@ -1823,9 +2303,9 @@ document.getElementById('menu-clients').addEventListener('click', async function
 
 		document.querySelector('#clients__breadcrumb').addEventListener('click', async function() {
 
-			if (clicked || this.children.length < 2) return;
-			prevent_double_click();
-
+			const btn = this;
+			if (btn_double_clicked(btn)) return;
+			
 			const
             fade_out_div = document.getElementById('clients__client-template'),
             fade_in_div = document.getElementById('clients__table-grid');
@@ -1921,16 +2401,91 @@ document.getElementById('menu-vehicles').addEventListener('click', async functio
 
 		main_content_animation();
 
-	} catch(error) { error_handler('Error al intentar abrir vehiculos.', error); animating = false }
+	}
+	catch(error) { error_handler('Error al intentar abrir vehiculos.', error); animating = false }
+});
+
+/*********** PRODUCTS ***********/
+document.getElementById('menu-companies').addEventListener('click', async function() {
+
+	const btn = this;
+	if (btn_double_clicked(btn) || animating) return;
+
+	const active_container = document.querySelector('#main__content > .active');
+	animating = true;
+	if (!!active_container) main_content_animation()
+	
+	await load_css('css/companies.css');
+	await load_script('js/companies.js');
+
+	if (!!active_container) {
+		while (animating) await delay(10);
+		document.querySelector('.menu-item.active').classList.remove('active');
+		active_container.classList.remove('active');
+	}
+
+	btn.classList.add('active');
+	document.getElementById('companies').classList.add('active');
+
+	if (!!active_container) main_content_animation();
+	animating = false;
+});
+
+document.getElementById('menu-containers').addEventListener('click', async function() {
+
+	try {
+
+		const btn = this;
+		if (btn_double_clicked(btn) || animating) return;
+
+		const active_container = document.querySelector('#main__content > .active');
+		animating = true;
+		if (!!active_container) main_content_animation()
+		
+		await load_css('css/companies.css');
+		await load_script('js/echart.js');
+		await load_script('js/companies_charts.js');
+
+		if (!!active_container) {
+			while (animating) await delay(10);
+			document.querySelector('.menu-item.active').classList.remove('active');
+			active_container.classList.remove('active');
+		}
+
+		btn.classList.add('active');
+		document.getElementById('containers').classList.add('active');
+
+		if (!!active_container) main_content_animation();
+
+	}
+	catch(e) { error_handler('No se pudo cargar el módulo.', e) }
+	finally { animating = false }
+});
+
+/*********** ERRORS ***********/
+document.getElementById('menu-errors').addEventListener('click', async function() {
+
+	const btn = this;
+	if (btn_double_clicked(btn) || animating) return;
+
+	if (document.querySelector('#errors').classList.contains('visible')) {
+		document.querySelector('#errors .close-btn-absolute').click();
+		return;
+	}
+
+	check_loader();
+
+	socket.emit('get errors from server');
+
+	//REST OF THE FUNCTION CONTINUES IN SOCKET SCRIPT
+
 });
 
 if (screen_width < 768) {
-	
 	document.getElementById('hamburguer-menu').addEventListener('click', function() {
 		this.firstElementChild.classList.toggle('active');
 		document.getElementById('left__menu').classList.toggle('active');
 	});
-
 }
 
 const tachapa = () => {
@@ -1938,8 +2493,8 @@ const tachapa = () => {
 	vowels = ['a', 'e', 'i', 'o', 'u'],
 	first_vowel = Math.floor(Math.random() * (4- 0 + 1) + 0),
 	second_vowel = Math.floor(Math.random() * (4- 0 + 1) + 0),
-	thirh_vowel = Math.floor(Math.random() * (4- 0 + 1) + 0);
-	return 'Juan T' + vowels[first_vowel] + 'ch' + vowels[second_vowel] + 'p' + vowels[thirh_vowel];
+	third_vowel = Math.floor(Math.random() * (4- 0 + 1) + 0);
+	return 'Juan T' + vowels[first_vowel] + 'ch' + vowels[second_vowel] + 'p' + vowels[third_vowel];
 }
 
 const user_name = (jwt_decode(token.value).userName === 'Felipe') ? tachapa() : jwt_decode(token.value).userName;
@@ -1948,7 +2503,10 @@ document.querySelector('#user-profile-container p').innerText = user_name;
 (async () => {
 	try {
 		await load_css('css/main.css');
+		await check_loader();
+		fade_in_animation(document.querySelector('body > main'));
+		document.querySelector('body > main').removeAttribute('style');
 	} catch(e) { error_handler('No se pudo cargar recurso.', e) }
 })();
 
-document.querySelectorAll('input').forEach(input => { input.value = '' });
+document.querySelectorAll('input').forEach(input => input.value = '' );

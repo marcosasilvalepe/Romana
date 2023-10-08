@@ -150,16 +150,22 @@ function client_template_event_listeners(giros) {
             giro_select.appendChild(option);
         });
 
-         //BRANCH TABLE CLICK
-         document.querySelector('#client-template__branch-table .tbody').addEventListener('click', clients_edit_branch);
+        //BRANCH TABLE CLICK
+        document.querySelector('#client-template__branch-table .tbody').addEventListener('click', clients_edit_branch);
 
-         //ADD BRANCH BUTTON
+        //ADD BRANCH BUTTON
         document.querySelector('#client-template__add-branch').addEventListener('click', clients_add_branch);
 
         //DELETE ENTITY
         document.getElementById('client-template__delete-entity').addEventListener('click', clients_delete_entity);
 
-        resolve();
+        //CLOSE DIV
+        document.querySelector('#clients__client-template > .close-btn-absolute').addEventListener('click', function() {
+            if (btn_double_clicked(this)) return;
+            document.querySelector('#clients__breadcrumb > li:first-child').click();
+        })
+
+        return resolve();
     })
 }
 
@@ -167,7 +173,6 @@ function client_template_event_listeners(giros) {
 const clients_edit_entity = async e => {
 
     if (clicked) return;
-	prevent_double_click();
 
     let tr, edit = false;
 
@@ -235,6 +240,7 @@ const clients_edit_entity = async e => {
 
         document.querySelector('#clients__client-template h3').innerText = 'EDITAR ENTIDAD';
 
+        //SELECT GIRO
         const 
         giro_select = document.querySelector('#client-template__entity-giro select'),
         giro_option_index = giro_select.querySelector(`option[value="${response.entity.giro}"]`).index;
@@ -248,12 +254,22 @@ const clients_edit_entity = async e => {
         document.querySelector('#client-template__entity-rut input').classList.add('has-content');
         document.querySelector('#client-template__entity-rut input').value = response.entity.rut;
  
+        //SELECT ENTITY TYPE
         const 
         type_select = document.querySelector('#client-template__entity-type select'),
         type_option_index = type_select.querySelector(`option[value="${response.entity.type}"]`).index;
 
         type_select.options[type_option_index].selected = true;
         type_select.dispatchEvent(new Event('change'));
+
+        //SELECT BILLING TYPE
+        const
+        billing_select = document.querySelector('#client-template__billing-type select'),
+        billing_option_index = billing_select.querySelector(`option[value="${response.entity.billing}"]`).index;
+
+        billing_select.options[billing_option_index].selected = true;
+        billing_select.dispatchEvent(new Event('change'));
+
 
         if (response.entity.phone.length > 0) document.querySelector('#client-template__entity-phone input').classList.add('has-content');
         document.querySelector('#client-template__entity-phone input').value = response.entity.phone;
@@ -307,10 +323,8 @@ const clients_edit_entity = async e => {
 
 //DELETE ENTITY BTN
 const clients_table_delete_entity = async function() {
-    console.log(1)
 
     if (clicked || !this.classList.contains('enabled')) return;
-	prevent_double_click();
 
     if (!!document.querySelector('#clients__table .tbody .tr.selected' === false)) return;
 
@@ -342,7 +356,6 @@ const clients_table_delete_entity = async function() {
 const clients_create_entity_btn =  async e => {
 
     if (clicked) return;
-	prevent_double_click();
 
     try {
 
@@ -400,7 +413,8 @@ async function clients_create_entity() {
             type: document.querySelector('#client-template__entity-type select').value,
             phone: document.querySelector('#client-template__entity-phone input').value,
             email: document.querySelector('#client-template__entity-email input').value,
-            status: document.querySelector('#client-template__entity-status select').value
+            status: document.querySelector('#client-template__entity-status select').value,
+            billing: document.querySelector('#client-template__billing-type select').value
         }
 
         if (data.name.length === 0) throw 'Campo de Razón Social vacío';
@@ -409,6 +423,7 @@ async function clients_create_entity() {
         if (data.giro.length === 0) throw 'Giro sin seleccionar';
         if (data.type.length === 0) throw 'Tipo de Entidad sin seleccionar';
         if (data.status.length === 0) throw 'Estado de Entidad sin seleccionar';
+        if (data.billing.length === 0) throw 'No se ha seleccionado el tipo de facturación para la entidad.';
 
         //SANITIZE OBJECT
         for (let key in data) { data[key] = sanitize(data[key]) }
@@ -478,7 +493,6 @@ async function clients_create_entity() {
 async function clients_delete_entity() {
 
     if (clicked) return;
-	prevent_double_click();
 
     if (!this.classList.contains('enabled')) return;
 
@@ -523,7 +537,8 @@ async function clients_save_data() {
             type: document.querySelector('#client-template__entity-type select').value,
             phone: document.querySelector('#client-template__entity-phone input').value,
             email: document.querySelector('#client-template__entity-email input').value,
-            status: document.querySelector('#client-template__entity-status select').value
+            status: document.querySelector('#client-template__entity-status select').value,
+            billing: document.querySelector('#client-template__billing-type select').value
         }
 
         if (data.name.length === 0) throw 'Campo de Razón Social vacío';
@@ -532,6 +547,7 @@ async function clients_save_data() {
         if (data.giro.length === 0) throw 'Giro sin seleccionar';
         if (data.type.length === 0) throw 'Tipo de Entidad sin seleccionar';
         if (data.status.length === 0) throw 'Estado de Entidad sin seleccionar';
+        if (data.billing.length === 0) throw 'No se ha seleccionado el tipo de facturación para la entidad.';
 
         //SANITIZE OBJECT
         for (let key in data) { data[key] = sanitize(data[key]) }
@@ -577,7 +593,6 @@ async function clients_save_data() {
 async function clients_add_branch() {
 
     if (clicked) return;
-	prevent_double_click();
 
     const btn = this;
     if (!btn.classList.contains('enabled')) return;
@@ -648,7 +663,6 @@ async function clients_add_branch() {
 async function clients_edit_branch(e) {
 
     if (clicked) return;
-	prevent_double_click();
 
     const branch_id = sanitize(e.target.parentElement.getAttribute('data-branch-id'));
     try {
@@ -740,8 +754,7 @@ async function clients_edit_branch(e) {
 //CLOSE EDIT-CREATE BRANCH DIV -> CLICK EVENT
 async function clients_close_create_branch_div() {
 
-    if (clicked) return;
-	prevent_double_click();
+    if (btn_double_clicked(this)) return;
 
     const 
     show_div = document.getElementById('client-template__branch-table'),

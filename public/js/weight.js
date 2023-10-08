@@ -1,315 +1,8 @@
 "use strict";
 
-const electronic_document_progress_bar = async (start, end, text) => {
-
-	const 
-	range_input = document.querySelector('#electronic-document__progress-steps > div'),
-	percentage = document.querySelector('#electronic-document__progress-step p'),
-	progress_description = document.querySelector('#electronic-document__progress-description p');
-
-	for (let i = start; i <= end; i++) {
-		range_input.setAttribute('data-progress', end);
-		range_input.style.left = end + '%';
-		percentage.innerText = i + '%'
-		await delay(50)
-	}
-
-	progress_description.innerText = text;
-
-}
-
-let socket;
-try {
-
-	socket = io(domain + ':3100', {
-		autoConnect: false
-	});
-
-	socket.connect();
-
-	socket.on('connect', () => {
-
-		socket.emit('test', 'IT WORKED!!');
-	
-		socket.on('chat-message', msg => {
-			console.log(msg)	
-		});
-	
-		socket.on('new weight dev', weight => {
-			console.log(weight)
-			document.querySelector('#create-weight__take-weight__weight p').innerText = weight;
-		});
-
-		socket.on('transmitting serial data', weight => {
-			if (parseInt(weight) !== NaN) {
-				document.querySelector('#create-weight__take-weight__weight p').innerText = weight;
-			}
-		});
-
-		socket.on('serial port connection error', () => {
-
-			if (!!document.querySelector('#create-weight-step-2')) {
-
-				weight_object.tara_type = 'manual';
-				
-				document.querySelector('#new-weight__widget__tara-type .header-check-type p').innerText = 'MANUAL';
-				document.getElementById('create-weight__take-weight__weight').className = 'manual';
-
-				const conn_status = document.querySelector('#create-weight__status-container > div:first-child');
-				conn_status.classList.remove('connection-ok');
-				conn_status.classList.add('connection-error');
-
-				const tara_status = document.querySelector('#create-weight__status-container > div:last-child');
-				tara_status.classList.remove('automatica');
-				tara_status.classList.add('manual');
-				tara_status.querySelector('p').innerHTML = 'TARA<br>MANUAL';
-
-			}
-		})
-	
-		socket.on('new weight updated', async response => {
-	
-			try {
-
-				console.log(response);
-
-				if (response.error !== undefined) throw 'Error al intentar guardar peso bruto. Valor no puede ser 0.'
-		
-				let target, status;
-				if (response.data.update.process === 'gross') {
-					target = weight_object.gross_weight;
-					document.getElementById('tare-weight__gross-weight').innerText = thousand_separator(response.data.update.net) + ' KG';
-				}
-				else {
-					target = weight_object.tare_weight;
-					document.getElementById('gross-weight__tara-weight').innerText = thousand_separator(response.data.update.net) + ' KG';
-				}
-		
-				target.date = response.data.update.date;
-				target.status = response.data.update.status;
-				target.type = response.data.update.tara_type;
-				target.user = response.data.update.user;
-				target.brute = response.data.update.brute;
-				target.net = response.data.update.net;
-				status = target.status;
-				
-				document.getElementById(`${response.data.update.process}-weight__brute`).innerText = thousand_separator(response.data.update.brute) + ' KG';
-				document.getElementById(`${response.data.update.process}-weight__net`).innerText = thousand_separator(response.data.update.net) + ' KG';
-		
-				if (weight_object.gross_weight.status > 1 && weight_object.tare_weight.status > 1) {
-					weight_object.final_net_weight = response.data.update.final_net_weight;
-					document.getElementById('gross__final-net-weight').innerText = thousand_separator(response.data.update.final_net_weight) + ' KG';
-					document.getElementById('tare__final-net-weight').innerText = thousand_separator(response.data.update.final_net_weight) + ' KG';
-					document.getElementById('gross-weight__tara-weight').nextElementSibling.innerText = 'PESO NETO TARA';
-					document.getElementById('gross__final-net-weight').nextElementSibling.innerText = 'PESO NETO FINAL';
-				}
-				else if (weight_object.gross_weight.status > 1 && weight_object.tare_weight.status === 1)
-					document.getElementById('gross__final-net-weight').innerText = thousand_separator(response.data.update.net - weight_object.average_weight) + ' KG';
-				
-				else if (weight_object.gross_weight.status === 1 && weight_object.tare_weight.status > 1) 
-					document.getElementById('gross-weight__tara-weight').innerText = thousand_separator(response.data.update.net) + ' KG';
-				
-		
-				if (weight_object.tara_type === 'manual') {
-					document.getElementById('take-weight__manual-input').value = response.data.update.brute;
-					document.getElementById('take-weight__manual-input').classList.add('pulse-up');
-				} else document.querySelector('#create-weight__take-weight__weight p').innerText = response.data.update.brute;
-		
-				document.querySelector('#create-weight__take-weight__weight p').classList.add('pulse-up');
-				await delay(700);
-				document.querySelector('#create-weight__modal').classList.remove('active');
-		
-				await delay(500);
-		
-				if (!!document.querySelector('#create-weight__take-weight-container')) {
-
-					document.querySelector('#create-weight__take-weight-container').remove();
-		
-					const
-					weight_btn = document.getElementById('take-weight-container'),
-					cancel_save_btns = document.getElementById('save-cancel-btns');
-		
-					weight_btn.classList.remove('active');
-					cancel_save_btns.classList.add('active');
-					document.getElementById('create-weight-step-2').setAttribute('data-status', status);
-				}
-
-			} catch(e) { error_handler('Error al intentar guardar pesaje.', e) }
-
-		})
-
-		//WEIGHT HAS BEEN CREATED BY OTHER USER -> CREATE ROW IN PENDING WEIGHTS TABLE
-		socket.on('weight created by another user', weight => {
-			
-			if (!!document.querySelector(`#pending-weights-table tr[data-weight-id="${weight.id}"]`)) return;
-
-			const tr = document.createElement('tr');
-			tr.className = 'hidden';
-			tr.setAttribute('data-weight-id', weight.id);
-			tr.innerHTML = `
-				<td class="weight-id">${thousand_separator(weight.id)}</td>
-				<td class="created">${sanitize(new Date(weight.created).toLocaleString('es-CL'))}</td>
-				<td class="cycle"></td>
-				<td class="gross-brute">-</td>
-				<td class="primary-plates">${sanitize(weight.primary_plates)}</td>
-				<td class="driver">${sanitize(weight.driver)}</td>
-				<td class="client">-</td>
-			`;
-
-			if (weight.cycle === 1) tr.querySelector('.cycle').innerHTML = `<div><i class="fad fa-arrow-down"></i><p>RECEPCION</p></div>`;
-			else if (weight.cycle === 2) tr.querySelector('.cycle').innerHTML = `<div><i class="fad fa-arrow-up"></i><p>DESPACHO</p></div>`;
-			else if (weight.cycle === 3) tr.querySelector('.cycle').innerHTML = `<div><p>INTERNO</p></div>`;
-			else if (weight.cycle === 4) tr.querySelector('.cycle').innerHTML = `<div><p>SERVICIO</p></div>`;
-			
-			document.querySelector('#pending-weights-table tbody').prepend(tr);
-			fade_in_animation(tr);
-			tr.classList.remove('hidden');
-		})
-
-		//WEIGHT IS HAS BEEN CHANGED TO ANNULED OR FINISHED BY OTHER USER
-		socket.on('weight status changed by other user', async weight_id => {
-			
-			//REMOVE TR FROM PENDING WEIGHTS LIST
-			const tr = document.querySelector(`#pending-weights-table tr[data-weight-id="${weight_id}"]`);
-			if (!!tr) {
-				await fade_out_animation(tr);
-				tr.remove();
-			}
-
-			//UPDATE KILOS IN STATISTICS
-			console.log(document.querySelector('#home-products-container'))
-			if (!!document.querySelector('#home-products-container')) {
-				console.log('inside')
-				home_change_cycle(home_object.cycle);
-			}
-
-		})
-
-		//GROSS WEIGHT HAS BEEN UPDATED BY ANOTHER USER -< UPDATES PENDING WEIGHTS TABLE GROSS WEIGHT
-		socket.on('gross weight updated in one of the weights that are pending', weight => {
-			const tr = document.querySelector(`#pending-weights-table tr[data-weight-id="${weight.id}"]`);
-			if (!!tr) tr.querySelector('.gross-brute').innerText = thousand_separator(weight.gross_weight);
-		})
-
-		//FIRST DOCUMENT ENTITY IN PENDING WEIGHT HAS BEEN UPDATED
-		socket.on('update pending weight entity in pending weights table', weight => {
-			const tr = document.querySelector(`#pending-weights-table tr[data-weight-id="${weight.id}"]`);
-			if (!!tr) tr.querySelector('.client').innerText = weight.entity_name;
-		})
-
-		//GENERATE ELECTRONIC DOCUMENT
-		socket.on('error generating electronic document', e => {
-			document.querySelector('#generate-electronic-document .footer .enabled.red').click();
-			error_handler('No se pudo generar el documento electrónico.', e)
-		})
-
-		socket.on('loading sii website', async () => {
-			electronic_document_progress_bar(0, 10, 'Ingresando a SII');
-		});
-
-		socket.on('electronic document - destination entity done', () => {
-			electronic_document_progress_bar(11, 15, 'Ingresando datos del encabezado');
-		})
-
-		socket.on('electronic document - document date done', () => {
-			electronic_document_progress_bar(16, 20, 'Ingresando datos del encabezado');
-		})
-
-		socket.on('electronic document - destination city done', () => {
-			electronic_document_progress_bar(21, 25, 'Ingresando datos del encabezado');
-		})
-
-		socket.on('electronic document - vehicle data done', () => {
-			electronic_document_progress_bar(26, 30, 'Ingresando datos del encabezado');
-		});
-
-		socket.on('electronic document - header done', () => {
-			electronic_document_progress_bar(31, 40, 'Encabezado de documento ingresado');
-		})
-
-		socket.on('electronic document - row done', progress => {
-
-			const progress_bar = document.querySelector('#electronic-document__progress-steps > div');
-			const current_progress = parseInt(progress_bar.getAttribute('data-progress'));
-
-			progress_bar.setAttribute('data-progress', progress + current_progress);
-			progress_bar.style.left = (progress + current_progress) + '%';
-			console.log(progress)
-
-		});
-
-		socket.on('electronic document - body done', () => {
-			electronic_document_progress_bar(61, 70, 'Ingresando cuerpo del documento');
-		})
-
-		socket.on('electronic document - document done', () => {
-			electronic_document_progress_bar(71, 80, 'Firmando documento');
-		});
-
-		socket.on('electronic document - document signed', () => {
-			electronic_document_progress_bar(81, 90, 'Guardando documento');
-		})
-
-		socket.on('electronic document - file saved', doc_number => {
-			electronic_document_progress_bar(91, 100, 'Documento generado correctamente');
-		})
-
-	});
-
-	socket.on('disconnect', () => {
-		console.log('socket disconnected');
-	});
-
-	const socketReconnect = async () => {
-		try {
-			await delay(500);
-			if (!socket.connected) socket.connect();
-		} 
-		catch(e) { console.log(`Error reconnecting socket. ${e}`); socketReconnect() }
-	}
-
-	window.onfocus = () => {
-		if (!socket.connected && screen_width < 768) socketReconnect();
-	}
-
-	window.onblur = () => {
-		console.log(socket.connected);
-		if (socket.connected && screen_width < 768) socket.disconnect();
-	}
-
-	/**************** DOCUMENTS ****************/
-	socket.on('document -> product cut updated', async response => {
-
-		try {
-
-			if (response.error !== undefined) throw response.error;
-			if (!response.success) throw 'Success response from server is false.';		
-
-			const row_object = await get_row_object(response.row_id);
-			row_object.product.cut = response.cut;
-
-			if (response.last_price.found) {
-				row_object.product.last_price.found = response.last_price.found;
-				row_object.product.last_price.price = response.last_price.price;
-			}
-
-			const price_input = document.querySelector(`#create-document__body__table-container tr[data-row-id="${response.row_id}"] .product-price input`);
-
-			if (row_object.product.last_price.found && row_object.product.last_price.price !== null) {
-				price_input.value = '$' + thousand_separator(row_object.product.last_price.price);
-				price_input.parentElement.classList.remove('saved');
-			}
-	
-			price_input.focus();
-
-		} catch(e) { console.log(e); error_handler(e) }
-
-	})
-} catch(socket_error) { console.log(`Error connecting socket. ${socket_error}`) }
-
 //FIRST BREADCRUMB WEIGHT
 document.querySelector('#weight__breadcrumb li:first-child').addEventListener('click', async function() {
-	
+
 	if (btn_double_clicked(this)) return;
 
 	try {
@@ -409,7 +102,6 @@ function create_pending_weights_tr(pending_weights) {
 document.getElementById('weights-menu__create').addEventListener('click', async function() {
 
 	if (clicked) return;
-	prevent_double_click();
 
 	const
 	fade_out_div = document.getElementById('weight-menu'),
@@ -440,6 +132,7 @@ document.getElementById('weights-menu__create').addEventListener('click', async 
     	response.data.forEach(vehicle => {
 
 			const tr = document.createElement('tr');
+			tr.setAttribute('data-plates', vehicle.primary_plates);
             tr.innerHTML = `
 				<td class="primary-plates">${sanitize(vehicle.primary_plates)}</td>
 				<td class="secondary-plates"></td>
@@ -502,7 +195,7 @@ document.getElementById('weights-menu__create').addEventListener('click', async 
 document.getElementById('create-weight__cycle').addEventListener('click', async e => {
 
 	if (clicked) return;
-	prevent_double_click();
+	
 
 	let btn;
 	if (e.target.classList.contains('weight__type')) btn = e.target;
@@ -540,13 +233,14 @@ document.getElementById('create-weight__cycle').addEventListener('click', async 
 document.querySelector('#create-weight__select-vehicle-table .tbl-content tbody').addEventListener('click', e => {
 
 	if (clicked) return;
-	prevent_double_click();
+	
 
 	let tr;
 	if (e.target.matches('td')) tr = e.target.parentElement;
 	else if (e.target.className === 'icon-container') tr = e.target.parentElement.parentElement;
 	else if (e.target.className === 'found' || e.target.className === 'not-found') tr = e.target.parentElement.parentElement.parentElement;
 	else if (e.target.matches('i')) tr = e.target.parentElement.parentElement.parentElement.parentElement;
+	else if (e.target.matches('tr')) tr = e.target;
 	else return;
 
 	const
@@ -561,7 +255,7 @@ document.querySelector('#create-weight__select-vehicle-table .tbl-content tbody'
 document.getElementById('select-vhc-create').addEventListener('click', async () => {
 
 	if (clicked) return;
-	prevent_double_click();
+	
 
 	const modal = document.getElementById('create-weight__modal');
 	try {
@@ -633,7 +327,7 @@ document.getElementById('select-vhc-create').addEventListener('click', async () 
 document.querySelector('#pending-weights-table tbody').addEventListener('click', async (e) => {
 
 	if (clicked) return;
-	prevent_double_click();
+	
 
 	let tr;
 	if (e.target.matches('tr')) tr = e.target;
@@ -916,8 +610,18 @@ const get_finished_weights = async weight_status => {
 
 		});
 
+
+		//CLOSE BUTTON
+		document.querySelector('#finished-weight__containers > .close-btn-absolute').addEventListener('click', () => {
+			if (clicked) return;
+			document.querySelector('#weight__breadcrumb li:first-child').click();
+		})
+
 		document.querySelector('#finished-weight__table .table-body').oncontextmenu = function() { return false }
 		fade_in_animation(fade_in_div);
+
+		await delay(500);
+		document.getElementById('finished-weight__weight-id').focus();
 
 	} catch(error) { error_handler('Error al obtener pesajes teminados', error) }
 
@@ -926,14 +630,12 @@ const get_finished_weights = async weight_status => {
 document.querySelector('#weights-menu__finished').addEventListener('click', () => {
 
 	if (clicked) return;
-	prevent_double_click()
 	get_finished_weights('T');
 	
 });
 
 document.querySelector('#weights-menu__deleted').addEventListener('click', () => {
 	if (clicked) return;
-	prevent_double_click()
 	get_finished_weights('N');
 });
 
@@ -948,7 +650,7 @@ const finished_weight_function = async e => {
 //FINISHED WEIGHTS -> WEIGHT ID INPUT
 const finished_weight_id_keydown = async e => {
 
-	if (e.code !== 'Tab' && e.key!== 'Enter') return;
+	if (e.code !== 'Tab' && e.key !== 'Enter') return;
 
 	const weight_id = sanitize(e.target.value.replace(/[^0-9]/gm, ''));
 	if (weight_id.length === 0) {
@@ -990,8 +692,7 @@ const finished_weight_id_keydown = async e => {
 const finished_weight_get_records_from_filters = e => {
 
 	if (clicked) return;
-	prevent_double_click();
-
+	
 	return new Promise(async (resolve, reject) => {
 
 		const data = get_finished_weight_filters();
@@ -1032,7 +733,6 @@ const finished_weight_get_records_from_filters = e => {
 async function finished_weights_edit_document() {
 	
 	if (clicked) return;
-	prevent_double_click()
 
 	const doc_id = parseInt(this.parentElement.parentElement.getAttribute('data-doc-id'));
 	
@@ -1072,7 +772,7 @@ async function finished_weights_edit_document() {
 async function finished_weights_annul_document() {
 	
 	if (clicked) return;
-	prevent_double_click();
+	
 
 	const 
 	doc_div = this.parentElement.parentElement,
@@ -1194,7 +894,7 @@ const finished_weights_table = async e => {
 	e.preventDefault();
 
 	if (clicked) return;
-	prevent_double_click();
+	
 
 	let tr
 	if (e.target.matches('td')) tr = e.target.parentElement;
@@ -1241,6 +941,7 @@ const finished_weights_table = async e => {
 			const weight_status = document.querySelector('#finished-weight__containers > .card').getAttribute('data-weight-status');
 
 			context_menu.onclick = async e => {
+
 				let container;
 				if (e.target.matches('i') || e.target.matches('span')) container = e.target.parentElement;
 				else if (e.target.classList.contains('context-menu__child')) container = e.target;
@@ -1275,8 +976,442 @@ const finished_weights_table = async e => {
 			if (!!document.querySelector('#finished-weights__context-menu')) 
 				document.querySelector('#finished-weights__context-menu').remove();
 		}, { once: true })
-
 	}
+}
+
+const save_view_preference = async view => {
+	try {
+
+		const 
+			save_view = await fetch('/save_view_preference', {
+				method: 'POST',
+				headers: {
+					"Content-Type" : "application/json",
+					"Authorization" : token.value
+				},
+				body: JSON.stringify({ view: parseInt(view) })
+			}),
+			response = await save_view.json();
+
+			token.value = response.token;
+
+	} catch(e) { console.log(e) }
+}
+
+const finished_weights_create_document_rows = (view, modal) => {
+	return new Promise(async resolve => {
+		
+		//CLEAR WIDGETS
+		document.querySelector('.content-container.active .finished-weight__modal__documents-container').innerHTML = '';
+
+		let total_kilos = 0, total_kilos_inf = 0;
+
+		for (let doc of weight_object.documents) {
+
+			let origin_entity, origin_branch, destination_entity, destination_branch;
+			if (weight_object.cycle.id === 1) {
+				origin_entity = (doc.client.entity.name === null) ? '' : doc.client.entity.name;
+				origin_branch = (doc.client.branch.name === null) ? '' : doc.client.branch.name;
+				destination_entity = (doc.internal.entity.name === null) ? '' : doc.internal.entity.name;
+				destination_branch = (doc.internal.branch.name === null) ? '' : doc.internal.branch.name;
+			} else {
+				origin_entity = (doc.internal.entity.name === null) ? '' : doc.internal.entity.name;
+				origin_branch = (doc.internal.branch.name === null) ? '' : doc.internal.branch.name;
+				destination_entity = (doc.client.entity.name === null) ? '' : doc.client.entity.name;
+				destination_branch = (doc.client.branch.name === null) ? '' : doc.client.branch.name;
+			}
+
+			const 
+			doc_date = (doc.date === null) ? '-' : new Date(doc.date).toLocaleString('es-CL').split(' ')[0].replace(/[,]/gm, ''),
+			doc_number = (doc.number === null) ? '-' : thousand_separator(doc.number);
+			
+			const widget = document.createElement('div');
+			widget.className = 'widget';
+			widget.setAttribute('data-doc-id', doc.frozen.id);
+
+			const document_comments = (doc.comments === null) ? '' : doc.comments.split('\n').join(' - ');
+
+			if (view === 1) {
+
+				let containers = 0, kilos = 0, informed_kilos = 0, total = 0;
+
+				const widget_header = document.createElement('div');
+				widget_header.className = 'document-header';
+				widget_header.innerHTML = `
+					<div class="doc-btn">
+						<div>
+							<i class="fal fa-file-edit"></i>
+						</div>
+						<span>Editar Doc.</span>
+					</div>
+
+					<div class="origin">
+						<p>
+							<b>Origen:</b> ${origin_entity}
+						</p>
+						<i class="far fa-level-up"></i>
+						<p>
+							<b>Sucursal:</b> ${origin_branch}
+						</p>
+					</div>
+
+					<div class="destination">
+						<p>
+							<b>Destino:</b> ${destination_entity}
+						</p>
+						<i class="far fa-level-up"></i>
+						<p>
+							<b>Sucursal:</b> ${destination_branch}
+						</p>
+					</div>
+
+					<div class="doc-header-data">
+						<div>
+							<i class="fal fa-calendar-alt"></i>
+							<p>
+								<b>${doc_date}</b>
+							</p>
+						</div>
+						<div>
+							<i class="fal fa-file-alt"></i>
+							<p>
+								<b>Nº Doc:</b> ${thousand_separator(doc_number)}
+							</p>
+						</div>
+					</div>
+					<div class="doc-btn">
+						<div>
+							<i class="far fa-trash-alt"></i>
+						</div>
+						<span>Anular Doc.</span>
+					</div>
+				`;
+
+				widget.innerHTML = `
+					<div class="widget-icon">
+						<i class="fal fa-file-alt"></i>
+					</div>
+					<div class="document-body">
+						<div class="table-header">
+							<table>
+								<thead>
+									<tr>
+										<th class="line-number">Nº</th>
+										<th class="container-amount">CANTIDAD</th>
+										<th class="container">ENVASE</th>
+										<th class="container-weight">PESO ENV.</th>
+										<th class="product">PRODUCTO</th>
+										<th class="cut">DESCARTE</th>
+										<th class="price">PRECIO</th>
+										<th class="kilos">KILOS</th>
+										<th class="kilos-informed">KG. INF.</th>
+										<th class="product-total">TOTAL</th>
+									</tr>
+								</thead>
+							</table>
+						</div>
+						<div class="table-body">
+							<table>
+								<tbody></tbody>
+							</table>
+						</div>
+					</div>
+					<div class="document-footer">
+						<table>
+							<tbody>
+								<tr>
+									<td class="line-number"></td>
+									<td class="container-amount">19</td>
+									<td class="container"></td>
+									<td class="container-weight"></td>
+									<td class="product"></td>
+									<td class="cut"></td>
+									<td class="price"></td>
+									<td class="kilos"></td>
+									<td class="kilos-informed"></td>
+									<td class="product-total"></td>
+								</tr>
+							</tbody>
+						</table>
+					</div>
+				`;
+
+				if (document_comments.length > 0) {
+					const comments_div = document.createElement('div');
+					comments_div.className = 'document-comments';;
+					comments_div.innerHTML = `<p><b>OBSERVACIONES:</b> ${sanitize(document_comments)}</p>`;
+					widget.appendChild(comments_div);
+				}
+
+				widget.insertBefore(widget_header, widget.querySelector('.document-body'));
+
+				/********* DOCUMENT BODY **********/
+				const 
+					tbody = widget.querySelector('.document-body tbody'),
+					rows = doc.rows,
+					tr_html = `
+						<td class="line-number"></td>
+						<td class="container-amount"></td>
+						<td class="container"></td>
+						<td class="container-weight"></td>
+						<td class="product"></td>
+						<td class="cut"></td>
+						<td class="price"></td>
+						<td class="kilos"></td>
+						<td class="kilos-informed"></td>
+						<td class="product-total"></td>
+					`;
+
+				for (let i = 0; i < rows.length; i++) {
+
+					const tr = document.createElement('tr');
+					tr.setAttribute('data-row-id', rows[i].id);
+					tr.innerHTML = tr_html;
+					tr.querySelector('.line-number').innerText = i + 1;
+					tr.querySelector('.product').innerText = (rows[i].product.name === null) ? '-' : rows[i].product.name;
+					tr.querySelector('.cut').innerText = (rows[i].product.cut === null) ? '-' : rows[i].product.cut.toUpperCase();
+					tr.querySelector('.price').innerText = (rows[i].product.price === null) ? '-' : '$' + thousand_separator(rows[i].product.price);
+					tr.querySelector('.kilos').innerText = (rows[i].product.kilos === null) ? '-' : thousand_separator(rows[i].product.kilos) + ' KG';
+					tr.querySelector('.kilos-informed').innerText = (rows[i].product.informed_kilos === null) ? '-' : thousand_separator(rows[i].product.informed_kilos) + ' KG';
+					tr.querySelector('.product-total').innerText = (rows[i].product.total === null) ? '-' : '$' + thousand_separator(rows[i].product.total);
+					tr.querySelector('.container').innerText = (rows[i].container.name === null) ? '-' : rows[i].container.name;
+					tr.querySelector('.container-weight').innerText = (rows[i].container.weight === null) ? '-' : rows[i].container.weight + ' KG';
+					tr.querySelector('.container-amount').innerText = (rows[i].container.amount === null) ? '-' : thousand_separator(rows[i].container.amount);
+					
+					tbody.appendChild(tr);
+
+					containers += 1 * rows[i].container.amount;
+					kilos += 1 * rows[i].product.kilos;
+					informed_kilos += 1 * rows[i].product.informed_kilos;
+					total += 1 * rows[i].product.total;
+
+					total_kilos += kilos;
+					total_kilos_inf += informed_kilos;
+				}
+
+				const tr_total = widget.querySelector('.document-footer tbody tr')
+				tr_total.querySelector('.container-amount').innerText = thousand_separator(containers);
+				tr_total.querySelector('.kilos').innerText = thousand_separator(kilos) + ' KG';
+				tr_total.querySelector('.kilos-informed').innerText = thousand_separator(informed_kilos) + ' KG';
+				tr_total.querySelector('.product-total').innerText = '$' + thousand_separator(total);
+
+				widget.querySelector('.doc-btn:first-child').addEventListener('click', finished_weights_edit_document);
+				widget.querySelector('.doc-btn:last-child').addEventListener('click', finished_weights_annul_document);
+
+				modal.querySelector('.finished-weight__modal__documents-container').append(widget);
+
+			}
+
+			else {
+
+				const products = [];
+
+				for (let row of doc.rows) {
+
+					if (row.product.code === 'GEN') {
+						products.push({
+							code: 'GEN',
+							containers: null,
+							cut: null,
+							informed_kilos: null,
+							kilos: null,
+							name: row.product.name,
+							price: null
+						});
+						continue;
+					}
+
+					let product_in_array = false, index;
+					
+					let i = 0;
+					for (let product of products) {
+						if (row.product.code === product.code && row.product.cut === product.cut && row.product.price === product.price) {
+							product_in_array = true;
+							index = i;
+						}
+						i++;
+					}
+
+					//PRODUCT WASN'T FOUND IN ARRAY SO IT GETS PUSHED
+					if (!product_in_array) {
+						index = products.length;
+						products.push({
+							code: row.product.code,
+							containers: 0,
+							cut: row.product.cut,
+							informed_kilos: 0,
+							kilos: 0,
+							name: row.product.name,
+							price: row.product.price
+						});
+					}
+
+					const product = products[index];
+					product.kilos += row.product.kilos;
+					product.informed_kilos += row.product.informed_kilos;
+					product.containers += row.container.amount;
+				}
+
+				modal.querySelector('.finished-weight__modal__documents-container').append(widget);
+				widget.parentElement.setAttribute('data-view', 2);
+
+				widget.innerHTML = `
+					<div class="widget-icon">
+						<i class="fal fa-file-alt"></i>
+					</div>
+					<div class="document-body">
+						<div class="table-header">
+							<table>
+								<thead>
+									<tr>
+										<th class="line-number">Nº</th>
+										<th class="product">PRODUCTO</th>
+										<th class="cut">DESCARTE</th>
+										<th class="price">PRECIO</th>
+										<th class="container-amount">ENVASES</th>
+										<th class="kilos">KILOS</th>
+										<th class="kilos-informed">KG. INF.</th>
+										<th class="average">PROMEDIO</th>
+										<th class="product-total">TOTAL</th>
+									</tr>
+								</thead>
+							</table>
+						</div>
+						<div class="table-body">
+							<table>
+								<tbody></tbody>
+							</table>
+						</div>
+					</div>
+					<div class="document-footer"></div>
+				`;
+
+				if (document_comments.length > 0) {
+					const comments_div = document.createElement('div');
+					comments_div.className = 'document-comments';;
+					comments_div.innerHTML = `<p><b>OBSERVACIONES:</b> ${sanitize(document_comments)}</p>`;
+					widget.appendChild(comments_div);
+				}
+
+				let containers = 0, kilos = 0, informed_kilos = 0, total = 0, container_average = 0, line_counter = 0;
+
+				for (let i = 0; i < products.length; i++) {
+
+					const tr = document.createElement('tr');
+					tr.innerHTML = `
+						<td class="line-number">${i + 1}</td>
+						<td class="product">${(products[i].name === null) ? '-' : products[i].name}</td>
+						<td class="cut">${(products[i].cut === null) ? '-' : products[i].cut}</td>
+						<td class="price">${(products[i].price === null) ? '-' : '$' + thousand_separator(products[i].price)}</td>
+						<td class="container-amount">${(products[i].containers === null) ? '-' : thousand_separator(products[i].containers)}</td>
+						<td class="kilos">${(products[i].kilos === null) ? '-' : thousand_separator(products[i].kilos) + ' KG'}</td>
+						<td class="kilos-informed">${(products[i].informed_kilos === null) ? '-' : thousand_separator(products[i].informed_kilos) + ' KG'}</td>
+						<td class="average">${(products[i].kilos === null) ? '-' : (Math.floor((products[i].informed_kilos / products[i].containers) * 10) / 10) + ' KG'}</td>
+						<td class="product-total">${(products[i].informed_kilos === null || products[i].price === null) ? '$0' : '$' + thousand_separator(products[i].informed_kilos * products[i].price)}</td>
+					`;
+
+					widget.querySelector('tbody').appendChild(tr);
+
+					containers += products[i].containers;
+					kilos += products[i].kilos;
+					informed_kilos += products[i].informed_kilos;
+					container_average += products[i].informed_kilos / products[i].containers;
+					total += products[i].informed_kilos * products[i].price;
+
+					if (1 * products[i].informed_kilos > 0) line_counter++;
+
+				}
+
+				widget.querySelector('.document-footer').innerHTML = `
+					<table>
+						<tbody>
+							<tr>
+								<td class="line-number"></td>
+								<td class="product"></td>
+								<td class="cut"></td>
+								<td class="price"></td>
+								<td class="container-amount">${containers}</td>
+								<td class="kilos">${thousand_separator(kilos)} KG</td>
+								<td class="kilos-informed">${thousand_separator(informed_kilos)} KG</td>
+								<td class="average">${Math.floor((container_average / line_counter) * 10) / 10} KG</td>
+								<td class="product-total">$${thousand_separator(total)}</td>
+							</tr>
+						</tbody>
+					</table>
+				`;
+
+				const tr_total = widget.querySelector('.document-footer tbody tr')
+				tr_total.querySelector('.container-amount').innerText = thousand_separator(containers);
+				tr_total.querySelector('.kilos').innerText = thousand_separator(kilos) + ' KG';
+				tr_total.querySelector('.kilos-informed').innerText = thousand_separator(informed_kilos) + ' KG';
+				tr_total.querySelector('.product-total').innerText = '$' + thousand_separator(total);
+
+				const widget_header = document.createElement('div');
+				widget_header.className = 'document-header';
+				widget_header.innerHTML = `
+					<div class="doc-btn">
+						<div>
+							<i class="fal fa-file-edit"></i>
+						</div>
+						<span>Editar Doc.</span>
+					</div>
+
+					<div class="origin">
+						<p>
+							<b>Origen:</b> ${origin_entity}
+						</p>
+						<i class="far fa-level-up"></i>
+						<p>
+							<b>Sucursal:</b> ${origin_branch}
+						</p>
+					</div>
+
+					<div class="destination">
+						<p>
+							<b>Destino:</b> ${destination_entity}
+						</p>
+						<i class="far fa-level-up"></i>
+						<p>
+							<b>Sucursal:</b> ${destination_branch}
+						</p>
+					</div>
+
+					<div class="doc-header-data">
+						<div>
+							<i class="fal fa-calendar-alt"></i>
+							<p>
+								<b>${doc_date}</b>
+							</p>
+						</div>
+						<div>
+							<i class="fal fa-file-alt"></i>
+							<p>
+								<b>Nº Doc:</b> ${thousand_separator(doc_number)}
+							</p>
+						</div>
+					</div>
+					<div class="doc-btn">
+						<div>
+							<i class="far fa-trash-alt"></i>
+						</div>
+						<span>Anular Doc.</span>
+					</div>
+				`;
+				widget.insertBefore(widget_header, widget.querySelector('.document-body'));
+
+				widget.querySelector('.doc-btn:first-child').addEventListener('click', finished_weights_edit_document);
+				widget.querySelector('.doc-btn:last-child').addEventListener('click', finished_weights_annul_document);
+
+				modal.querySelector('.finished-weight__modal__documents-container').append(widget);
+			}
+
+		}
+
+		try { save_view_preference(view) }
+		catch(e) { console.log(e) }
+
+		return resolve();
+	})
 }
 
 const visualize_finished_weight = (weight_id, modal, edit) => {
@@ -1297,11 +1432,14 @@ const visualize_finished_weight = (weight_id, modal, edit) => {
 			if (response.error !== undefined) throw response.error;
 			if (!response.success) throw 'Success response from server is false.';
 
+			console.log(response.weight_object)
+
 			//SET WEIGHT OBJECTS IN ARRAY TO INACTIVE
 			const weights_array = weight_objects_array;
 			for (let weight of weights_array) { weight.active.status = false }
 
 			weight_object = new create_weight_object(response.weight_object);
+
 			response.weight_object.documents.forEach(doc => { 
 				const new_doc = new create_document_object(doc);
 				doc.rows.forEach(row => {
@@ -1309,6 +1447,7 @@ const visualize_finished_weight = (weight_id, modal, edit) => {
 				}) 
 				weight_object.documents.push(new_doc);
 			});
+
 			weight_object.active = {
 				edit: edit,
 				status: true, 
@@ -1353,171 +1492,11 @@ const visualize_finished_weight = (weight_id, modal, edit) => {
 			modal.querySelector('.finished-weight__modal__tare-comments textarea').value = weight_object.tare_weight.comments;
 
 			//modal
-			let total_kilos = 0, total_kilos_inf = 0;
-			weight.documents.forEach(doc => {
-				
-				let kilos = 0, kilos_inf = 0, doc_total = 0, containers = 0;
-
-				const 
-				widget = document.createElement('div'),
-				document_header = document.createElement('div'),
-				document_body = document.createElement('div'),
-				document_footer = document.createElement('div');
-
-				widget.className = 'widget';
-				widget.setAttribute('data-doc-id', doc.frozen.id);
-				widget.innerHTML = `
-					<div class="widget-icon">
-						<i class="fal fa-file-alt"></i>
-					</div>
-				`;
-				widget.append(document_header, document_body, document_footer);
-
-				let origin_entity, origin_branch, destination_entity, destination_branch;
-				if (weight.cycle.id === 1) {
-					origin_entity = (doc.client.entity.name === null) ? '' : doc.client.entity.name;
-					origin_branch = (doc.client.branch.name === null) ? '' : doc.client.branch.name;
-					destination_entity = (doc.internal.entity.name === null) ? '' : doc.internal.entity.name;
-					destination_branch = (doc.internal.branch.name === null) ? '' : doc.internal.branch.name;
-				} else {
-					origin_entity = (doc.internal.entity.name === null) ? '' : doc.internal.entity.name;
-					origin_branch = (doc.internal.branch.name === null) ? '' : doc.internal.branch.name;
-					destination_entity = (doc.client.entity.name === null) ? '' : doc.client.entity.name;
-					destination_branch = (doc.client.branch.name === null) ? '' : doc.client.branch.name;
-				}
-
-				const 
-				doc_date = (doc.date === null) ? '-' : new Date(doc.date).toLocaleString('es-CL').split(' ')[0].replace(/[,]/gm, ''),
-				doc_number = (doc.number === null) ? '-' : thousand_separator(doc.number);
-
-				document_header.className = 'document-header';
-				document_header.innerHTML = `
-					<div class="doc-btn">
-						<div>
-							<i class="fal fa-file-edit"></i>				
-						</div>
-						<span>Editar Doc.</span>
-					</div>
-					<div class="origin">
-						<p><b>Origen:</b> ${origin_entity}</p>
-						<i class="far fa-level-up"></i>
-						<p><b>Sucursal:</b> ${origin_branch}</p>					
-					</div>
-					<div class="destination">
-						<p><b>Destino:</b> ${destination_entity}</p>
-						<i class="far fa-level-up"></i>
-						<p><b>Sucursal:</b> ${destination_branch}</p>
-					</div>
-					<div class="doc-header-data">
-						<div>
-							<i class="fal fa-calendar-alt"></i>
-							<p><b>${doc_date}</b></p>
-						</div>
-						<div>
-							<i class="fal fa-file-alt"></i>
-							<p><b>Nº Doc:</b> ${doc_number}</p>
-						</div>
-					</div>
-					<div class="doc-btn">
-						<div>
-							<i class="far fa-trash-alt"></i>			
-						</div>
-						<span>Anular Doc.</span>	
-					</div>
-				`;
-				document_header.querySelector('.doc-btn:first-child').addEventListener('click', finished_weights_edit_document);
-				document_header.querySelector('.doc-btn:last-child').addEventListener('click', finished_weights_annul_document);
-
-				document_body.className = 'document-body';
-				document_body.innerHTML = `
-					<div class="table-header">
-						<table>
-							<thead>
-								<tr>
-									<th class="line-number">Nº</th>
-									<th class="container-amount">CANTIDAD</th>
-									<th class="container">ENVASE</th>
-									<th class="container-weight">PESO ENV.</th>
-									<th class="product">PRODUCTO</th>
-									<th class="cut">DESCARTE</th>
-									<th class="price">PRECIO</th>
-									<th class="kilos">KILOS</th>
-									<th class="kilos-informed">KG. INF.</th>
-									<th class="product-total">TOTAL</th>
-								</tr>
-							</thead>
-						</table>
-					</div>
-					<div class="table-body">
-						<table>
-							<tbody></tbody>
-						</table>
-					</div>
-				`;
-				
-				const 
-				tbody = document_body.querySelector('tbody'),
-				rows = doc.rows,
-				tr_html = `
-					<td class="line-number"></td>
-					<td class="container-amount"></td>
-					<td class="container"></td>
-					<td class="container-weight"></td>
-					<td class="product"></td>
-					<td class="cut"></td>
-					<td class="price"></td>
-					<td class="kilos"></td>
-					<td class="kilos-informed"></td>
-					<td class="product-total"></td>
-				`;
-
-				for (let i = 0; i < rows.length; i++) {
-
-					const tr = document.createElement('tr');
-					tr.setAttribute('data-row-id', rows[i].id);
-					tr.innerHTML = tr_html;
-					tr.querySelector('.line-number').innerText = i + 1;
-					tr.querySelector('.product').innerText = (rows[i].product.name === null) ? '-' : rows[i].product.name;
-					tr.querySelector('.cut').innerText = (rows[i].product.cut === null) ? '-' : rows[i].product.cut.toUpperCase();
-					tr.querySelector('.price').innerText = (rows[i].product.price === null) ? '-' : '$' + thousand_separator(rows[i].product.price);
-					tr.querySelector('.kilos').innerText = (rows[i].product.kilos === null) ? '-' : thousand_separator(rows[i].product.kilos) + ' KG';
-					tr.querySelector('.kilos-informed').innerText = (rows[i].product.informed_kilos === null) ? '-' : thousand_separator(rows[i].product.informed_kilos) + ' KG';
-					tr.querySelector('.product-total').innerText = (rows[i].product.total === null) ? '-' : '$' + thousand_separator(rows[i].product.total);
-					tr.querySelector('.container').innerText = (rows[i].container.name === null) ? '-' : rows[i].container.name;
-					tr.querySelector('.container-weight').innerText = (rows[i].container.weight === null) ? '-' : rows[i].container.weight + ' KG';
-					tr.querySelector('.container-amount').innerText = (rows[i].container.amount === null) ? '-' : thousand_separator(rows[i].container.amount);
-					
-					tbody.appendChild(tr);
-
-					containers += 1 * rows[i].container.amount;
-					kilos += 1 * rows[i].product.kilos;
-					kilos_inf += 1 * rows[i].product.informed_kilos;
-					doc_total += 1 * rows[i].product.total;
-
-					total_kilos += kilos;
-					total_kilos_inf += kilos_inf;
-				}
-
-				document_footer.className = 'document-footer';
-				document_footer.innerHTML = `
-					<table>
-						<tbody></tbody>
-					</table>
-				`;
-
-				const tr_total = document.createElement('tr');
-				tr_total.innerHTML = tr_html;
-				tr_total.querySelector('.container-amount').innerText = thousand_separator(containers);
-				tr_total.querySelector('.kilos').innerText = thousand_separator(kilos) + ' KG';
-				tr_total.querySelector('.kilos-informed').innerText = thousand_separator(kilos_inf) + ' KG';
-				tr_total.querySelector('.product-total').innerText = '$' + thousand_separator(doc_total);
-				document_footer.querySelector('tbody').appendChild(tr_total);
-
-				modal.querySelector('.finished-weight__modal__documents-container').append(widget);
-			});
+			if (jwt_decode(token.value).weightView === 1) await finished_weights_create_document_rows(1, modal);
+			else await finished_weights_create_document_rows(2, modal);
 
 			//WEIGHT IS FINISHED BUT KILOS BREAKDOWN IS PENDING
-			if (weight_object.status === 'T' && !weight_object.kilos_breakdown && total_kilos_inf > 0) {
+			if (weight_object.status === 'T' && !weight_object.kilos_breakdown && weight_object.kilos.informed > 0) {
 				modal.querySelector('.finished-weight__kilos_breakdown .widget-tooltip').classList.add('red');
 				modal.querySelector('.finished-weight__kilos_breakdown .widget-tooltip span').innerText = "DESGLOCE PENDIENTE";
 			}
@@ -1551,23 +1530,42 @@ const visualize_finished_weight = (weight_id, modal, edit) => {
 
 				}
 
+				await remove_weight_from_weights_array();
+				weight_object = null;
+
 				await fade_out(modal);
 				modal.remove();
 				breadcrumbs('remove', breadcrumb_selector);
 
-				modal.classList.remove('active');
-				await remove_weight_from_weights_array();
-				weight_object = null;
-
+				if (!!document.querySelector('.content-container.active #finished-weight__containers')) {
+					document.querySelector('#finished-weight__containers > .close-btn-absolute').classList.remove('hidden')
+				}
 			}, { once: true });
-
 			
 			/************************ BUTTONS EVENT LISTENERS IN THE BOTTOM *********************/
+
+			//CHANGE VIEW EVENT LISTENER
+			modal.querySelector('.finished-weight__change-body-view').addEventListener('click', async () => {
+
+				if (clicked || !weight_object.active.edit) return;
+
+				//CHECK ACTIVE VIEW 2 IS ACTIVE
+				if (!!document.querySelector('.content-container.active .finished-weight__modal__documents-container[data-view="2"]')) {
+	
+					document.querySelector('.content-container.active .finished-weight__modal__documents-container').removeAttribute('data-view');
+					await finished_weights_create_document_rows(1, modal);
+
+				}
+
+				//DO 2ND VIEW -> COLLAPSED PRODUCTS
+				else await finished_weights_create_document_rows(2, modal);
+
+			});
+
 			//KILOS BREAKDOWN EVENT LISTENER
 			modal.querySelector('.finished-weight__kilos_breakdown').addEventListener('click', async () => {
 
 				if (clicked || !weight_object.active.edit) return;
-				prevent_double_click();
 
 				let document_with_product = false;
 				const docs = weight_object.documents;
@@ -1600,7 +1598,7 @@ const visualize_finished_weight = (weight_id, modal, edit) => {
 			modal.querySelector('.finished-weight__add-docs').addEventListener('click', async () => {
 
 				if (clicked || !weight_object.active.edit) return;
-				prevent_double_click();
+				
 
 				const modal_selector = document.querySelector('.content-container.active .finished-weight__documents_modal');
 				let modal;
@@ -1622,7 +1620,6 @@ const visualize_finished_weight = (weight_id, modal, edit) => {
 			modal.querySelector('.finished-weight__add-tare-containers').addEventListener('click', async () => {
 				
 				if (clicked || !weight_object.active.edit) return;
-				prevent_double_click();
 
 				const 
 				modal = document.createElement('div'),
@@ -1639,7 +1636,6 @@ const visualize_finished_weight = (weight_id, modal, edit) => {
 			modal.querySelector('.finished-weight__print').addEventListener('click', async () => {
 
 				if (clicked) return;
-				prevent_double_click();
 
 				try { await weight_object.print_weight() } 
 				catch(error) { console.log('Error al intentar imprimir pesaje') }
@@ -1649,8 +1645,6 @@ const visualize_finished_weight = (weight_id, modal, edit) => {
 			modal.querySelector('.finished-weight__change-to-pending').addEventListener('click', e => {
 
 				if (clicked || !weight_object.active.edit) return;
-				prevent_double_click();
-
 				if (document.getElementById('message-section').classList.contains('active')) return;
 
 				const div = document.createElement('div');
@@ -1690,14 +1684,13 @@ const visualize_finished_weight = (weight_id, modal, edit) => {
 
 				document.querySelector('#message-change-weight-status__back-btn').addEventListener('click', async () => {
 					if (clicked) return;
-					prevent_double_click();
 
 					document.getElementById('message-section').classList.remove('active');
 					await delay(450);
 					document.getElementById('message-container').innerHTML = '';
 				});
 
-				document.getElementById('message-section').classList.add('active');
+				document.getElementById('message-section').classList.add('active', 'centered');
 
 			});
 
@@ -1711,8 +1704,8 @@ const visualize_finished_weight = (weight_id, modal, edit) => {
 			else if (!!document.querySelector('.content-container.active #documents__table-grid'))
 				weight_status = document.querySelector('#documents__table .tbody .tr.selected').getAttribute('data-weight-status');
 			
+
 			if (weight_status === 'T') {
-			
 				modal.querySelector('.finished-weight__annul').addEventListener('click', async function() {
 
 					if (btn_double_clicked(this)) return;
@@ -1790,7 +1783,7 @@ const visualize_finished_weight = (weight_id, modal, edit) => {
 						} catch (error) { error_handler('Error al anular pesaje', error) }
 					}
 
-					document.getElementById('message-section').classList.add('active');
+					document.getElementById('message-section').classList.add('centered', 'active');
 
 				});
 			}
@@ -1799,9 +1792,15 @@ const visualize_finished_weight = (weight_id, modal, edit) => {
 				modal.querySelector('.finished-weight__annul .widget-tooltip span').innerText = 'CAMBIAR ESTADO A TERMINADO';
 				modal.querySelector('.finished-weight__annul').addEventListener('click', () => {
 					if (clicked || !weight_object.active.edit) return;
-					prevent_double_click();
 					change_weight_status(weight_object.frozen.id, 'T');
 				});
+			}
+
+			//HIDE CLOSE BTN FOR FINISHED WEIGHTS
+			if (document.querySelector('#weight').classList.contains('active') && document.getElementById('finished-weight__containers').classList.contains('active')) {
+				const close_btn = document.querySelector('#finished-weight__containers > .close-btn-absolute');
+				await fade_out_animation(close_btn);
+				close_btn.classList.add('hidden');
 			}
 
 			fade_in(modal, 0, 'flex');
@@ -1862,28 +1861,17 @@ const finished_weights_export_to_excel_simple = async () => {
 	
 	check_loader();
 
-	const data = [];
+	const data = get_finished_weight_filters();
 
+	//GET ALL WEIGHTS
+	const weights = []
 	document.querySelectorAll('#finished-weight__table tbody tr').forEach(tr => {
-
-		const row_data = {
-			line: tr.querySelector('.line').innerText,
-			weight_id: tr.getAttribute('data-weight-id'),
-			cycle: tr.querySelector('.cycle p').innerText,
-			created: tr.querySelector('.created').innerText,
-			plates: tr.querySelector('.plates').innerText,
-			driver: tr.querySelector('.driver').innerText,
-			brute: tr.querySelector('.brute').innerText.replace(/\D/gm, ''),
-			tare: tr.querySelector('.tare').innerText.replace(/\D/gm, ''),
-			net: tr.querySelector('.net').innerText.replace(/\D/gm, '')
-		}
-
-		//SANITIZE OBJECT
-		for (let key in row_data) { row_data[key] = sanitize(row_data[key]) }	
-
-		data.push(row_data)
-
+		const weight_id = tr.querySelector('.weight').innerText.replace(/\D/gm, '');
+		weights.push(parseInt(weight_id));
 	});
+
+	data.min_weight = Math.min(...weights);
+	data.max_weight = Math.max(...weights);
 
 	try {
 
@@ -1893,7 +1881,7 @@ const finished_weights_export_to_excel_simple = async () => {
 				"Content-Type" : "application/json",
 				"Authorization" : token.value
 			},
-			body: JSON.stringify({data})
+			body: JSON.stringify({ data })
 		}),
 		response = await generate_excel.json();
 
@@ -1901,8 +1889,7 @@ const finished_weights_export_to_excel_simple = async () => {
 		if (!response.success) throw 'Success response from server is false.';
 
 		const file_name = response.file_name;
-
-		window.open(`${domain}:3000/get_excel_report?file_name=${file_name}`, 'GUARDAR EXCEL');
+		//window.open(`${domain}:3000/get_excel_report?file_name=${file_name}`, 'GUARDAR EXCEL');
 
 	} 
 	catch(e) { error_handler(`Error al intentar generar achivo excel. ${e}`) }
@@ -2062,8 +2049,7 @@ async function create_weight_search_vehicle(e) {
 
 async function create_vehicle_close_modal() {
 	
-	if (clicked) return;
-	prevent_double_click();
+	if (btn_double_clicked(this)) return;
 
 	const modal = document.getElementById('create-weight__modal')
 
@@ -2077,7 +2063,6 @@ async function create_vehicle_close_modal() {
 async function create_vehicle_select_driver() {
 
 	if (clicked) return;
-	prevent_double_click();
 
 	const
 	plates = sanitize(document.querySelector('#create-vehicle__primary-plates').value.replace(/[^a-zA-Z0-9]/gm, '').toUpperCase()),
@@ -2106,6 +2091,7 @@ async function create_vehicle_select_driver() {
 
 		if (response.error !== undefined) throw response.error;
 		if (!response.success) throw 'Success response from server is false.';
+
 		if (response.existing) {
 			tooltip.firstElementChild.innerText = 'Patente ya existe en la base de datos';
 			fade_in(tooltip);
@@ -2181,7 +2167,6 @@ async function create_vehicle_select_driver() {
 async function create_vehicle_select_driver_back_btn() {
 	
 	if (clicked) return;
-	prevent_double_click();
 
 	const
 	current_div = document.getElementById('create-weight__change-driver'),
@@ -2199,8 +2184,7 @@ async function create_vehicle_select_driver_back_btn() {
 async function create_vehicle_select_driver_choose_transport_btn() {
 
 	if (clicked) return;
-	prevent_double_click();
-
+	
 	const current_div = document.getElementById('create-weight__change-driver');
 	mutation_observer.disconnect();
 	mutation_observer = null;
@@ -2299,10 +2283,8 @@ async function create_vehicle_select_driver_choose_transport_btn() {
 			widget.addEventListener('keydown', custom_select_navigate_li);
 		});
 	
-		modal.querySelectorAll('#create-document__header .custom-select ul li:not(.disabled)').forEach(select => {
-			select.addEventListener('click', select_option_from_custom_select);
-		});
-
+		modal.querySelectorAll('#create-document__header .custom-select ul').addEventListener('click', select_option_from_custom_select);
+		
 		//SELECT TRANSPORT -> ACCEPT BTN
 		document.querySelector('#create-vehicle__select-transport__finish-btn').addEventListener('click', create_vehicle_accept_btn);
 
@@ -2312,14 +2294,13 @@ async function create_vehicle_select_driver_choose_transport_btn() {
 		await delay(500);
 		current_div.classList.add('hidden');
 		next_div.classList.remove('right');
-	} catch(error) { error_handler('Error al obtener entidades para transportista.', error) }
 
+	} catch(error) { error_handler('Error al obtener entidades para transportista.', error) }
 }
 
 async function create_vehicle_select_transport_back_btn() {
 	
 	if (clicked) return;
-	prevent_double_click();
 
 	const
 	current_div = document.querySelector('#create-document__origin-entity'),
@@ -2344,7 +2325,6 @@ async function create_vehicle_select_transport_back_btn() {
 async function create_weight_filter_vehicles_buttons() {
 
 	if (clicked) return;
-	prevent_double_click();
 
 	const 
 	btn = this,
@@ -2356,7 +2336,6 @@ async function create_weight_filter_vehicles_buttons() {
 }
 
 /**************************************** WEIGHT FUNCTIONS ****************************************/
-
 function create_weight(response) {
 	return new Promise(async (resolve, reject) => {
 
@@ -2452,26 +2431,25 @@ function create_weight(response) {
 		if (comments.value.length > 0) comments.classList.add('has-content');
 	
 		//WEIGHT DATA IN FOOTER
-
 		document.querySelector('#take-weight-btn h5').innerHTML = (weight_object.default_data.process === 'gross') ? 'PESAR<br>BRUTO' : 'PESAR<br>TARA';
 
-		document.getElementById('gross-weight__containers').innerText = `${thousand_separator(weight_object.gross_weight.containers_weight)} KG`;
-		document.getElementById('tare-weight__containers').innerText = `${thousand_separator(weight_object.tare_weight.containers_weight)} KG`;
+		document.getElementById('gross-weight__containers').innerText = (weight_object.documents.length === 0) ? '-' : `${thousand_separator(weight_object.gross_weight.containers_weight)} KG`;
+		document.getElementById('tare-weight__containers').innerText = (weight_object.tare_containers.length === 0) ? '-' : `${thousand_separator(weight_object.tare_weight.containers_weight)} KG`;
 
 		const doc_kilos = (weight_object.cycle.id === 1) ? weight_object.kilos.informed : weight_object.kilos.internal;
 	
-		document.getElementById('gross-weight__docs-weight').innerText = `${thousand_separator(doc_kilos)} KG`;
-		document.getElementById('tare-weight__docs-weight').innerText = `${thousand_separator(doc_kilos)} KG`;
+		document.getElementById('gross-weight__docs-weight').innerText = (weight_object.documents.length === 0) ? '-' : `${thousand_separator(doc_kilos)} KG`;
+		document.getElementById('tare-weight__docs-weight').innerText = (weight_object.documents.length === 0) ? '-' : `${thousand_separator(doc_kilos)} KG`;
 	
-		document.getElementById('gross-weight__brute').innerText = `${thousand_separator(weight_object.gross_weight.brute)} KG`;
-		document.getElementById('tare-weight__brute').innerText = `${thousand_separator(weight_object.tare_weight.brute)} KG`;
+		document.getElementById('gross-weight__brute').innerText = (weight_object.gross_weight.brute === 0) ? '-' : `${thousand_separator(weight_object.gross_weight.brute)} KG`;
+		document.getElementById('tare-weight__brute').innerText = (weight_object.tare_weight.brute === 0) ? '-' : `${thousand_separator(weight_object.tare_weight.brute)} KG`;
 	
-		document.getElementById('gross-weight__net').innerText = `${thousand_separator(weight_object.gross_weight.net)} KG`;
-		document.getElementById('tare-weight__gross-weight').innerText = `${thousand_separator(weight_object.gross_weight.net)} KG`;
+		document.getElementById('gross-weight__net').innerText = (weight_object.gross_weight.status === 1) ? '-' : `${thousand_separator(weight_object.gross_weight.net)} KG`;
+		document.getElementById('tare-weight__gross-weight').innerText = (weight_object.gross_weight.status === 1) ? '-' : `${thousand_separator(weight_object.gross_weight.net)} KG`;
 	
 		if (weight_object.tare_weight.status > 1 || weight_object.final_net_weight > 0) {
 			document.getElementById('gross-weight__tara-weight').innerText = `${thousand_separator(weight_object.tare_weight.net)} KG`;
-			document.getElementById('gross-weight__tara-weight').nextElementSibling.innerText = 'PESO NETO TARA';
+			document.getElementById('gross-weight__tara-weight').nextElementSibling.innerText = 'TARA SIN ENVASES';
 			
 			document.getElementById('gross__final-net-weight').innerText = `${thousand_separator(weight_object.final_net_weight)} KG`;
 			document.getElementById('gross__final-net-weight').nextElementSibling.innerText = 'PESO NETO FINAL';
@@ -2480,8 +2458,8 @@ function create_weight(response) {
 			if (weight_object.gross_weight.status > 1) document.getElementById('gross__final-net-weight').innerText = `${thousand_separator(weight_object.gross_weight.net - weight_object.average_weight)} KG`;
 		}
 		
-		document.getElementById('tare-weight__net').innerText = `${thousand_separator(weight_object.tare_weight.net)} KG`;
-		document.getElementById('tare__final-net-weight').innerText = `${thousand_separator(weight_object.final_net_weight)} KG`;
+		document.getElementById('tare-weight__net').innerText = (weight_object.tare_weight.status === 1) ? '-' : `${thousand_separator(weight_object.tare_weight.net)} KG`;
+		document.getElementById('tare__final-net-weight').innerText = (weight_object.gross_weight.status > 1 && weight_object.tare_weight.status > 1) ? `${thousand_separator(weight_object.final_net_weight)} KG` : '-';
 
 		/********************** EVENT LISTENERS *********************/
 
@@ -2494,10 +2472,10 @@ function create_weight(response) {
 		document.getElementById('new-weight__widget__cycle-type').addEventListener('click', change_cycle_widget);
 
 		//TARA WIDGET
-		document.getElementById('new-weight__widget__tara-type').addEventListener('click', change_tara_widget);		
+		document.getElementById('new-weight__widget__tara-type').addEventListener('click', weight_change_tara_type);		
 		
 		//PROCESS WIDGET
-		document.getElementById('new-weight__widget__process-type').addEventListener('click', change_process_widget);
+		document.getElementById('new-weight__widget__process-type').addEventListener('click', weight_change_process);
 
 		//SECONDARY PLATES INPUT
 		document.querySelector('#new-weight__add-secondary-plates').addEventListener('keydown', add_secondary_plates);
@@ -2511,8 +2489,6 @@ function create_weight(response) {
 		//ADD DOC WIDGET
 		document.getElementById('add-doc').addEventListener('click', function() {
 			if (clicked) return;
-			prevent_double_click();
-
 			const modal = document.getElementById('create-weight__modal');
 			add_doc_widget(modal);
 		});
@@ -2541,7 +2517,7 @@ function create_weight(response) {
 		//TARE CONTAINERS WIDGET
 		document.getElementById('weight__add-containers-btn').addEventListener('click', () => {
 			if (clicked) return;
-			prevent_double_click();
+			
 			tare_containers_widget(document.getElementById('create-weight__modal'));	
 		});
 		document.querySelector('#weight__empty-containers-table tbody').addEventListener('click', tare_containers_delete);
@@ -2563,6 +2539,12 @@ function create_weight(response) {
 		//FINALIZE WEIGHT WIDGET
 		document.getElementById('new-weight__widget__finalize').addEventListener('click', finalize_weight_widget);
 		
+		//FIX BIN AVERAGE ONLY FOR CERTAIN USERS
+		if (jwt_decode(token.value).userId === 1 || jwt_decode(token.value).userId === 2) {
+			document.querySelector('#take-weight-finalize').addEventListener('click', weights_fix_bin_average);
+		}
+
+
 		if (screen_width < 576) {
 			const kilos_grid = document.querySelector('#create-weight-step-2 .grid.kilos > .widget');
 			document.querySelector('#create-weight-step-2 .grid.kilos').appendChild(kilos_grid);
@@ -2573,10 +2555,411 @@ function create_weight(response) {
 	})	
 }
 
+async function weights_fix_bin_average() {
+
+	if (clicked) return;
+	if (jwt_decode(token.value).userId > 2) return;
+
+	if (weight_object.gross_weight.status !== 3) return;
+	if (weight_object.documents.length === 0) return;
+	if (1 * weight_object.gross_weight.containers_weight === 0) return;
+
+	try {
+
+		const
+		check_weight = await fetch('/fix_weight_check_if_weight_is_saved', {
+			method: 'POST',
+			headers: {
+				"Content-Type" : "application/json",
+				"Authorization" : token.value
+			},
+			body: JSON.stringify({ weight_id: weight_object.frozen.id })
+		}),
+		response = await check_weight.json();
+
+		console.log(response);
+
+		if (response.error !== undefined) throw response.error;
+		if (!response.success) throw 'Success response from server is false.';
+
+		const div = document.createElement('div');
+		div.id = `weights-alter-bins-average`;
+		div.className = 'hidden';
+
+		let containers = 0;
+		for (let doc of weight_object.documents) { containers += doc.containers }
+
+		const 
+		original_weight = response.brute_weight,
+		aprox_net = original_weight - weight_object.gross_weight.containers_weight - weight_object.average_weight,
+		bin_average = (Math.floor((aprox_net / containers) * 100) / 100);
+
+		div.innerHTML = `
+			<div>
+				<div class="create-document-absolute">
+
+					<div class="header">
+						<h3>CORREGIR PROMEDIO DE BINS</h3>
+					</div>
+
+					<div class="body">
+						
+						<div>
+							<div class="alter-bins-average">
+								<h4>${thousand_separator(original_weight)} KG</h5>
+								<h6>PESO BRUTO ORIGINAL</h6>
+							</div>
+
+							<div class="alter-bins-average">
+								<h4>${thousand_separator(weight_object.gross_weight.containers_weight)} KG</h5>
+								<h6>PESO ENVASES</h6>
+							</div>
+
+							<div class="alter-bins-average">
+								<h4>${thousand_separator(original_weight - weight_object.gross_weight.containers_weight)} KG</h5>
+								<h6>BRUTO SIN ENVASES ORIGINAL</h6>
+							</div>
+						</div>
+
+						<div>
+							<div class="alter-bins-average">
+								<h4>-</h5>
+								<h6>NUEVO PESO BRUTO</h6>
+							</div>
+
+							<div class="alter-bins-average">
+								<h4>${thousand_separator(weight_object.gross_weight.containers_weight)} KG</h5>
+								<h6>PESO ENVASES</h6>
+							</div>
+
+							<div class="alter-bins-average">
+								<h4>-</h5>
+								<h6>NUEVO BRUTO SIN ENVASES</h6>
+							</div>
+						</div>
+
+						<div>
+							<div class="input-effect-container">
+								<div class="widget-tooltip red hidden">
+									<span></span>
+								</div>
+								<input id="alter-bins-average__tara" spellcheck="false" type="text" class="input-effect has-content" maxlength="8"">
+								<label>TARA APROX.</label>
+								<span class="focus-border"></span>    
+							</div>
+
+							<div id="alter-bins-average__aprox-net" class="alter-bins-average">
+								<h4 data-value="${aprox_net}">${thousand_separator(aprox_net)} KG</h5>
+								<h6>NETO APROXIMADO</h6>
+							</div>
+
+							<div id="alter-bins-average__bin-average" class="alter-bins-average">
+								<h4 data-value="${bin_average}">${bin_average} KG</h5>
+								<h6>PROMEDIO BINS</h6>
+							</div>
+						</div>
+
+						<div>
+
+							<div class="input-effect-container">
+								<div class="widget-tooltip red hidden">
+									<span></span>
+								</div>
+								<input id="alter-bins-average__bin-input" spellcheck="false" type="text" class="input-effect" maxlength="8">
+								<label>KILOS A REBAJAR POR BIN</label>
+								<span class="focus-border"></span>    
+							</div>
+
+							<div class="input-effect-container">
+								<div class="widget-tooltip red hidden">
+									<span></span>
+								</div>
+								<input id="alter-bins-average__total-input" spellcheck="false" type="text" class="input-effect" maxlength="8">
+								<label>KILOS A REBAJAR TOTAL</label>
+								<span class="focus-border"></span>    
+							</div>
+
+						</div>
+
+					</div>
+
+					<div class="footer">
+						<div class="create-document-btns-container">
+
+							<button class="svg-wrapper enabled orange">
+								<svg height="45" width="160" xmlns="http://www.w3.org/2000/svg">
+									<rect class="shape" height="45" width="160"></rect>
+								</svg>
+								<div class="desc-container">
+									<i class="fas fa-undo"></i>
+									<p>REVERTIR</p>
+								</div>
+							</button>
+
+							<button class="svg-wrapper enabled red">
+								<svg height="45" width="160" xmlns="http://www.w3.org/2000/svg">
+									<rect class="shape" height="45" width="160"></rect>
+								</svg>
+								<div class="desc-container">
+									<i class="fas fa-times-circle"></i>
+									<p>CANCELAR</p>
+								</div>
+							</button>
+
+							<button class="svg-wrapper enabled green ">
+								<svg height="45" width="160" xmlns="http://www.w3.org/2000/svg">
+									<rect class="shape" height="45" width="160"></rect>
+								</svg>
+								<div class="desc-container">
+									<i class="fas fa-check-circle"></i>
+									<p>GUARDAR</p>
+								</div>
+							</button>
+
+						</div>
+					</div>
+
+					<div class="close-btn-absolute">
+						<div>
+							<i class="fas fa-times"></i>
+						</div>
+					</div>
+				</div>
+			</div>
+		`;
+
+		div.querySelector('#alter-bins-average__tara').value = thousand_separator(weight_object.average_weight) + ' KG';
+
+		const close_btn = document.querySelector('#create-weight-step-2 > .close-btn-absolute');
+
+		/********** EVENT LISTENERS *************/
+		
+		//UNDO EVERYTHING
+		div.querySelector('button.orange').addEventListener('click', async function() {
+
+			try {
+
+				if (btn_double_clicked(this)) return;
+
+				const
+				revert = await fetch('/fix_weight_undo_brute_weight', {
+					method: 'POST',
+					headers: {
+						"Content-Type" : "application/json",
+						"Authorization" : token.value
+					},
+					body: JSON.stringify({ weight_id: weight_object.frozen.id })
+				}),
+				response = await revert.json();
+
+				console.log(response);
+
+				if (response.error !== undefined) throw response.error;
+				if (!response.success) throw 'Success response from server is false.';
+
+				//UPDATE OBJECT
+				weight_object.gross_weight.brute = response.weight_value;
+				weight_object.gross_weight.net = response.weight_value - (1 * weight_object.gross_weight.containers_weight);
+				if (weight_object.tare_weight.status > 1) weight_object.final_net_weight = response.weight_value - (1 * weight_object.gross_weight.containers_weight) - weight_object.tare_weight.net;
+
+				div.querySelector('.body > div:first-child .alter-bins-average:first-child h4').innerText = thousand_separator(response.weight_value) + ' KG';
+				div.querySelector('.body > div:nth-child(2) .alter-bins-average:first-child h4').innerText = '-';
+				div.querySelector('.body > div:nth-child(2) .alter-bins-average:last-child h4').innerText = '-';
+				div.querySelector('#alter-bins-average__aprox-net h4').innerText = thousand_separator(aprox_net);
+				div.querySelector('#alter-bins-average__bin-average h4').innerText = bin_average;
+				div.querySelector('#alter-bins-average__bin-input').value = '';
+				div.querySelector('#alter-bins-average__total-input').value = '';
+
+				//UPDATE VALUES IN WEIGHT STEP 2
+				document.querySelector('#gross-weight__brute').innerText = thousand_separator(response.weight_value) + ' KG';
+				document.querySelector('#gross-weight__net').innerText = thousand_separator(response.weight_value - (1 * weight_object.gross_weight.containers_weight)) + ' KG';
+				
+				if (weight_object.tare_weight.status > 1) 
+					document.querySelector('#tare__final-net-weight').innerText = thousand_separator(response.update.final_net_weight) + ' KG';
+					
+				else {
+					document.querySelector('#tare__final-net-weight').innerText = thousand_separator(response.weight_value - (1 * weight_object.gross_weight.containers_weight) - weight_object.average_weight) + ' KG';
+					document.querySelector('#gross__final-net-weight').innerText = thousand_separator(response.weight_value - (1 * weight_object.gross_weight.containers_weight) - weight_object.average_weight) + ' KG';
+				}
+	
+			} catch(error) { error_handler('No se pudo revertir el peso bruto al peso original', error) }
+		});
+
+		//CLOSE DIV
+		div.querySelector('button.red').addEventListener('click', async function() {
+
+			if (btn_double_clicked(this)) return;
+
+			await fade_out_animation(div);
+			div.remove();
+
+			fade_in_animation(close_btn);
+			close_btn.classList.remove('hidden');
+
+		});
+
+		div.querySelector('.close-btn-absolute').addEventListener('click', () => {
+			if (clicked) return;
+			div.querySelector('button.red').click();
+		})
+
+		//SAVE KILOS
+		div.querySelector('button.green').addEventListener('click', async function() {
+
+			if (btn_double_clicked(this)) return;
+
+			const kilos = div.querySelector('#alter-bins-average__total-input').value.replace(/\D/gm, '');
+			if (kilos.length === 0) {
+				div.querySelector('button.red').click();
+				return;
+			}
+			try {
+
+				const
+				save_data = await fetch('/fix_weight_save_data', {
+					method: 'POST',
+					headers: {
+						"Content-Type" : "application/json",
+						"Authorization" : token.value
+					},
+					body: JSON.stringify({ 
+						kilos: parseInt(kilos), 
+						weight_id: weight_object.frozen.id
+					})
+				}),
+				response = await save_data.json();
+
+				console.log(response);
+
+				if (response.error !== undefined) throw response.error;
+				if (!response.success) throw 'Success response from server is false.';
+
+				//UPDATE WEIGHT OBJECT
+				weight_object.gross_weight.brute = response.update.new_gross_brute;
+				weight_object.gross_weight.net = response.update.new_gross_net;
+				weight_object.final_net_weight = response.update.final_net_weight;
+
+				document.querySelector('#gross-weight__brute').innerText = thousand_separator(response.update.new_gross_brute) + ' KG';
+				document.querySelector('#gross-weight__net').innerText = thousand_separator(response.update.new_gross_net) + ' KG';
+				
+				if (weight_object.tare_weight.status === 1)
+					document.querySelector('#gross__final-net-weight').innerText = thousand_separator(response.update.new_gross_net - weight_object.average_weight) + ' KG';
+				
+				else {
+					document.querySelector('#gross__final-net-weight').innerText = thousand_separator(response.update.new_gross_net - weight_object.tare_weight.net) + ' KG';
+					document.querySelector('#tare__final-net-weight').innerText = thousand_separator(response.update.final_net_weight) + ' KG';
+				}
+				
+				div.querySelector('button.red').click();
+			} catch(error) { error_handler('No se pudo guardar los datos.', error) }
+		});
+
+		//INPUTS
+		div.querySelectorAll('input').forEach(input => {
+			input.addEventListener('input', e => {
+				if (e.target.value.length === 0) e.target.classList.remove('has-content');
+				else if (e.target.value.length > 0) e.target.classList.add('has-content');
+				const value = e.target.value.replace(/\D/gm, '');
+				e.target.value = value;
+			});
+		});
+
+		//UPDATE BY CHANGING TOTAL KILOS
+		div.querySelector('#alter-bins-average__total-input').addEventListener('keydown', e => {
+
+			if (e.key !== 'Enter') return;
+
+			try {
+
+				let kilos = (e.target.value.length === 0) ? 0 : parseInt(e.target.value.replace(/\D/gm, ''));
+				if (kilos > 1000) throw 'No te volvai loco po ctm. Sobre 500 kilos es mucho';
+				else if (kilos < 0) throw 'Como vai a andar descontando una cantidad negativa po scw.';
+
+				kilos = ((kilos % 10) > 5) ? Math.ceil(kilos / 10) * 10 : Math.floor(kilos / 10) * 10;
+
+				e.target.value = kilos;
+
+				let containers = 0;
+				for (let doc of weight_object.documents) { containers += doc.containers }
+
+				const
+				aprox_tara = parseInt(div.querySelector('#alter-bins-average__tara').value.replace(/\D/gm, '')),
+				updated_net = original_weight - weight_object.gross_weight.containers_weight - kilos,
+				updated_brute = original_weight - kilos,
+				updated_bin_average = Math.floor(((updated_net - aprox_tara) / containers) * 100) / 100,
+				kilos_reduced_by_bin = Math.floor((kilos / containers) * 100) / 100;
+
+				div.querySelector('.body > div:nth-child(2) .alter-bins-average:first-child h4').innerText = thousand_separator(updated_brute) + ' KG';
+				div.querySelector('.body > div:nth-child(2) .alter-bins-average:last-child h4').innerText = thousand_separator(updated_net) + ' KG';
+
+				div.querySelector('#alter-bins-average__aprox-net h4').innerText = thousand_separator(updated_net - aprox_net) + ' KG';
+				div.querySelector('#alter-bins-average__bin-average h4').innerText = thousand_separator(updated_bin_average) + ' KG';
+
+				div.querySelector('#alter-bins-average__aprox-net h4').innerText = thousand_separator(updated_net - aprox_tara) + ' KG';
+
+				div.querySelector('#alter-bins-average__bin-input').value = thousand_separator(kilos_reduced_by_bin);
+				div.querySelector('#alter-bins-average__bin-input').classList.add('has-content');
+
+			} catch(error) { error_handler('No se puede aplicar el descuento.', error) }
+		});
+
+		//UPDATE BY CHANGING BIN AVERAGE
+		div.querySelector('#alter-bins-average__bin-input').addEventListener('keydown', e => {
+			
+			if (e.key !== 'Enter') return;
+
+			try {
+				
+				const kilos = (e.target.value.length === 0) ? 0 : parseInt(e.target.value.replace(/\D/gm, ''));
+				if (kilos > 40) throw 'No te volvai loco po ctm. Sobre 20 kilos es mucho';
+				else if (kilos <0) throw 'Como vai a andar descontando una cantidad negativa po scw.';
+
+				let containers = 0;
+				for (let doc of weight_object.documents) { containers += doc.containers }
+
+				const 
+				aprox_tara = parseInt(div.querySelector('#alter-bins-average__tara').value.replace(/\D/gm, '')),
+				new_net = (original_weight - weight_object.gross_weight.containers_weight) - (containers * kilos),
+				new_brute = original_weight - (containers * kilos),
+				remainder = ((original_weight - new_brute) % 10),
+				total_kilos_to_reduce = (remainder > 5) ? Math.ceil(((original_weight - new_brute) / 10)) * 10 : Math.floor(((original_weight - new_brute) / 10)) * 10,
+				new_bin_average = Math.floor((total_kilos_to_reduce / containers) * 100) / 100,
+				updated_brute = original_weight - total_kilos_to_reduce,
+				updated_net = updated_brute - weight_object.gross_weight.containers_weight,
+				updated_bin_average = Math.floor(((updated_net - aprox_tara) / containers) * 100) / 100;
+
+				div.querySelector('.body > div:nth-child(2) .alter-bins-average:first-child h4').innerText = thousand_separator(updated_brute) + ' KG';
+				div.querySelector('.body > div:nth-child(2) .alter-bins-average:last-child h4').innerText = thousand_separator(updated_net) + ' KG';
+
+				div.querySelector('#alter-bins-average__aprox-net h4').innerText = thousand_separator(new_net) + ' KG';
+				div.querySelector('#alter-bins-average__bin-average h4').innerText = thousand_separator(updated_bin_average) + ' KG';
+
+				div.querySelector('#alter-bins-average__aprox-net h4').innerText = thousand_separator(updated_net - aprox_tara) + ' KG';
+
+				div.querySelector('#alter-bins-average__total-input').value = thousand_separator(total_kilos_to_reduce);
+		
+				div.querySelector('#alter-bins-average__total-input').classList.add('has-content');
+
+			} catch(error) { error_handler('No se puede aplicar el descuento.', error) }
+		});
+
+		document.getElementById('create-weight__container').appendChild(div);	
+
+		await fade_out_animation(close_btn);
+		close_btn.classList.add('hidden');
+
+		fade_in_animation(div);
+		div.classList.remove('hidden');
+		
+		await delay(500);
+		div.querySelector('#alter-bins-average__bin-input').focus();
+
+	} catch(err) { error_handler('No se pudo obtener los datos del pesaje', err) }
+}
+
 async function create_weight_btn() {
 
 	if (clicked || !this.classList.contains('active') ) return;
-	prevent_double_click();
 
 	const
 	cycle = parseInt(document.querySelector('.weight__type.active').getAttribute('data-weight-type')),
@@ -2616,9 +2999,7 @@ async function create_weight_btn() {
 
 		step_1.classList.add('hidden');
 
-		document.querySelectorAll('#create-weight__select-vehicle-table .tbl-content tbody tr').forEach(tr => {
-			tr.remove();
-		});
+		document.querySelectorAll('#create-weight__select-vehicle-table .tbl-content tbody tr').forEach(tr => tr.remove() );
 
 		const plates_input = document.getElementById('create-weight__search-vehicles');
 		plates_input.value = '';
@@ -2637,53 +3018,26 @@ async function create_weight_btn() {
 
 		check_loader();
 
-		if (jwt_decode(token.value).userName === 'Gricel' || jwt_decode(token.value).userName === 'Mario') {
+		if (jwt_decode(token.value).tutorial) {
 			document.querySelector('#create-weight-btn + .tutorial-widget').classList.add('hidden');
 		}
-		
-	} catch (error) { error_handler('Error al crear pesaje.', error); return }
+
+	} catch (error) { error_handler('Error al crear pesaje.', error) }
 }
 
 /****************** CHANGE TARA FUNCTIONS ******************/
-async function change_tara_widget() {
+async function weight_change_tara_type() {
 
-	if (clicked) return;
-	prevent_double_click();
-
-	if ((jwt_decode(token.value).userName === 'Gricel' || jwt_decode(token.value).userName === 'Mario') && weight_object.process === 'gross') return; 
-
-	const modal = document.getElementById('create-weight__modal');
-	try {
-
-		const template = await (await fetch('./templates/template-change-tara.html')).text();
-
-		modal.innerHTML = template;
-		modal.querySelector('#create-weight__change-tara__close-modal').addEventListener('click', header_check_close_modal);
-		document.querySelector('#create-weight__change-tara__set-tara').addEventListener('click', select_tara_type_accept_btn);
-	
-		modal.querySelector(`#create-weight__change-tara-type .select-tara-type[data-type="${weight_object.tara_type}"]`).classList.add('active');
-		modal.querySelector(`#create-weight__change-tara-type .select-tara-type-info .${weight_object.tara_type}`).classList.add('active');
-
-		modal.classList.add('active');
-
-	} catch (error) { error_handler('Error al obtener template para cambiar tipo de tara.', error) }
-}
-
-async function select_tara_type_accept_btn() {
-
-	if (btn_double_clicked(this)) return;
-
-	const 
-	type = sanitize(document.querySelector('#create-weight__change-tara-type .select-tara-type.active').getAttribute('data-type')),
-	weight_id = sanitize(weight_object.frozen.id),
-	process = sanitize(weight_object.process);
-
-	if (type === weight_object.tara_type) {
-		document.querySelector('#create-weight__change-tara__close-modal').click();
-		return;
-	}
+	if (animating) return;
+	animating = true
 
 	try {
+
+		const 
+		type = (weight_object.tara_type === 'automatica') ? 'manual' : 'automatica',
+		weight_id = parseInt(weight_object.frozen.id),
+		process = sanitize(weight_object.process);
+
 		const
 		update = await fetch('/update_tara', {
 			method: 'POST', 
@@ -2709,8 +3063,6 @@ async function select_tara_type_accept_btn() {
 				<h3><b>${type.toUpperCase()}</b></h3>
 			</div>
 		`;
-		document.querySelector('#create-weight__change-tara__close-modal').click();
-		await delay(400);
 
 		document.getElementById('message-section-2').classList.add('active');
 		await delay(1750);
@@ -2719,13 +3071,15 @@ async function select_tara_type_accept_btn() {
 		await delay(500);
 		document.getElementById('message-container-2').innerHTML = '';
 		
-	} catch(error) { error_handler('Error al actualizar el tipo de tara en /update_tara.', error)  }
+	} 
+	catch(error) { error_handler('Error al actualizar el tipo de tara en /update_tara.', error)  }
+	finally { animating = false }
+
 }
 
 async function header_check_close_modal() {
 
-	if (clicked) return;
-	prevent_double_click();
+	if (btn_double_clicked(this)) return;
 
 	const modal = document.querySelector('#create-weight__modal');
 	modal.classList.remove('active');
@@ -2734,26 +3088,11 @@ async function header_check_close_modal() {
 	modal.firstElementChild.remove();
 }
 
-function change_tara_type_select_tara(that) {
-
-	if (clicked) return;
-	prevent_double_click();
-
-	const 
-	btn = that,
-	type = btn.getAttribute('data-type');	
-
-	document.querySelector('#create-weight__change-tara-type .select-tara-type.active').classList.remove('active');
-	document.querySelector('#create-weight__change-tara-type .select-tara-type-info .active').classList.remove('active');
-	document.querySelector(`#create-weight__change-tara-type .select-tara-type[data-type="${type}"]`).classList.add('active');
-	document.querySelector(`#create-weight__change-tara-type .select-tara-type-info .${type}`).classList.add('active');
-}
-
 /****************** CHANGE CYCLE FUNCTIONS ******************/
 async function change_cycle_widget() {
 
 	if (clicked) return;
-	prevent_double_click();
+	
 
 	const modal = document.getElementById('create-weight__modal');
 	try {
@@ -2845,7 +3184,7 @@ async function change_cycle_type_accept_btn() {
 function change_cycle_type_select_cycle() {
 
 	if (clicked) return;
-	prevent_double_click();
+	
 
 	const 
 	btn = this,
@@ -2858,48 +3197,7 @@ function change_cycle_type_select_cycle() {
 }
 
 /****************** CHANGE PROCESS FUNCTIONS ******************/
-async function change_process_widget() {
-
-	if (clicked) return;
-	prevent_double_click();
-
-	const modal = document.getElementById('create-weight__modal');
-	try {
-
-		const 
-		template = await (await fetch('./templates/template-change-process.html')).text(),
-		current_process = weight_object.process;
-
-		modal.innerHTML = template;
-
-		//EVENT LISTENERS
-		modal.querySelector('#create-weight__change-process__close-modal').addEventListener('click', header_check_close_modal);
-		modal.querySelector('#create-weight__change-process__accept-btn').addEventListener('click', change_process_accept_btn);
-		
-		modal.querySelector(`#create-weight__change-process-type .select-process-type[data-process="${current_process}"]`).classList.add('active');
-		modal.querySelector(`#create-weight__change-process-type .select-process-description p[data-process="${current_process}"]`).classList.add('active');
-
-		modal.classList.add('active');
-
-	} catch(error) { error_handler('Error al obtener template para cambiar proceso.', error) }
-}
-
-function change_process_type(that) {
-
-	if (clicked) return;
-	prevent_double_click();
-
-	const 
-	btn = that,
-	process = btn.getAttribute('data-process');
-
-	document.querySelector('#create-weight__change-process-type .select-process-description .active').classList.remove('active');
-	document.querySelector('#create-weight__change-process-type .select-process-type.active').classList.remove('active');
-	document.querySelector(`#create-weight__change-process-type .select-process-type[data-process="${process}"]`).classList.add('active');
-	document.querySelector(`#create-weight__change-process-type .select-process-description p[data-process="${process}"]`).classList.add('active');
-}
-
-async function change_process_accept_btn() {
+async function weight_change_process() {
 
 	if (animating) return;
 	animating = true;
@@ -2907,17 +3205,11 @@ async function change_process_accept_btn() {
 	try {
 
 		const
-		process = document.querySelector('#create-weight__change-process-type .select-process-type.active').getAttribute('data-process'),
-		description = document.querySelector('#create-weight__change-process-type .select-process-type.active h5').innerText;
-		
-		if (weight_object.process === process) {
-			document.getElementById('create-weight__change-process__close-modal').click();
-			return;
-		}
-		
-		const error_status = 'No se puede cambiar proceso si es que existe un peso sin guardar';
+		process = (weight_object.process === 'gross') ? 'tare' : 'gross',
+		description = (process === 'gross') ? 'PESO BRUTO' : 'PESO TARA';
+
 		if ((process === 'gross' && weight_object.tare_weight.status === 2) || (process === 'tare') && weight_object.gross_weight.status === 2) 
-			throw error_status;
+			throw 'No se puede cambiar proceso si es que existe un peso sin guardar';
 
 		weight_object.process = process;
 		document.querySelector('#new-weight__widget__process-type .header-check-type p').innerText = description;
@@ -2941,16 +3233,14 @@ async function change_process_accept_btn() {
 			<h4>PROCESO ACTUALIZADO</h4>
 			<div class="message-h3">
 				<i class="fad fa-check"></i>
-				<h3><b>${sanitize(description)}</b></h3>
+				<h3><b>${description}</b></h3>
 			</div>
 		`;
-		document.querySelector('#create-weight__change-process__close-modal').click();
 
 		if (jwt_decode(token.value).userId !== 1 && jwt_decode(token.value).userId !== 2 && jwt_decode(token.value).userId !== 5 && jwt_decode(token.value).userId !== 8 && weight_object.process === 'gross') {
 			weight_object.tara_type = 'automatica';
 			document.querySelector('#new-weight__widget__tara-type p').innerText = 'AUTOMATICA'
 		}
-		await delay(400);
 
 		document.getElementById('message-section-2').classList.add('active');
 		await delay(1750);
@@ -2962,6 +3252,7 @@ async function change_process_accept_btn() {
 	}
 	catch(error) { error_handler('Error al intentar cambiar proceso', error) }
 	finally { animating = false }
+
 }
 
 /****************** ADD SECONDARY PLATES INPUT ******************/
@@ -3011,8 +3302,7 @@ async function add_secondary_plates(e) {
 /****************** CHANGE DRIVER FUNCTIONS ******************/
 function change_driver_select_tr(e) {
 	
-	if (clicked) return;
-	prevent_double_click();
+	if (btn_double_clicked(this)) return;
 
 	let tr;
 	if (e.target.matches('td')) tr = e.target.parentElement;
@@ -3021,6 +3311,7 @@ function change_driver_select_tr(e) {
 		else tr = e.target.parentElement.parentElement.parentElement;
 	}
 	else if (e.target.matches('i')) tr = e.target.parentElement.parentElement.parentElement.parentElement;
+	else if (e.target.matches('tr')) tr = e.target;
 	else return;
 
 	if (tr.classList.contains('selected')) {
@@ -3074,8 +3365,7 @@ function change_driver_create_tr(drivers) {
 //CLOSE SELECT DRIVER MODAL
 async function select_driver_close_modal() {
 	
-	if (clicked) return;
-	prevent_double_click()
+	if (btn_double_clicked(this)) return;
 
 	const modal = document.querySelector('#create-weight__modal');
 	modal.classList.remove('active');
@@ -3112,7 +3402,7 @@ async function select_driver_accept() {
 async function change_driver_widget(e) {
 
 	if (clicked) return;
-	prevent_double_click();
+	
 
 	const 
 	modal = document.getElementById('create-weight__modal'),
@@ -3283,7 +3573,6 @@ async function select_driver_search_driver(e) {
 async function select_driver_create_driver_btn() {
 
 	if (clicked) return;
-	prevent_double_click();
 
 	const 
 	current_div = document.querySelector('.content-container.active .create-weight__change-driver'),
@@ -3303,8 +3592,7 @@ async function select_driver_create_driver_btn() {
 
 async function select_driver_create_driver_back_btn() {
 
-	if (clicked) return;
-	prevent_double_click();
+	if (btn_double_clicked(this)) return;
 
 	const 
 	current_div = document.getElementById('create-weight__change-driver__create'),
@@ -3421,9 +3709,9 @@ async function select_driver_create_driver() {
 		tr.querySelector('.status i').className = (response.driver.active === 0) ? 'far fa-times' : 'far fa-check'; 
 
 		table.prepend(tr);
-		select_driver_create_driver_back_btn();
+		document.querySelector('.content-container.active #create-weight__change-driver__back-to-select-driver').click();
 
-		await delay(500);
+		await delay(1000);
 		tr.click();
 
 		document.getElementById('create-weight__create-driver-name').value = '';
@@ -3432,7 +3720,9 @@ async function select_driver_create_driver() {
 		document.getElementById('create-weight__create-driver-rut').classList.remove('has-content');
 		document.getElementById('create-weight__create-driver-phone').value = '';
 		document.getElementById('create-weight__create-driver-phone').classList.remove('has-content');
-		
+
+		document.querySelector('.content-container.active button.create-weight__change-driver__set-driver').focus();
+
 	} catch (error) { error_handler('Error al crear chofer en /create_driver', error) }
 }
 
@@ -3440,7 +3730,7 @@ async function select_driver_create_driver() {
 const get_vehicle_history = async () => {
 
 	if (clicked) return;
-	prevent_double_click();
+	
 
 	const plates = weight_object.frozen.primary_plates;
 
@@ -3814,28 +4104,11 @@ function document_modal_event_listeners(modal) {
 			select.addEventListener('mouseleave', custom_select_hover);
 		});
 	
-		modal.querySelectorAll('.create-document__header .custom-select ul li:not(.disabled)').forEach(li => {
-			li.addEventListener('click', select_option_from_custom_select);
-		});
+		modal.querySelectorAll('.create-document__header .custom-select ul').forEach(ul => {
+			ul.addEventListener('click', select_option_from_custom_select);
+		})
 	
 		modal.querySelector('.create-document__back-to-origin-btn').addEventListener('click', create_document_back_to_entities);
-	
-		modal.querySelector('.create-document__comments').addEventListener('input', function() {
-
-			if (!weight_object.active.edit) {
-				this.value = document_object.comments;
-				return;
-			}
-
-			const textarea = this;
-			if (
-				textarea.value.length === 0 && textarea.classList.contains('has-content') 
-				||
-				textarea.value.length > 0 && !textarea.classList.contains('has-content') 
-			) textarea.classList.toggle('has-content')
-
-		});
-		modal.querySelector('.create-document__comments').addEventListener('keydown', create_document_comments_save);
 
 		const client_list = modal.querySelector('.create-document__origin-entity-list ul');
 		client_list.addEventListener('click', async e => {
@@ -3852,17 +4125,15 @@ function document_modal_event_listeners(modal) {
 		
 		//CLOSE DOCUMENT MODAL
 		modal.querySelector('.close-btn-absolute').addEventListener('click', close_create_document_modal);
-		modal.querySelector('.create-document__footer__back-btn').addEventListener('click', close_create_document_modal);
-		modal.querySelector('.create-document__footer__back-btn .widget').addEventListener('keydown', function(e) {
-			console.log(e)
-			if (e.code !== 'Space' && e.key !== 'Enter') return;
-			this.parentElement.click();
-		});
+
+		//ADD COMMENTS
+		modal.querySelector('.create-document__body__document-comments').addEventListener('click', document_add_comments);
+
+		modal.querySelector('.create-document__body__document-comments p').innerText = `OBSERVACIONES DOC -> ${(document_object.comments === null) ? '' : document_object.comments.split('\n').join(' - ')}`;
 
 		//DELETE DOCUMENT
 		modal.querySelector('.create-document__footer__delete-btn').addEventListener('click', () => {
 			if (clicked || !weight_object.active.edit) return;
-			prevent_double_click();
 			display_annul_document_message();
 		});
 		modal.querySelector('.create-document__footer__delete-btn .widget').addEventListener('keydown', function(e) {
@@ -3878,7 +4149,13 @@ function document_modal_event_listeners(modal) {
 		});
 
 		//PRINT DOCUMENT
-		modal.querySelector('.create-document__footer__print-document').addEventListener('click', () => { document_object.print_document() });
+		modal.querySelector('.create-document__footer__print-document').addEventListener('click', async () => {
+
+			console.log(`document object electronic status is: ${document_object.electronic}`);
+			
+			if (document_object.electronic) await document_object.print_electronic_document();
+			else await document_object.print_document() 
+		});
 		modal.querySelector('.create-document__footer__print-document .widget').addEventListener('keydown', function(e) {
 			if (e.code !== 'Space' && e.key !== 'Enter') return;
 			this.parentElement.click();
@@ -3904,7 +4181,7 @@ function document_modal_event_listeners(modal) {
 						"Content-Type" : "application/json",
 						"Authorization" : token.value
 					},
-					body: JSON.stringify({doc_id: document_object.frozen.id, doc_type})
+					body: JSON.stringify({ doc_id: document_object.frozen.id, doc_type })
 				}),
 				response = await change_type.json();
 
@@ -3914,6 +4191,38 @@ function document_modal_event_listeners(modal) {
 				document_object.type = doc_type;
 				const option_text = (weight_object.cycle.id === 1 && doc_type === 2) ? 'COMPRA' : select.options[select.selectedIndex].innerText;
 				select.previousElementSibling.innerText = option_text;
+
+				//CHANGE INTERNAL BRANCH TO WAREHOUSE
+				if (document_object.type === 3)
+					document.querySelector('.content-container.active .create-document__header__destination-branch ul li:last-child').click();
+
+				//ADD LOBESIA BOTRANA COMMENTS IF IT'S A DISPATCH AND IT'S A SALE
+				if (weight_object.cycle.id === 2 && document_object.type === 2) {
+
+					const comments_array = (document_object.comments === null) ? [] : document_object.comments.split('\n');
+					comments_array.unshift('FRUTA PROVENIENTE DE UN AREA REGLAMENTADA POR LOBESIA BOTRANA');
+
+					//ADD BRANCH IF ENTITY HAS MORE THAN ONE BRANCH
+					if (document_object.client.has_several_branches) comments_array.unshift(`SUCURSAL: ${document_object.client.branch.name.toUpperCase()}`)
+
+					await document_object.update_comments(comments_array.join('\n'));
+					document.querySelector('.content-container.active .create-document__body__document-comments p').innerText = `OBSERVACIONES DOC -> ${document_object.comments.split('\n').join(' - ')}`;
+				}
+
+				//REMOVE LOBESIA BOTRANA COMMENTS IF ITS A DISPATCH
+				else if (weight_object.cycle.id === 2 && document_object.type !== 2 && document_object.comments !== null) {
+
+					const comments_array = document_object.comments.split('\n');
+					for (let i = 0; i < comments_array.length; i++) {
+						if (comments_array[i].includes('LOBESIA BOTRANA')) {
+							comments_array.splice(i, 1);
+						}
+					}
+
+					await document_object.update_comments(comments_array.join('\n'));
+					document.querySelector('.content-container.active .create-document__details-container .create-document__body__document-comments p').innerText = `OBSERVACIONES DOC -> ${comments_array.join(' - ')}`
+
+				}
 
 			}
 			catch(e) { error_handler('Error al intentar cambiar tipo de documento.', e) }
@@ -3944,8 +4253,6 @@ function document_modal_event_listeners(modal) {
 
 				modal.querySelector('.create-document__footer__print-document').remove();
 
-				modal.querySelector('.create-document__footer__back-btn .widget').setAttribute('data-next-tab-selector', '.content-container.active .create-document__footer__delete-btn .widget');
-
 				modal.querySelector('.create-document__footer__delete-btn .widget').setAttribute('data-prev-tab-selector', '.content-container.active .create-document__footer__back-btn .widget');
 				modal.querySelector('.create-document__footer__delete-btn .widget').setAttribute('data-next-tab-selector', '.content-container.active .create-document__footer__electronic .widget');
 
@@ -3968,13 +4275,11 @@ function document_modal_event_listeners(modal) {
 			modal.querySelector('.create-document__header__origin-entity .widget').addEventListener('focus', document_rows_tutorial_widget);
 			modal.querySelector('.create-document__header__destination-entity .widget').addEventListener('focus', document_rows_tutorial_widget);
 			modal.querySelector('.create-document__header__destination-branch .widget').addEventListener('focus', document_rows_tutorial_widget);
-			modal.querySelector('.create-document__comments').addEventListener('focus', document_rows_tutorial_widget);
-			modal.querySelector('.create-document__footer__back-btn .widget').addEventListener('focus', document_rows_tutorial_widget);
-			modal.querySelector('.create-document__footer__print-document .widget').addEventListener('focus', document_rows_tutorial_widget);
+			//modal.querySelector('.create-document__footer__print-document .widget').addEventListener('focus', document_rows_tutorial_widget);
 			modal.querySelector('.create-document__footer__delete-btn .widget').addEventListener('focus', document_rows_tutorial_widget);
 			modal.querySelector('.create-document__footer__electronic .widget').addEventListener('focus', document_rows_tutorial_widget);
 			modal.querySelector('.create-document__footer__doc-type .widget').addEventListener('focus', document_rows_tutorial_widget);
-		}		
+		}
 
 		return resolve();
 	})
@@ -4045,9 +4350,15 @@ async function add_doc_widget(modal) {
 		document_object.active = true;
 		weight_object.documents.push(document_object);
 
+		//SET SELECT TYPE IN MODAL
+		const doc_type_select = modal.querySelector('.create-document__footer__doc-type select');
+		doc_type_select.value = document_object.type;
+		doc_type_select.previousElementSibling.innerText = doc_type_select.options[doc_type_select.selectedIndex].innerText;
+
 		create_document_create_body_row(document_object.rows[0]);
 
 		if (weight_object.cycle.id !== 3) modal_internal_entities(response.internal);
+
 		await document_modal_event_listeners(modal);
 		
 		//WATCH FOR CHANGES IF KILOS BREAKDOWN HAS BEEN DONE
@@ -4144,7 +4455,7 @@ async function close_create_document_modal() {
 		doc.kilos === 0 && doc.containers === 0 && doc.total === 0) {
 		try {
 			const
-			doc_id = sanitize(document_object.frozen.id),
+			doc_id = parseInt(document_object.frozen.id),
 			update_doc_status = await fetch('/update_doc_status', {
 				method: 'POST', 
 				headers: { 
@@ -4287,175 +4598,17 @@ async function close_create_document_modal() {
 			document.querySelector('.content-container.active .finished-weight__modal__weight-kilos tbody tr:first-child .containers').innerText = thousand_separator(weight_object.gross_weight.containers_weight) + ' KG';
 			document.querySelector('.content-container.active .finished-weight__modal__weight-kilos tbody tr:first-child .net').innerText = thousand_separator(weight_object.gross_weight.net) + ' KG';
 
-			//DOCUMENT DATA
-			if (!!document.querySelector(`.content-container.active .finished-weight__modal__documents-container .widget[data-doc-id="${doc.frozen.id}"]`) === false) {
-				const new_widget = document.createElement('div');
-				new_widget.setAttribute('data-doc-id', doc.frozen.id);
-				new_widget.className = 'widget';
-				new_widget.innerHTML = `
-					<div class="widget-icon">
-						<i class="fal fa-file-alt"></i>
-					</div>
-					<div class="document-header">
-						<div class="doc-btn">
-							<div>
-								<i class="fal fa-file-edit"></i>				
-							</div>
-							<span>Editar Doc.</span>
-						</div>
-						<div class="origin">
-							<p><b>Origen:</b> Soc. Comercial Lepefer y Cia Ltda.</p>
-							<i class="far fa-level-up"></i>
-							<p><b>Sucursal:</b> Secado El Convento</p>					
-						</div>
-						<div class="destination">
-							<p><b>Destino:</b> Soc. Comercial Lepefer y Cia Ltda.</p>
-							<i class="far fa-level-up"></i>
-							<p><b>Sucursal:</b> Secado El Convento</p>
-						</div>
-						<div class="doc-header-data">
-							<div>
-								<i class="fal fa-calendar-alt"></i>
-								<p><b>26-04-2021</b></p>
-							</div>
-							<div>
-								<i class="fal fa-file-alt"></i>
-								<p><b>Nº Doc:</b> 33.740</p>
-							</div>
-						</div>
-						<div class="doc-btn">
-							<div>
-								<i class="far fa-trash-alt"></i>			
-							</div>
-							<span>Anular Doc.</span>	
-						</div>
-					</div>
-					<div class="document-body">
-						<div class="table-header">
-							<table>
-								<thead>
-									<tr>
-										<th class="line-number">Nº</th>
-										<th class="container-amount">CANTIDAD</th>
-										<th class="container">ENVASE</th>
-										<th class="container-weight">PESO ENV.</th>
-										<th class="product">PRODUCTO</th>
-										<th class="cut">DESCARTE</th>
-										<th class="price">PRECIO</th>
-										<th class="kilos">KILOS</th>
-										<th class="kilos-informed">KG. INF.</th>
-										<th class="product-total">TOTAL</th>
-									</tr>
-								</thead>
-							</table>
-						</div>
-						<div class="table-body">
-							<table>
-								<tbody></tbody>
-							</table>
-						</div>
-					</div>
-					<div class="document-footer">
-						<table>
-							<tbody>
-								<tr>
-									<td class="line-number"></td>
-									<td class="container-amount"></td>
-									<td class="container"></td>
-									<td class="container-weight"></td>
-									<td class="product"></td>
-									<td class="cut"></td>
-									<td class="price"></td>
-									<td class="kilos"></td>
-									<td class="kilos-informed"></td>
-									<td class="product-total"></td>
-								</tr>
-							</tbody>
-						</table>
-					</div>
-				`;
-				document.querySelector('.content-container.active .finished-weight__modal__documents-container').appendChild(new_widget);
-			}
+			const modal = document.querySelector('.content-container.active .finished-weight__modal');
 
-			const doc_widget = document.querySelector(`.content-container.active .finished-weight__modal__documents-container .widget[data-doc-id="${doc.frozen.id}"]`);
-
-			let origin_entity, origin_branch, destination_entity, destination_branch;
-			if (weight_object.cycle.id === 1) {
-				
-				origin_entity = (doc.client.entity.name === null) ? '' : doc.client.entity.name;
-				origin_branch = (doc.client.branch.name === null) ? '' : doc.client.branch.name;
-				
-				destination_entity = (doc.internal.entity.name === null) ? '' : doc.internal.entity.name;
-				destination_branch = (doc.internal.branch.name === null) ? '' : doc.internal.branch.name;
-			} else {
-
-				origin_entity = (doc.internal.entity.name === null) ? '' : doc.internal.entity.name;
-				origin_branch = (doc.internal.branch.name === null) ? '' : doc.internal.branch.name;
-				
-				destination_entity = (doc.client.entity.name === null) ? '' : doc.client.entity.name;
-				destination_branch = (doc.client.branch.name === null) ? '' : doc.client.branch.name;
-			}
-
-			const 
-			doc_date = (doc.date === null) ? '-' : `<b>${new Date(doc.date).toLocaleString('es-CL').split(' ')[0].replace(/[,]/gm, '')}</b>`,
-			doc_number = (doc.number === null) ? '-' : `<b>Nº Doc: ${thousand_separator(doc.number)}</b>`;
-
-			doc_widget.querySelector('.origin p:first-child').innerHTML = '<b>ORIGEN: </b>' + origin_entity;
-			doc_widget.querySelector('.origin p:last-child').innerHTML = '<b>SUCURSAL: </b>' + origin_branch;
+			//CHECK ACTIVE VIEW 2 IS ACTIVE
+			if (!!document.querySelector('.content-container.active .finished-weight__modal__documents-container[data-view="2"]'))
+				await finished_weights_create_document_rows(2, modal);
 			
-			doc_widget.querySelector('.destination p:first-child').innerHTML = '<b>DESTINO: </b>' + destination_entity;
-			doc_widget.querySelector('.destination p:last-child').innerHTML = '<b>SUCURSAL: </b>' + destination_branch;
-
-			doc_widget.querySelector('.doc-header-data div:first-child p').innerHTML = doc_date;
-			doc_widget.querySelector('.doc-header-data div:last-child p').innerHTML = doc_number;
-
-			//DOCUMENT ROWS DETAILS
-			doc_widget.querySelectorAll('.document-body tbody tr').forEach(tr => { tr.remove() });
-
-			
-			const rows = doc.rows;
-			for (let i = 0; i < rows.length; i++) {
-
-				const 
-				tr = document.createElement('tr'),
-				container_amount = (rows[i].container.amount === null) ? '' : thousand_separator(rows[i].container.amount),
-				container_name = (rows[i].container.name === null) ? '' : rows[i].container.name,
-				container_weight = (rows[i].container.weight === null) ? '' : thousand_separator(rows[i].container.weight) + ' KG',
-				product_name = (rows[i].product.name === null) ? '' : rows[i].product.name,
-				product_cut = (rows[i].product.cut === null) ? '' : rows[i].product.cut.toUpperCase(),
-				product_price = (rows[i].product.price === null) ? '' : '$' + thousand_separator(rows[i].product.price),
-				product_kilos = (rows[i].product.kilos === null) ? '' : thousand_separator(rows[i].product.kilos) + ' KG',
-				product_inf_kilos = (rows[i].product.informed_kilos === null) ? '' : thousand_separator(rows[i].product.informed_kilos) + ' KG',
-				product_total = (rows[i].product.total === null) ? '' : '$' + thousand_separator(rows[i].product.total);
-
-				tr.setAttribute('data-row-id', rows[i].id);
-				tr.innerHTML = `
-					<td class="line-number">${i + 1}</td>
-					<td class="container-amount">${container_amount}</td>
-					<td class="container">${container_name}</td>
-					<td class="container-weight">${container_weight}</td>
-					<td class="product">${product_name}</td>
-					<td class="cut">${product_cut}</td>
-					<td class="price">${product_price}</td>
-					<td class="kilos">${product_kilos}</td>
-					<td class="kilos-informed">${product_inf_kilos}</td>
-					<td class="product-total">${product_total}</td>
-				`;
-				containers += 1 * rows[i].container.amount;
-				kilos += 1 * rows[i].product.kilos;
-				informed_kilos += 1 * rows[i].product.informed_kilos;
-				total += 1 * rows[i].product.total;
-				doc_widget.querySelector('.document-body tbody').appendChild(tr);
+			//DO 2ND VIEW -> COLLAPSED PRODUCTS
+			else {
+				document.querySelector('.content-container.active .finished-weight__modal__documents-container').removeAttribute('data-view');
+				await finished_weights_create_document_rows(1, modal);
 			}
-			
-			//DOC TOTALS
-			doc_widget.querySelector('.document-footer .container-amount').innerText = thousand_separator(containers);
-			doc_widget.querySelector('.document-footer .kilos').innerText = thousand_separator(kilos) + ' KG';
-			doc_widget.querySelector('.document-footer .kilos-informed').innerText = thousand_separator(informed_kilos) + ' KG';
-			doc_widget.querySelector('.document-footer .product-total').innerText = '$' + thousand_separator(total);
-
-			doc_widget.querySelector('.doc-btn:first-child').addEventListener('click', finished_weights_edit_document);
-			doc_widget.querySelector('.doc-btn:last-child').addEventListener('click', finished_weights_annul_document);
 		}
 		
 		document.querySelector('#weight .finished-weight__documents_modal').classList.remove('active');
@@ -4494,26 +4647,40 @@ async function close_create_document_modal() {
 	breadcrumbs('remove', active_breadcrumb);
 
 	animating = false;
+
+	//ALERT OTHER USERS TO UPDATE TOTALS IN COMPANIES
+	socket.emit('document finished editing');
 }
 
 //DOCUMENT CHANGE ELECTRONIC STATUS
 async function change_document_electronic_status() {
 	
 	if (clicked || !weight_object.active.edit) return;
-	prevent_double_click();
 
+	//GENERATE ELECTRONIC DOCUMENT IF CYCLE IS DISPATCH
 	if (weight_object.cycle.id === 2) {
 
 		if (document_object.electronic) return;
 
 		try {
 
+			if (document_object.date === null) throw 'El documento no tiene una fecha definida';
 			if (!validate_date(document_object.date)) throw 'Fecha inválida';
 			if (document_object.client.entity.id === null) throw 'No hay una entidad de destino seleccionada';
 			if (document_object.client.branch.id === null) throw 'No hay una sucursal de destino seleccionada';
 			if (document_object.internal.entity.id === null) throw 'No hay una entidad de origen seleccionada';
 			if (document_object.internal.branch.id === null) throw 'No hay una sucursal de origen seleccionada';
 			if (document_object.rows.length === 0) throw 'El cuerpo del documento está vacío';
+			
+			let i = -1;
+			for (let row of document_object.rows) {
+				
+				i++;
+				if (row.product.code === 'GEN') continue;
+				if (row.container.code === null) throw `Línea Nº ${i + 1} -> Tipo de envase no ha sido seleccionado`;
+				if (1 * row.container.amount === 0) throw `Línea Nº ${i + 1} -> Cantidad de envases es 0.`;
+				
+			}
 
 			const template = await (await fetch('./templates/template-electronic-document.html', {
 				method: 'GET',
@@ -4525,21 +4692,40 @@ async function change_document_electronic_status() {
 			container.className = 'hidden';
 			container.innerHTML = template;
 
-			container.querySelector('button.svg-wrapper').addEventListener('click', async () => {
+			container.querySelector('button.svg-wrapper').addEventListener('click', async function() {
+
+				if (btn_double_clicked(this)) return;
+
+				const cancel_browser = (this.classList.contains('enabled')) ? true : false;
+
 				await fade_out(container);
 				container.remove();
+
+				const close_btn = document.querySelector('.content-container.active .create-document__details-container + .close-btn-absolute');
+				await fade_in_animation(close_btn);
+				close_btn.classList.remove('hidden');
+				
+				if (cancel_browser) socket.emit('cancel browser');
 			});
 
+			container.querySelector('.progress-container input').addEventListener('change', puppeteer_progress_circle);
+			container.querySelector('.progress-container input').value = 0;
+
 			document.querySelector('#create-weight__modal .modal-content').appendChild(container);
+
+			const close_btn = document.querySelector('.content-container.active .create-document__details-container + .close-btn-absolute');
+			await fade_out_animation(close_btn);
+			close_btn.classList.add('hidden');
 
 			fade_in_animation(container);
 			socket.emit('generate electronic document', document_object.frozen.id);
 
-			return;
-			
-		} catch(e) { error_handler(`Error al intentar generar documento electrónico. ${e}`) }
+		}
+		catch(e) { error_handler(`Error al intentar generar documento electrónico.`, e) }
+		finally { return }
 	}
 
+	//UPDATE STATUS FOR RECEPTION
 	const 
 	btn = this,
 	new_electronic_status = (document_object.electronic) ? false : true, //OPPOSITE OF WHAT IS CURRENT STATUS TO TOGGLE IT
@@ -4659,7 +4845,7 @@ function create_document_create_body_row(row) {
 		tr.querySelector('.row-number i').addEventListener('click', delete_document_row);
 		tr.querySelector('.product-code input').addEventListener('keydown', product_code_search);
 		//tr.querySelector('.product-name input').addEventListener('keydown', product_name_jump_to_li);
-		tr.querySelector('.product-name input').addEventListener('keydown', update_traslado_description);
+		tr.querySelector('.product-name input').addEventListener('keydown', update_product_name);
 		//tr.querySelector('.product-name ul').addEventListener('click', product_name_select_li);
 
 		//SHOW MODAL TO SEARCH PRODUCT
@@ -4701,18 +4887,8 @@ function create_document_create_body_row(row) {
 			if (e.code !== 'F4' || !weight_object.active.edit) return;
 			show_product_container_modal('Uva', e.target.parentElement.parentElement.getAttribute('data-row-id'));
 		});
-		tr.querySelector('.product-name input').addEventListener('input', async e => {
 
-			const
-			row_element = e.target.parentElement.parentElement,
-			row_id = parseInt(row_element.getAttribute('data-row-id')),
-			row_object = await get_row_object(row_id);
-
-			if (document_object.electronic && weight_object.cycle.id === 2 || !weight_object.active.edit) {
-				e.target.value = row_object.product.name;
-				return;
-			}
-		});
+		tr.querySelector('.product-name input').addEventListener('input', product_name_set_to_null);
 
 		tr.querySelector('.product-price input').addEventListener('input', product_price_set_to_null);
 		tr.querySelector('.product-kilos input').addEventListener('input', product_kilos_set_to_null);
@@ -4744,6 +4920,8 @@ function create_document_create_body_row(row) {
 function edit_document_in_modal(doc_id, modal) {
 	return new Promise(async (resolve, reject) => {
 		try {
+
+			console.log(doc_id)
 
 			const
 			get_entities = await fetch('/get_document_entities', { 
@@ -4817,13 +4995,6 @@ function edit_document_in_modal(doc_id, modal) {
 			
 			for (let i = 0; i < rows.length; i++) {
 				await create_document_create_body_row(rows[i]);
-			}	
-	
-			const comments = (document_object.comments === null) ? '' : document_object.comments;
-			modal.querySelector('.create-document__comments').value = comments;
-			if (comments.length > 0) {
-				modal.querySelector('.create-document__comments').classList.add('has-content');
-				modal.querySelector('.create-document__body__document-comments').classList.add('saved');
 			}
 	
 			const inputs = table.querySelectorAll('td input');
@@ -4835,14 +5006,14 @@ function edit_document_in_modal(doc_id, modal) {
 			const selects = table.querySelectorAll('.cut select');
 			selects.forEach(select => { if (select.value !== 'none') select.parentElement.classList.add('saved') });
 
-			const doc_type_select = document.querySelector('.create-document__footer__doc-type select');
+			const doc_type_select = document.querySelector('.content-container.active .create-document__footer__doc-type select');
 			doc_type_select.selectedIndex = document_object.type;
 
 			const doc_type_text = (weight_object.cycle.id === 1 && document_object.type === 2) ? 'COMPRA' : doc_type_select.options[document_object.type].innerText;
 			doc_type_select.previousElementSibling.innerText = doc_type_text;
 
 			if (document_object.electronic) document.querySelector('.create-document__footer__electronic').classList.add('enabled');
-	
+
 			modal.querySelector('.create-document__footer__total-product-kilos .widget-data p').innerText = thousand_separator(document_object.kilos);
 			modal.querySelector('.create-document__footer__total-containers .widget-data p').innerText = thousand_separator(document_object.containers);
 			modal.querySelector('.create-document__footer__total-document .widget-data p').innerText = thousand_separator(document_object.total);
@@ -4911,7 +5082,6 @@ async function delete_document(doc_id) {
 async function document_table_click(e) {
 
 	if (clicked) return;
-	prevent_double_click();
 
 	try {
 		if (e.target.matches('td')) {
@@ -5138,7 +5308,10 @@ async function open_entity_modal(e) {
 	if (e.type === 'click' || (e.type === 'keydown' && (e.code === 'Space' || e.key === 'Enter'))) {
 		
 		if (clicked) return;
-		prevent_double_click();
+		
+		const close_btn = document.querySelector('.content-container.active .create-document__details-container + .close-btn-absolute');
+		await fade_out(close_btn);
+		close_btn.classList.add('hidden');
 
 		try {
 
@@ -5226,7 +5399,6 @@ function close_entity_modal() {
 	return new Promise(async resolve => {
 
 		if (clicked) return resolve();
-		prevent_double_click();
 	
 		mutation_observer.disconnect();
 		mutation_observer = null;
@@ -5239,6 +5411,11 @@ function close_entity_modal() {
 		hide.classList.add('hidden');
 		fade_in(show, 0, 'grid');
 		show.classList.remove('hidden');
+
+		const close_btn = document.querySelector('.content-container.active .create-document__details-container + .close-btn-absolute');
+		fade_in(close_btn);
+		close_btn.classList.remove('hidden');
+
 		document.querySelectorAll('.content-container.active .create-document__origin-entity-list li').forEach(li => { li.remove() })
 	
 		document.querySelector('.content-container.active .create-document__select-entity__select-branch').classList.remove('enabled');
@@ -5299,6 +5476,37 @@ function create_document_search_client_jump_to_li(e) {
 }
 
 /******************************************************* ******************************************/
+
+function patacon_add_info() {
+	return new Promise(async (resolve, reject) => {
+		try {
+
+			const
+			add_comments = await fetch('/documents_add_patacon_comments', {
+				method: 'POST', 
+				headers: {
+					"Content-Type" : "application/json",
+					"Authorization" : token.value
+				},
+				body: JSON.stringify({ document_id: document_object.frozen.id })
+			}),
+			response = await add_comments.json();
+
+			if (response.error !== undefined) throw response.error;
+			if (!response.success) throw 'Success response from server is false.';
+
+			document_object.comments = response.document_comments;
+			document.querySelector('.content-container.active #create-weight__modal .create-document__body__document-comments p').innerText = `OBSERVACIONES DOC. -> ${response.document_comments.split('\n').join(' - ')}`;
+
+			//CHANGE DOCUMENT TYPE TO SALE
+			const select = document.querySelector('.content-container.active #create-weight__modal .create-document__footer .create-document__footer__doc-type select');
+			select.value = 2;
+			select.previousElementSibling.innerText = 'COMPRA/VENTA';
+
+			return resolve()
+		} catch(e) { return reject(e) }
+	})
+}
 
 //ORIGIN -> GO TO SELECT BRANCH BUTTON
 async function create_document_select_entity() {
@@ -5426,9 +5634,15 @@ async function create_document_select_entity() {
 		await delay(500);
 
 		if (branches.length === 1) {
+
+			document_object.client.has_several_branches = false;
 			next_div.querySelector('.table-content .table-row:first-child > div:first-child').click();
-			document.querySelector('.content-container.active .create-document__select-origin-branch-btn').focus();				
-		} else if (branches.length > 1) {
+			document.querySelector('.content-container.active .create-document__select-origin-branch-btn').focus();			
+		} 
+		
+		else if (branches.length > 1) {
+
+			document_object.client.has_several_branches = true;
 			next_div.querySelector('.table-content .table-row:nth-child(1)').focus();
 
 			if (jwt_decode(token.value).tutorial) {
@@ -5466,7 +5680,7 @@ async function create_document_select_entity() {
 async function create_document_back_to_entities() {
 
 	if (clicked) return;
-	prevent_double_click();
+	
 
 	const 
 	current_div = document.querySelector('.content-container.active .create-document__origin-branch'),
@@ -5554,121 +5768,87 @@ async function create_document_select_client_branch() {
 			document.querySelector('.content-container.active .document-tooltip-tutorial.row-widget.widget-tooltip').classList.add('hidden')
 		}
 
-		const update = await document_object.update_branch(branch_id);
-		if (update) {
+		await document_object.update_branch(branch_id);
 
-			document.querySelector('.content-container.active .create-document__header__origin-branch .widget').classList.add('saved');
-			document.querySelector('.content-container.active .create-document__header__origin-branch .widget-data-absolute p').innerText = document_object.client.branch.name;
+		document.querySelector('.content-container.active .create-document__header__origin-branch .widget').classList.add('saved');
+		document.querySelector('.content-container.active .create-document__header__origin-branch .widget-data-absolute p').innerText = document_object.client.branch.name;
+	
+		await delay(750);
+		document.querySelector('.content-container.active .create-document__origin-branch .header h3').innerText = '';
+		document.querySelectorAll('.content-container.active .create-document__origin-branch-list .table-row').forEach(row => { row.remove() });
+
+		await close_entity_modal();
+
+		//CHANGE ELECTRONIC STATUS IF IT HAS CHANGED
+		if (document_object.electronic !== current_electronic_status) 
+			document.querySelector('.content-container.active .create-document__footer__electronic').classList.toggle('enabled');
 		
-			await delay(750);
-			document.querySelector('.content-container.active .create-document__origin-branch .header h3').innerText = '';
-			document.querySelectorAll('.content-container.active .create-document__origin-branch-list .table-row').forEach(row => { row.remove() });
+		document.querySelector('.content-container.active .create-document__origin-branch').classList.remove('active');
+		document.querySelector('.content-container.active .create-document__origin-branch').classList.add('right');
+		document.querySelector('.content-container.active .create-document__origin-entity').classList.remove('left', 'hidden');
+		document.querySelector('.content-container.active .create-document__origin-entity').classList.add('active');
 
-			await close_entity_modal();
 
-			//CHANGE ELECTRONIC STATUS IF IT HAS CHANGED
-			if (document_object.electronic !== current_electronic_status) 
-				document.querySelector('.content-container.active .create-document__footer__electronic').classList.toggle('enabled');
-			
-			document.querySelector('.content-container.active .create-document__origin-branch').classList.remove('active');
-			document.querySelector('.content-container.active .create-document__origin-branch').classList.add('right');
-			document.querySelector('.content-container.active .create-document__origin-entity').classList.remove('left', 'hidden');
-			document.querySelector('.content-container.active .create-document__origin-entity').classList.add('active');
+		//CHECK IF DOCUMENT ALREADY EXISTS
+		const tooltip = document.querySelector('.content-container.active .create-document__doc-number .widget-tooltip');
+		if (document_object.existing_document) {
 
-			const tooltip = document.querySelector('.content-container.active .create-document__doc-number .widget-tooltip');
+			tooltip.querySelector('span').innerText = `Nº de documento ${doc_number} ya existe para origen.`
+			fade_in(tooltip, 250, 'block');
+			tooltip.classList.remove('hidden');
+			//document.querySelector('#create-document__doc-number input').value = '';
+			//document.querySelector('#create-document__doc-number .widget').classList.remove('saved');
+			return;
 
-			if (document_object.existing_document) {
+		} else {
 
-				tooltip.querySelector('span').innerText = `Nº de documento ${doc_number} ya existe para origen.`
-				fade_in(tooltip, 250, 'block');
-				tooltip.classList.remove('hidden');
-				//document.querySelector('#create-document__doc-number input').value = '';
-				//document.querySelector('#create-document__doc-number .widget').classList.remove('saved');
-				return;
+			if (!tooltip.classList.contains('hidden')) {
+				await fade_out(tooltip);
+				tooltip.classList.add('hidden');
+			}
 
-			} else {
+			if (jwt_decode(token.value).tutorial)
+				document.querySelector('.content-container.active .create-document__header__destination-entity .widget').focus();
 
-				if (!tooltip.classList.contains('hidden')) {
-					await fade_out(tooltip);
-					tooltip.classList.add('hidden');
-				}
-
-				if (jwt_decode(token.value).tutorial) {
-
+			else {
+				if (document_object.internal.entity.id === null) 
 					document.querySelector('.content-container.active .create-document__header__destination-entity .widget').focus();
-
-				} else {
-					if (document_object.internal.entity.id === null) 
-						document.querySelector('.content-container.active .create-document__header__destination-entity .widget').focus();
-					else 
-						document.querySelector('.content-container.active .create-document__body__table-container .tbl-content tr:last-child .container-code input').focus();
-				}
-
+				else 
+					document.querySelector('.content-container.active .create-document__body__table-container .tbl-content tr:last-child .container-code input').focus();
 			}
 
-			//UPDATE PENDING WEIGHTS TABLE FOR OTHER USERS IF ITS THE FIRST DOCUMENT
-			if (weight_object.documents.length === 1) {
-				socket.emit('weight object first documents client entity has been updated', {
-					id: weight_object.frozen.id,
-					entity_name: document_object.client.entity.name
-				});
-			}
 		}
+
+		//UPDATE PENDING WEIGHTS TABLE FOR OTHER USERS IF ITS THE FIRST DOCUMENT
+		if (weight_object.documents.length === 1) {
+			socket.emit('weight object first documents client entity has been updated', {
+				id: weight_object.frozen.id,
+				entity_name: document_object.client.entity.name
+			});
+		}
+
+		if (weight_object.cycle.id === 2 && document_object.client.has_several_branches) {
+
+			const comments_array = (document_object.comments === null) ? [] : document_object.comments.split('\n');
+			comments_array.unshift(`SUCURSAL: ${document_object.client.branch.name.toUpperCase()}`)
+
+			await document_object.update_comments(comments_array.join('\n'));
+			document.querySelector('.content-container.active .create-document__body__document-comments p').innerText = `OBSERVACIONES DOC -> ${document_object.comments.split('\n').join(' - ')}`;
+		}
+		
 	}
 	catch (e) { console.log(`Error updating client branch in entity modal. Error msg: ${e}`) }
-	finally { check_loader() }
+	finally { 
+		check_loader();
+		//ADD COMMENTS FOR PATACON
+		if (document_object.client.entity.id == 241) {
+			try { patacon_add_info() }
+			catch(e) { error_handler('No se pudo agregar comentarios a la guía de despacho', e) }	
+		}
+	}
 }
 
 function widget_focus_input(that) { that.querySelector('input').focus() }
-
-async function create_document_comments_save(e) {
-
-	if (e.code !== 'Tab' && e.key!== 'Enter') return;
-	//e.preventDefault();
-	
-	const
-	comments_parent = e.target.parentElement,
-	comments = sanitize(e.target.value),
-	doc_id = sanitize(document_object.frozen.id);
-
-	if (document_object.electronic && weight_object.cycle.id === 2 || !weight_object.active.edit) {
-		e.target.value = document_object.comments;
-		return
-	}
-
-	if (comments === document_object.comments) {
-		//if (e.shiftKey) document.querySelector('.content-container.active .create-document__body__table-container tbody tr:last-child .product-kilos input').focus();
-		//else document.querySelector('.content-container.active .create-document__footer__back-btn .widget').focus();
-		return;
-	}
-
-	//animate_on_data_saved(comments_parent);
-	try {
-
-		const
-		save_comments = await fetch('/update_document_comments', {
-			method: 'POST', 
-			headers: { 
-				"Content-Type" : "application/json",
-				"Authorization" : token.value 
-			}, 
-			body: JSON.stringify({ comments, doc_id })
-		}),
-		response = await save_comments.json();
-
-		if (response.error !== undefined) throw response.error;
-		if (!response.success) throw 'Success response from server is false.';
-
-		document_object.comments = comments;
-		comments_parent.classList.add('saved');
-
-	}
-	catch(error) { error_handler('Error al actualizar comentarios en documento en /update_document_comments', error) }
-	finally {
-		//if (e.shiftKey) document.querySelector('.content-container.active .create-document__body__table-container tbody tr:last-child .product-kilos input').focus();
-		//else document.querySelector('.content-container.active .create-document__footer__back-btn .widget').focus();
-	}
-}
 
 async function display_annul_document_message(doc_id) {
 
@@ -5992,7 +6172,7 @@ async function container_code_set_to_null(e) {
 		return;
 	}
 		
-	if (e.target.value.length === 0 || row_object.container.code === null) return;
+	if (row_object.container.code === null) return;
 
 	try {
 
@@ -6305,7 +6485,6 @@ const show_product_container_modal = async (type, row_id) => {
 
 		}
 
-
 		/******* EVENT LISTENERS ******/
 
 		//TOP BTNS
@@ -6320,7 +6499,7 @@ const show_product_container_modal = async (type, row_id) => {
 				
 				if (btn.classList.contains('active')) return;
 	
-				document.querySelectorAll('.content-container.active .search-product-container__table .table-body .tr').forEach(tr => { tr.remove() })
+				div.querySelectorAll('.search-product-container__table .table-body .tr').forEach(tr => { tr.remove() })
 	
 				try {
 	
@@ -6330,10 +6509,12 @@ const show_product_container_modal = async (type, row_id) => {
 					type = sanitize(btn.getAttribute('data-type')),
 					data = await show_product_container_modal__get_data(type);
 	
-					const fade_out_div = document.querySelector('.search-product-container-btn.active > div');
-					fade_out_div.classList.add('hidden');
-					document.querySelector('.search-product-container-btn.active').classList.remove('active');
-	
+					const active_btn = div.querySelector('.search-product-container-btn.active');
+					if (!!active_btn) {
+						active_btn.firstElementChild.classList.add('hidden');
+						active_btn.classList.remove('active');
+					}
+
 					btn.classList.add('active');
 					fade_in_animation(btn.firstElementChild);
 					btn.firstElementChild.classList.remove('hidden');
@@ -6365,7 +6546,7 @@ const show_product_container_modal = async (type, row_id) => {
 		div.querySelector('.search-product-container__table .tbody').addEventListener('click', e => {
 			
 			if (clicked) return;
-			prevent_double_click();
+			
 
 			let tr;
 			if (e.target.classList.contains('td')) tr = e.target.parentElement;
@@ -6394,7 +6575,7 @@ const show_product_container_modal = async (type, row_id) => {
 		div.querySelector('.create-document__search-product-container__cancel-btn').addEventListener('click', async e => {
 			
 			if (clicked) return;
-			prevent_double_click();
+			
 
 			let modal;
 			if (!!document.querySelector('.content-container.active .create-weight__modal-container .modal-content')) 
@@ -6760,8 +6941,28 @@ function product_name_jump_to_li(e) {
 	return;
 }
 
+async function product_name_set_to_null(e) {
+
+	if (e.target.value.length > 0) return;
+
+	const
+	row_element = e.target.parentElement.parentElement,
+	row_id = parseInt(row_element.getAttribute('data-row-id')),
+	row_object = await get_row_object(row_id);
+
+	if (document_object.electronic && weight_object.cycle.id === 2 || !weight_object.active.edit) {
+		e.target.value = row_object.product.name;
+		return;
+	}
+
+	const code_input = row_element.querySelector('.product-code input');
+	if (row_object.product.code === 'GEN') return;
+	code_input.value = '';
+	code_input.dispatchEvent(new KeyboardEvent('keydown', { 'code': 'Tab' }));
+}
+
 //CREATE DOCUMENT -> PRODUCT NAME -> TRASLADO CODE -> KEYDOWN EVENT
-async function update_traslado_description(e) {
+async function update_product_name(e) {
 	
 	if (e.code !== 'Tab' && e.key !== 'Enter') return;
 
@@ -6770,35 +6971,20 @@ async function update_traslado_description(e) {
 	row_id = parseInt(row_element.getAttribute('data-row-id')),
 	row_object = await get_row_object(row_id);
 
-	if (row_object.product.code !== 'GEN') return;
-
-	if (document_object.electronic && weight_object.cycle.id === 2 || !weight_object.active.edit) {
+	if (document_object.electronic && weight_object.cycle.id === 2 || !weight_object.active.edit || e.target.value.length === 0) {
 		e.target.value = row_object.product.name;
-		return
+		return;
 	}
-
-	const td = e.target.parentElement;
-	td.classList.remove('saved');
-	animate_on_data_saved(td);
 
 	try {
 
-		const
-		row_id = row_object.id,
-		description = sanitize(e.target.value),
-		update_description = await fetch('/update_traslado_description', {
-			method: 'POST',
-			headers: {
-				"Content-Type" : "application/json",
-				"Authorization" : token.value
-			},
-			body: JSON.stringify({row_id, description })
-		}),
-		response = await update_description.json();
+		const product_description = e.target.value;
+		if (product_description === row_object.product.name) return;
 
-		if (response.error !== undefined) throw response.error;
-		if (!response.success) throw 'Success response from server is false.';
+		const td = e.target.parentElement;
+		td.classList.remove('saved');
 
+		await row_object.update_product_description(product_description);
 		td.classList.add('saved');
 
 	} catch(error) { error_handler('Error al intentar guardar descripcion del traslado.', error) }
@@ -6987,6 +7173,7 @@ const create_new_document_row = row_element => {
 			document_object.rows.push(new_row);
 			await create_document_create_body_row(new_row);
 			row_element.nextElementSibling.querySelector('.container-code input').focus();
+
 			return resolve();
 		} catch (error) { return reject(error) }
 	})
@@ -7002,14 +7189,14 @@ async function product_kilos_update(e) {
 	animating = true;
 
 	const
-	kilos = e.target.value.replace(/\D/gm, ''),
+	kilos = e.target.value.replace(/[^0-9$,]/gm, '').replace(/[,]/gm, '.'),
 	td = e.target.parentElement,
 	row_element = td.parentElement,
 	row_id = parseInt(row_element.getAttribute('data-row-id')),
 	row_object = await get_row_object(row_id),
 	row_kilos = row_object.product.informed_kilos;
 
-	if (document_object.electronic && weight_object.cycle.id === 2) {
+	if (!weight_object.active.edit) {
 		e.target.value = (row_object.product.informed_kilos === null) ? '' : thousand_separator(row_object.product.informed_kilos);
 		return
 	}
@@ -7038,7 +7225,6 @@ async function product_kilos_update(e) {
 		else {
 			if (row_element.nextElementSibling === null) {
 				if (row_with_content && e.key === 'Tab') await create_new_document_row(row_element);
-				else document.querySelector('.content-container.active .create-document__comments').focus();
 			} 
 			else row_element.nextElementSibling.querySelector('.container-code input').focus();
 		}
@@ -7048,38 +7234,34 @@ async function product_kilos_update(e) {
 
 	try {
 
-		const update = await row_object.update_kilos(kilos);
-		if (update) {
+		await row_object.update_kilos(kilos);
 
-			const 
-			total = row_element.querySelector('.product-total'),
-			//target_kilos = (weight_object.cycle.id === 1) ? row_object.product.informed_kilos : row_object.product.kilos;
-			target_kilos = row_object.product.informed_kilos;
+		const 
+		total = row_element.querySelector('.product-total'),
+		//target_kilos = (weight_object.cycle.id === 1) ? row_object.product.informed_kilos : row_object.product.kilos;
+		target_kilos = row_object.product.informed_kilos;
 
-			if (target_kilos === 0) {
+		if (target_kilos === 0) {
 
-				td.querySelector('input').value = null;
-				total.innerText = null;
-				total.classList.remove('saved');
+			td.querySelector('input').value = null;
+			total.innerText = null;
+			total.classList.remove('saved');
 
-			} else {
+		} else {
 
-				td.classList.add('saved');
-				td.querySelector('input').value = thousand_separator(target_kilos);
+			td.classList.add('saved');
+			td.querySelector('input').value = thousand_separator(target_kilos);
 
-				if (row_object.product.total !== 0) {
-					animate_on_data_saved(total);
-					total.innerText = '$' + thousand_separator(row_object.product.total);
-					total.classList.add('saved');
-				}
-
+			if (row_object.product.total !== 0) {
+				animate_on_data_saved(total);
+				total.innerText = '$' + thousand_separator(row_object.product.total);
+				total.classList.add('saved');
 			}
-			document.querySelector('.content-container.active .create-document__footer__total-product-kilos .widget-data p').innerText = `${thousand_separator(document_object.kilos)}`;
-			document.querySelector('.content-container.active .create-document__footer__total-document .widget-data p').innerText = `$${thousand_separator(document_object.total)}`;
 
-			//if (e.shiftKey) { td.previousElementSibling.querySelector('input').focus(); return }
-			//td.parentElement.querySelector('.container-code input').focus();
 		}
+
+		document.querySelector('.content-container.active .create-document__footer__total-product-kilos .widget-data p').innerText = `${thousand_separator(document_object.kilos)}`;
+		document.querySelector('.content-container.active .create-document__footer__total-document .widget-data p').innerText = `$${thousand_separator(document_object.total)}`;
 
 		//NEW LINE STUFF
 		if (e.shiftKey || e.key === 'Enter') {animating = false; return }
@@ -7120,7 +7302,7 @@ async function product_kilos_set_to_null(e) {
 	row_id = parseInt(row_element.getAttribute('data-row-id')),
 	row_object = await get_row_object(row_id);
 
-	if (document_object.electronic && weight_object.cycle.id === 2 || !weight_object.active.edit) {
+	if (!weight_object.active.edit) {
 		e.target.value = (row_object.product.informed_kilos === null) ? '' : thousand_separator(row_object.product.informed_kilos);
 		return
 	}
@@ -7130,18 +7312,17 @@ async function product_kilos_set_to_null(e) {
 
 	try {
 
-		const update = await row_object.update_kilos('');
-		if (update) {
+		await row_object.update_kilos('');
+		
+		e.target.parentElement.classList.remove('saved');
 
-			e.target.parentElement.classList.remove('saved');
+		const total = row_element.querySelector('.product-total');
+		total.classList.remove('saved');
+		total.innerText = null;
 
-			const total = row_element.querySelector('.product-total');
-			total.classList.remove('saved');
-			total.innerText = null;
-
-			document.querySelector('.content-container.active .create-document__footer__total-product-kilos .widget-data p').innerText = `${thousand_separator(document_object.kilos)}`;
-			document.querySelector('.content-container.active .create-document__footer__total-document .widget-data p').innerText = `$${thousand_separator(document_object.total)}`;
-		}
+		document.querySelector('.content-container.active .create-document__footer__total-product-kilos .widget-data p').innerText = `${thousand_separator(document_object.kilos)}`;
+		document.querySelector('.content-container.active .create-document__footer__total-document .widget-data p').innerText = `$${thousand_separator(document_object.total)}`;
+	
 	}
 	catch (e) { console.log(`Error setting kilos to ${null}. Error msg: ${e}`) }	
 }
@@ -7236,34 +7417,32 @@ function custom_select_hover(e) {
 }
 
 //CREATE DOCUMENT -> SELECT LI FROM CUSTOM DROPDOWN LIST
-async function select_option_from_custom_select() {
+async function select_option_from_custom_select(e) {
 
-	if (btn_double_clicked(this)) return;
+	if (btn_double_clicked(this) || !weight_object.active.edit) return;
 
-	//if (document_object.electronic) return;
-	//PREVENT DOUBLE CLICK SHOULDNT BE HERE
+	if (!e.target.matches('li') || e.target.className === 'disabled') return;
 
 	const
-	select = this.parentElement.parentElement,
-	ul = this.parentElement,
-	target_table = select.getAttribute('data-target'),
-	target_id = this.getAttribute('data-target-id'),
-	selected_text = this.innerText;
+	li = e.target,
+	ul = li.parentElement,
+	target_id = li.getAttribute('data-target-id'),
+	select = li.parentElement.parentElement,
+	target_data = select.getAttribute('data-target'),
+	selected_text = li.textContent;
 
 	try {
 
-		const update = await document_object.update_internal(target_id, target_table);
+		if (target_data === 'internal-entities') await document_object.update_internal_entity(target_id);
+		else await document_object.update_internal_branch(target_id);
 
-		if (update) {
+		select.nextElementSibling.classList.add('saved');
+		select.querySelector('.selected-option p').innerText = selected_text;
+		
+		select.nextElementSibling.querySelector('.widget-data-absolute p').innerText = selected_text;
 
-			select.nextElementSibling.classList.add('saved');
-			select.querySelector('.selected-option p').innerText = selected_text;
-			
-			if (target_table === 'internal-entities') select.nextElementSibling.querySelector('.widget-data-absolute p').innerText = document_object.internal.entity.name;
-			else select.nextElementSibling.querySelector('.widget-data-absolute p').innerText = document_object.internal.branch.name;
-			
-			ul.classList.remove('active')	
-		}
+		ul.classList.remove('active')	
+		
 	}
 	catch(e) { console.log(`Error selecting option from custom select. Error msg: ${e}`) }
 }
@@ -7271,8 +7450,7 @@ async function select_option_from_custom_select() {
 async function take_weight_widget(e) {
 
 	if (clicked) return;
-	prevent_double_click();
-
+	
 	const modal = document.querySelector('#create-weight__modal');
 	try {
 
@@ -7298,13 +7476,24 @@ async function take_weight_widget(e) {
 		document.querySelector('#create-weight__status-container .take-weight__connection-status:nth-child(2)').classList.add(weight_object.tara_type);
 
 		const tara_p = document.querySelector('#create-weight__status-container .take-weight__connection-status:nth-child(2) p');
-		if (weight_object.tara_type==='automatica') tara_p.innerHTML = 'TARA<br>AUTOMATICA';
+		if (weight_object.tara_type === 'automatica') tara_p.innerHTML = 'TARA<br>AUTOMATICA';
 		else tara_p.innerHTML = 'TARA<br>MANUAL';
 		
 		modal.classList.add('active');
 
 		await delay(500);
-		socket.emit('open serial', jwt_decode(token.value).userId);
+		socket.emit('open serial', {
+			user_id: jwt_decode(token.value).userId,
+			serial_open: true,
+			weight_data: {
+				id: weight_object.frozen.id,
+				created_by: weight_object.frozen.created_by,
+				cycle: weight_object.cycle.name,
+				driver: weight_object.driver.name,
+				plates: weight_object.frozen.primary_plates,
+				process: weight_object.process
+			}
+		});
 
 		document.querySelector('#take-weight__manual-input').focus();
 	} catch(e) { console.log(`Error fetching Take Weight Template. ${e}`) }
@@ -7313,7 +7502,7 @@ async function take_weight_widget(e) {
 async function take_weight_back_to_weight() {
 
 	if (clicked) return;
-	prevent_double_click();
+	
 
 	socket.emit('cancel-serial', 'close');
 	document.querySelector('#create-weight__modal').classList.remove('active');
@@ -7325,7 +7514,7 @@ async function take_weight_accept_btn() {
 	// STATIC USER. CHANGE IT LATER!!!
 
 	if (clicked) return;
-	prevent_double_click();
+	
 
 	const weight_data = {
 		id: sanitize(weight_object.frozen.id),
@@ -7351,7 +7540,7 @@ function save_cancel_mouse_leave(e) {
 async function save_cancel_click() {
 
 	if (clicked) return;
-	prevent_double_click();
+	
 
 	const
 	el = this,
@@ -7473,8 +7662,198 @@ async function weight_comments_update(e) {
 	} catch(error) { error_handler('Error al actualizar comentarios del pesaje en /update_weight_comments.', error) }
 }
 
+async function document_add_comments() {
+
+	const close_btn = document.querySelector('.content-container.active .create-document__details-container + .close-btn-absolute');
+	await fade_out(close_btn);
+	close_btn.classList.add('hidden');
+	
+	const modal = document.createElement('div');
+	modal.className = 'create-document__add-comments hidden';
+	modal.innerHTML = `
+		<div>
+			<div class="comments-header">
+				<h3>NOTAS DOCUMENTO</h3>
+			</div>
+			<div class="comments-body">
+				<div>
+					<textarea spellcheck="false"></textarea>
+				</div>
+				<div>
+					<div>
+						<input data-comment="amarra" class="create-vehicle__active-cbx" type="checkbox" data-prev-tab-selector="#create-vehicle__internal-cbx" data-next-tab-selector="#create-weight__create-vehicle__back-to-create-weight">
+						<label class="cbx"></label>
+						<label class="lbl">1 x AMARRA</label>
+					</div>
+					<div>
+						<input data-comment="carga" class="create-vehicle__active-cbx" type="checkbox" data-prev-tab-selector="#create-vehicle__internal-cbx" data-next-tab-selector="#create-weight__create-vehicle__back-to-create-weight">
+						<label class="cbx"></label>
+						<label class="lbl">1 x CARGA DE CAMION</label>
+					</div>
+				</div>
+			</div>
+			<div class="comments-footer">
+				<button class="svg-wrapper enabled red" data-prev-tab-selector="#create-document__origin-entity-list li:first-child">
+					<svg height="45" width="160" xmlns="http://www.w3.org/2000/svg">
+						<rect class="shape" height="45" width="160"></rect>
+					</svg>
+					<div class="desc-container">
+						<i class="fas fa-times-circle"></i>
+						<p>CANCELAR</p>
+					</div>
+				</button>
+				<button class="svg-wrapper enabled green create-weight__create-vehicle__choose-driver-btn">
+					<svg height="45" width="160" xmlns="http://www.w3.org/2000/svg">
+						<rect class="shape" height="45" width="160"></rect>
+					</svg>
+					<div class="desc-container">
+						<i class="fas fa-check-circle"></i>
+						<p>GUARDAR</p>
+					</div>
+				</button>
+			</div>
+		</div>
+	`;
+
+	modal.querySelector('textarea').value = document_object.comments;
+
+	//CHECKBOXES
+	modal.querySelectorAll('.comments-body > div:last-child > div').forEach(div => {
+		div.addEventListener('click', function() {
+
+			const 
+			checkbox = this.querySelector('input'),
+			comments = modal.querySelector('textarea').value.split('\n');
+
+			//REMOVE FIRST COMMENTS IF IT'S AND EMPTY STRING
+			if (comments[0].length === 0) comments.splice(0, 1);
+
+			if (checkbox.getAttribute('data-comment') === 'amarra') {
+
+				//REMOVE AMARRA
+				if (checkbox.checked) {
+
+					//REMOVE FROM COMMENTS IF ITS ALREADY IN
+					for (let i = 0; i < comments.length; i++) {
+						if (comments[i].includes('AMARRA'))	{
+							comments.splice(i, 1);
+							break;
+						}
+					}
+
+					checkbox.checked = false;
+				}
+
+				//ADD AMARRA
+				else {
+					comments.push('1 x AMARRA');
+					checkbox.checked = true;
+				}	
+
+			}
+
+			//FOR TRASLADO
+			else {
+
+				//REMOVE TRASLADO
+				if (checkbox.checked) {
+
+					//REMOVE FROM COMMENTS ARRAY
+					for (let i = 0; i < comments.length; i++) {
+						if (comments[i].includes('CARGA DE BINS')) {
+							comments.splice(i, 1);
+							break;
+						}
+					}
+					checkbox.checked = false;
+				}
+
+				//ADD TRASLADO NO CONSTITUYE VENTA
+				else {
+					comments.push('1 x CARGA DE BINS');
+					checkbox.checked = true;
+				}
+
+			}
+
+			console.log(comments)
+
+			modal.querySelector('textarea').value = comments.join('\n');
+			modal.querySelector('textarea').focus();
+		});
+	})
+
+	modal.querySelector('button.red').addEventListener('click', async () => {
+
+		const close_btn = document.querySelector('.content-container.active .create-document__details-container + .close-btn-absolute');
+
+		await fade_out(modal);
+		modal.remove();
+		fade_in(close_btn);
+		close_btn.classList.remove('hidden');
+	})
+
+	modal.querySelector('button.green').addEventListener('click', async () => {
+
+		try {
+
+			const comments = sanitize(modal.querySelector('textarea').value);
+			await document_object.update_comments(comments);
+
+			document_object.comments = modal.querySelector('textarea').value;
+			document.querySelector('.content-container.active .create-document__body__document-comments p').innerText = 'OBSERVACIONES DOC -> ' + document_object.comments.split('\n').join(' - ');
+			modal.querySelector('button.red').click();
+	
+		} catch(error) { error_handler('No se pudieron guardar las notas del documento.', error) }
+	})
+
+	if (document_object.comments !== null) {
+		if (document_object.comments.includes('ID:')) modal.querySelector('input[data-comment="csg"]').checked = true;
+		if (document_object.comments.includes('TRASLADO DE MATERIAL PROPIO')) modal.querySelector('input[data-comment="traslado"]').checked = true; 	
+	}
+
+	document.querySelector('.content-container.active .create-document__details-container').parentElement.appendChild(modal);
+
+	fade_in_animation(modal);
+	modal.classList.remove('hidden');
+}
+
 /****************** TARE CONTAINERS FUNCTIONS ******************/
 let watch_tare_containers; //FOR WATCHING TARE CONTAINER CHANGES AFTER KILOS BREAKDOWN HAS BEEN DONE
+
+//RETURNS ARRAY FROM THE SUM OF ALL DOCUMENTS
+function sum_document_containers() {
+	const containers = [];
+	for (let doc of weight_object.documents) {
+		for (let row of doc.rows) {
+
+			let index;
+
+			//IF CONTAINER ALREADY IN CONTAINERS ARRAY THEN GET INDEX
+			for (let i = 0; i < containers.length; i++) {
+
+				if (containers[i].code !== row.container.code) continue;
+				index = i;
+				break;
+
+			}
+
+			//CONTAINER WASN'T FOUND IN CONTAINERS ARRAY SO IT GETS PUSHED TO ARRAY
+			if (index === undefined) {
+				index = containers.length;
+				containers.push({
+					code: row.container.code,
+					amount: 0,
+					name: row.container.name,
+					weight: row.container.weight
+				});
+			}
+
+			containers[index].amount += 1 * row.container.amount;
+		}
+	}
+	return containers;
+}
 
 async function tare_containers_widget(modal) {
 
@@ -7553,14 +7932,126 @@ async function tare_containers_widget(modal) {
 				table.appendChild(tr);
 			}
 
-			modal.querySelector('.create-document__footer__total-containers p').innerText = thousand_separator(total_containers);
+			modal.querySelector('.create-document__footer__tare-containers p').innerText = thousand_separator(total_containers);
 		}
 
-		
+		//SUM DOCUMENT CONTAINERS
+		const containers = sum_document_containers();
+
+		let total_doc_containers = 0;
+		for (let container of containers) {
+			console.log(container.amount);
+			total_doc_containers += parseInt(container.amount);
+		}
+
+		console.log(total_doc_containers);
+
+		modal.querySelector('.create-document__footer__doc-containers .widget-data:last-child p').innerText = thousand_separator(total_doc_containers);
+		modal.querySelector('.create-document__footer__doc-containers').addEventListener('click', async () => {
+
+			try {
+
+				const 
+				containers = sum_document_containers(),
+				save_tare_containers = await fetch('/tare_containers_copy_from_documents', {
+					method: 'POST',
+					headers: {
+						"Content-Type" : "application/json",
+						"Authorization" : token.value
+					},
+					body: JSON.stringify({ weight_id: weight_object.frozen.id, containers })
+				}),
+				response = await save_tare_containers.json();
+
+				console.log(response);
+
+				if (response.error !== undefined) throw response.error;
+				if (!response.success) throw 'Success response from server is false.';
+
+				const table_body = modal.querySelector('#weight__tare-containers__add-table .table-body tbody');
+
+				//DELETE ROWS FROM TABLE
+				table_body.querySelectorAll('tr').forEach(tr => tr.remove());
+
+				//REMOVE TARE CONTAINERS FROM WEIGHT OBJECT
+				weight_object.tare_containers = [];
+
+				let line_number = table_body.children.length;
+
+				for (let container of response.containers) {
+
+					//CREATE TABLE ROW
+					const tr = document.createElement('tr');
+					tr.setAttribute('data-row-id', parseInt(container.id));
+					tr.innerHTML = `
+						<td class="line-number">${parseInt(line_number + 1)}</td>
+						<td class="delete">
+							<i class="fal fa-times-circle"></i>
+						</td>
+						<td class="code saved">
+							<div class="input-container">
+								<input type="text" class="input-effect">
+								<span class="focus-border"></span>
+							</div>
+						</td>
+						<td class="description saved">
+							<div class="input-container">
+								<input type="text" class="input-effect">
+								<span class="focus-border"></span>
+								<ul></ul>
+							</div>
+						</td>
+						<td class="weight saved">
+							<div class="input-container">
+								<input type="text" class="input-effect">
+								<span class="focus-border"></span>
+							</div>
+						</td>
+						<td class="amount saved">
+							<div class="input-container">
+								<input type="text" class="input-effect">
+								<span class="focus-border"></span>
+							</div>
+						</td>
+					`;
+
+					tr.querySelector('.code input').value = sanitize(container.code);
+					tr.querySelector('.description input').value = sanitize(container.name);
+					tr.querySelector('.weight input').value = parseInt(container.weight);
+					tr.querySelector('.amount input').value = parseInt(container.amount);
+
+					//EVENT LISTENERS FOR INPUTS
+					tr.querySelector('.delete').addEventListener('click', add_containers_delete_row);
+					tr.querySelector('.code input').addEventListener('keydown', add_containers_set_code);
+					tr.querySelector('.description input').addEventListener('input', add_containers_search_by_name);
+					tr.querySelector('.weight input').addEventListener('keydown', add_containers_update_weight);
+					tr.querySelector('.amount input').addEventListener('keydown', add_containers_update_amount);
+
+					table_body.appendChild(tr);
+
+					//UPDATE WEIGHT_OBJECT
+					weight_object.tare_containers.push({
+						amount: container.amount,
+						code: sanitize(container.code),
+						id: parseInt(container.id),
+						name: sanitize(container.name),
+						saved: true,
+						weight: parseInt(container.weight)
+					});
+
+					line_number++;
+				}
+
+				modal.querySelector('.create-document__footer__tare-containers .widget-data:last-child p').innerText = thousand_separator(response.totals.container_amount);
+				weight_object.tare_weight.containers_weight = parseInt(response.totals.container_weight);
+
+			} catch(e) { error_handler('No se pudo sumar los contenedores de los documentos') }
+		});
 
 		modal.querySelector('#weight__tare-containers__accept-btn').addEventListener('click', add_containers_accept_btn);
 		modal.querySelector('#weight__tare-containers__close').addEventListener('click', add_containers_accept_btn);
 
+		modal.querySelector('#weight__tare-containers__add').setAttribute('data-weight-cycle', weight_object.cycle.id);
 
 		//WATCH FOR CHANGES IF KILOS BREAKDOWN HAS BEEN DONE
 		if (weight_object.kilos_breakdown) {
@@ -7685,7 +8176,6 @@ function add_containers_create_new_line() {
 async function add_containers_delete_row() {
 
 	if (clicked) return;
-	prevent_double_click();
 
 	const
 	tr = this.parentElement,
@@ -7701,7 +8191,7 @@ async function add_containers_delete_row() {
 				"Content-Type" : "application/json",
 				"Authorization" : token.value 
 			}, 
-			body: JSON.stringify({ row_id, first_row })
+			body: JSON.stringify({ weight_id: weight_object.frozen.id, row_id, first_row })
 		}),
 		response = await delete_row.json();
 
@@ -7743,7 +8233,7 @@ async function add_containers_delete_row() {
 			total_containers += 1 * container.amount;
 		})
 
-		document.querySelector('#weight__tare-containers__add .create-document__footer__total-containers p').innerText = thousand_separator(total_containers);
+		document.querySelector('#weight__tare-containers__add .create-document__footer__tare-containers p').innerText = thousand_separator(total_containers);
 
 	} catch(error) { error_handler('Error al eliminar fila con envases vacíos.', error) }
 }
@@ -7783,7 +8273,7 @@ async function add_containers_set_code(e) {
 				"Content-Type" : "application/json",
 				"Authorization" : token.value 
 			}, 
-			body: JSON.stringify({ row_id, code })
+			body: JSON.stringify({ weight_id: weight_object.frozen.id, row_id, code })
 		}),
 		response = await update_code.json();
 
@@ -7861,7 +8351,7 @@ async function add_containers_search_by_name(e) {
 function add_containers_select_container_from_li() {
 
 	if (clicked) return;
-	prevent_double_click();
+	
 
 	const
 	li = this,
@@ -7901,7 +8391,7 @@ async function add_containers_update_weight(e) {
 				"Content-Type" : "application/json",
 				"Authorization" : token.value 
 			}, 
-			body: JSON.stringify({ row_id, weight })
+			body: JSON.stringify({ weight_id: weight_object.frozen.id, row_id, weight })
 		}),
 		response = await update_weight.json();
 
@@ -7943,7 +8433,7 @@ async function add_containers_update_amount(e) {
 					"Content-Type" : "application/json",
 					"Authorization" : token.value 
 				}, 
-				body: JSON.stringify({ row_id, amount })
+				body: JSON.stringify({ weight_id: weight_object.frozen.id, row_id, amount })
 			}),
 			response = await update_amount.json();
 	
@@ -7963,7 +8453,7 @@ async function add_containers_update_amount(e) {
 				total_containers += 1 * container.amount
 			});
 
-			document.querySelector('.content-container.active .create-document__footer__total-containers p').innerText = total_containers;
+			document.querySelector('.content-container.active .create-document__footer__tare-containers p').innerText = total_containers;
 
 			if (weight_object.kilos_breakdown) await change_kilos_breakdown_status();
 				
@@ -8007,6 +8497,7 @@ function create_tare_containers_body_row() {
 			tr.querySelector('.description').innerText = tare_containers[i].name;
 			tr.querySelector('.weight').innerText = tare_containers[i].weight + ' KG';
 			tr.querySelector('.amount').innerText = tare_containers[i].amount = thousand_separator(1 * tare_containers[i].amount);
+			tr.querySelector('.total').innerText = (tare_containers[i].amount * tare_containers[i].weight) + 'KG';
 
 		} else {
 
@@ -8017,16 +8508,18 @@ function create_tare_containers_body_row() {
 				code = (tare_containers[i].code === null) ? '' : tare_containers[i].code,
 				name = (tare_containers[i].name === null) ? '' : tare_containers[i].name,
 				weight = (tare_containers[i].weight === null) ? '' : tare_containers[i].weight + ' KG',
-				amount = (tare_containers[i].amount === null) ? '' : thousand_separator(tare_containers[i].amount);
+				amount = (tare_containers[i].amount === null) ? '' : thousand_separator(tare_containers[i].amount),
+				total = tare_containers[i].weight * tare_containers[i].amount * 1;
 
 				tr.setAttribute('data-row-id', tare_containers[i].id);
 				tr.innerHTML = `
 					<td class="line-number">${i + 1}</td>
 					<td class="delete"><i class="fas fa-times-circle"></i></td>
-					<td class="code">${code}</td>
-					<td class="description">${name}</td>
-					<td class="weight">${weight}</td>
+					<td class="code">${sanitize(code)}</td>
+					<td class="description">${sanitize(name)}</td>
 					<td class="amount">${amount}</td>
+					<td class="weight">${weight}</td>
+					<td class="total">${total} KG</td>
 				`;
 
 				table.appendChild(tr);
@@ -8040,7 +8533,6 @@ function create_tare_containers_body_row() {
 async function add_containers_accept_btn() {
 
 	if (clicked) return;
-	prevent_double_click();
 
 	const weight_id = weight_object.frozen.id;
 
@@ -8133,6 +8625,9 @@ async function tare_containers_delete(e) {
 		return;
 	}
 
+	if (animating) return;
+	animating = true;
+
 	const
 	tr = e.target.parentElement.parentElement,
 	row_id = sanitize(tr.getAttribute('data-row-id')),
@@ -8147,7 +8642,7 @@ async function tare_containers_delete(e) {
 				"Content-Type" : "application/json",
 				"Authorization" : token.value 
 			}, 
-			body: JSON.stringify({ row_id, first_row })
+			body: JSON.stringify({ weight_id: weight_object.frozen.id, row_id, first_row })
 		}),
 		response = await delete_row.json();
 
@@ -8170,13 +8665,14 @@ async function tare_containers_delete(e) {
 		const rows = document.querySelectorAll('#weight__empty-containers-table tbody .line-number');
 		for (let i = 0; i < rows.length; i++) { rows[i].innerText = i + 1 }
 
-	} catch(error) { error_handler('Error al eliminar fila con envases vacíos.', error) }
+	}
+	catch(error) { error_handler('Error al eliminar fila con envases vacíos.', error) }
+	finally { animating = false }
 }
 
 async function annul_weight_widget() {
 	
 	if (clicked) return;
-	prevent_double_click();
 
 	if (document.getElementById('message-section').classList.contains('active')) return;
 
@@ -8209,14 +8705,15 @@ async function annul_weight_widget() {
 
 	document.querySelector('#annul-weight__accept-btn').addEventListener('click', () => {
 		if (clicked) return;
-		prevent_double_click();
+		
 		annul_weight();
 	});
 
-	document.querySelector('#annul-weight__back-btn').addEventListener('click', async () => {
+	document.querySelector('#annul-weight__back-btn').addEventListener('click', async function() {
+		if (btn_double_clicked(this)) return;
 		document.getElementById('message-section').classList.remove('active');
 		await delay(500);
-		document.getElementById('message-annul-weight').remove();
+		document.getElementById('message-container').innerHTML = '';
 	});
 
 	document.getElementById('message-section').classList.add('active', 'centered');
@@ -8226,8 +8723,9 @@ async function annul_weight_widget() {
 async function annul_weight() {
 
 	try {
+
 		const
-		weight_id = sanitize(weight_object.frozen.id),
+		weight_id = parseInt(weight_object.frozen.id),
 		delete_weight = await fetch('/annul_weight', {
 			method: 'POST', 
 			headers: { 
@@ -8246,7 +8744,7 @@ async function annul_weight() {
 		await remove_weight_from_weights_array();
 		weight_object = null;
 
-		socket.emit('weight status changed', weight_id);
+		socket.emit('weight status changed', { weight_id, user_id: jwt_decode(token.value).userId });
 
 		document.querySelectorAll('#pending-weights-table tbody tr').forEach(tr => { tr.remove() });
 		create_pending_weights_tr(response.pending_weights);
@@ -8256,10 +8754,12 @@ async function annul_weight() {
 		document.getElementById('create-weight-step-2').remove();
 		//document.getElementById('message-container').firstElementChild.remove();
 		
-
 		while (document.getElementById('weight__breadcrumb').children.length > 1) { document.getElementById('weight__breadcrumb').lastElementChild.remove() }
 
 		document.getElementById('create-weight-step-1').classList.remove('hidden');
+
+		document.querySelector('#annul-weight__back-btn').click();
+
 
 	} catch(error) { error_handler('Error al eliminar pesaje', error) }
 }
@@ -8267,7 +8767,7 @@ async function annul_weight() {
 async function finalize_weight_widget() {
 	
 	if (clicked) return;
-	prevent_double_click();
+	
 
 	if (weight_object.documents.length > 0) {
 
@@ -8758,7 +9258,7 @@ async function upload_kilos_breakdown() {
 		fade_in(tooltip);
 		tooltip.classList.remove('hidden');
 
-		await delay(5000)
+		await delay(5000);
 
 		await fade_out(tooltip);
 		tooltip.classList.add('hidden');
@@ -8766,7 +9266,7 @@ async function upload_kilos_breakdown() {
 		return;
 	}
 
-	const weight_id = weight_object.frozen.id;
+	const weight_id = parseInt(weight_object.frozen.id);
 	try {
 		
 		const 
@@ -8783,6 +9283,8 @@ async function upload_kilos_breakdown() {
 		if (response.error !== undefined) throw response.error;
 		if (!response.success) throw 'Success response from server is false.';
 
+		console.log(response)
+
 		weight_object.kilos.informed = response.informed_kilos;
 		weight_object.kilos.internal = response.kilos;
 
@@ -8797,6 +9299,7 @@ async function upload_kilos_breakdown() {
 		});
 		weight_object.kilos_breakdown = true;
 
+		//GET OUT IN WEIGHT MODULE AFTER WEIGHING TRUCK
 		if (!!document.querySelector('#create-weight-step-2')) {
 
 			weight_object.documents.forEach(doc => {
@@ -8807,26 +9310,30 @@ async function upload_kilos_breakdown() {
 
 		}
 
+		//GET OUT IN FINISHED WEIGHTS
 		else if (!!document.querySelector('.content-container.active .finished-weight__modal-container')) {
 
 			if (document.querySelector('.content-container.active .finished-weight__modal-container .widget-tooltip').classList.contains('red')) {
+
 				document.querySelector('.content-container.active .finished-weight__modal-container .widget-tooltip').classList.remove('red');
 				document.querySelector('.content-container.active .finished-weight__modal-container .widget-tooltip span').innerText = 'DESGLOCE DE KILOS';
 			}
 		}
 
-		close_kilos_breakdown();
+		document.getElementById('close-kilos-breakdown-container').click();
 		await delay(750);
 	
-		if (!!document.querySelector('#create-weight-step-2')) print_weight_message();
+		if (!!document.querySelector('#create-weight-step-2')) {
+			if (weight_object.cycle.id === 3) finalize_weight_message();
+			else print_weight_message();
+		}
 		
 	} catch(error) { error_handler('Error al guardar datos de desgloce.', error) }	
 }
 
 async function close_kilos_breakdown() {
  
-	if (clicked) return;
-	prevent_double_click();
+	if (btn_double_clicked(this)) return;
 
 	let modal, close_btn;
 
@@ -8837,18 +9344,23 @@ async function close_kilos_breakdown() {
 		await delay(550);
 		
 		modal = document.getElementById('create-weight__modal');
+		modal.firstElementChild.remove();
 	}
 
 	//EXITING ON FINISHED WEIGHTS
 	else if (!!document.querySelector('.content-container.active .finished-weight__modal-container')) {
 
-		weight_object.documents.forEach(doc => {
-			doc.rows.forEach(row => {
-				const tr = document.querySelector(`.content-container.active .finished-weight__modal__documents-container tr[data-row-id="${row.id}"]`);
-				tr.querySelector('.kilos').innerText = (row.product.kilos === null) ? '-' :  thousand_separator(row.product.kilos) + ' KG';
-				tr.querySelector('.kilos-informed').innerText = (row.product.informed_kilos === null) ? '-' : thousand_separator(row.product.informed_kilos) + ' KG';
-			})
-		})
+		modal = document.querySelector('.content-container.active .finished-weight__modal');
+
+		//CHECK ACTIVE VIEW 2 IS ACTIVE
+		if (!!document.querySelector('.content-container.active .finished-weight__modal__documents-container[data-view="2"]'))
+			await finished_weights_create_document_rows(2, modal);
+		
+		//DO 2ND VIEW -> COLLAPSED PRODUCTS
+		else {
+			document.querySelector('.content-container.active .finished-weight__modal__documents-container').removeAttribute('data-view');
+			await finished_weights_create_document_rows(1, modal);
+		}
 
 		document.getElementById('finished-weight__documents_modal').classList.remove('active');
 		document.querySelector('.content-container.active .finished-weight__modal-container').classList.add('active');
@@ -8901,7 +9413,7 @@ async function print_weight_message() {
 		document.querySelector('#print-weight__back-btn').click();
 
 		await delay(600);
-		finalize_weight_message()
+		finalize_weight_message();
 
 	});
 
@@ -8962,7 +9474,7 @@ async function finalize_weight() {
 
 	if (btn_double_clicked(this)) return;
 
-	const weight_id = sanitize(weight_object.frozen.id);
+	const weight_id = parseInt(weight_object.frozen.id);
 
 	try {
 
@@ -8980,11 +9492,11 @@ async function finalize_weight() {
 		if (response.error !== undefined) throw response.error;
 		if (!response.success) throw 'Success response from server is false.';
 
-		socket.emit('weight status changed', weight_id);
+		socket.emit('weight status changed', { weight_id, user_id: jwt_decode(token.value).userId });
 
 		document.getElementById('message-section').classList.remove('active');
 
-		document.querySelectorAll('#pending-weights-table tbody tr').forEach(tr => { tr.remove() });
+		document.querySelectorAll('#pending-weights-table tbody tr').forEach(tr => tr.remove() );
 
 		create_pending_weights_tr(response.pending_weights);
 		
@@ -8998,9 +9510,6 @@ async function finalize_weight() {
 }
 
 async function save_weight_widget() {
-	
-	if (clicked) return;
-	prevent_double_click();
 
 	await remove_weight_from_weights_array();
 	weight_object = null;

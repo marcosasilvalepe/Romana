@@ -8,6 +8,23 @@
     <div id="finished-weight__filters">
 
         <div class="finished-weight__filter">
+            <div class="select-effect has-content">
+                <p>TODOS</p>
+                <select id="finished-weight__cycle-select">
+                    <option value="" hidden=""></option>
+                    <option selected="" value="All">TODOS</option>
+                    <option value="1">RECEPCION</option>
+                    <option value="2">DESPACHO</option>
+                    <option value="3">INTERNO</option>
+                    <option value="4">SERVICIO</option>
+                </select>
+                <i class="far fa-chevron-down"></i>
+                <label>CICLO</label>
+                <span class="focus-border"></span>
+            </div>
+        </div>
+
+        <div class="finished-weight__filter">
             <input id="finished-weight__start-date" type="date" class="input-effect has-content">
             <label>FECHA INICIAL</label>
             <span class="focus-border"></span>
@@ -37,28 +54,10 @@
             <span class="focus-border"></span>
         </div>
 
-        <div class="finished-weight__filter">
-
-            <div class="select-effect has-content">
-                <p>TODOS</p>
-                <select id="finished-weight__cycle-select">
-                    <option value="" hidden=""></option>
-                    <option selected="" value="All">TODOS</option>
-                    <option value="1">RECEPCION</option>
-                    <option value="2">DESPACHO</option>
-                    <option value="3">INTERNO</option>
-                    <option value="4">SERVICIO</option>
-                </select>
-                <i class="far fa-chevron-down"></i>
-                <label>CICLO</label>
-                <span class="focus-border"></span>
-            </div>
-            
-        </div>
-
     </div>
     
     <div id="finished-weight__table">
+
         <div class="table-head">
             <table>
                 <thead>
@@ -116,11 +115,19 @@
                 </thead>
             </table>
         </div>
+        
         <div class="table-body">
             <table>
                 <tbody></tbody>
             </table>
-        </div>						
+        </div>
+        
+        
     </div>
 </div>
 
+<div class="close-btn-absolute">
+    <div>
+        <i class="fas fa-times"></i>
+    </div>
+</div>

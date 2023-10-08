@@ -16,6 +16,11 @@ mysql_procedures_rut.txt
 qz-tray.exe
 test.jpg
 vpn
+scripts
+config
+online_db
 *.txt
 *.pdf
 *.xlsx
+*.zip
+*.php

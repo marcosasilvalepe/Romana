@@ -1,0 +1,61 @@
+;
+; Copyright (c) 2009 Oki Data Corporation
+;
+; OKI MICROLINE SIDM PRINTER
+;	Windows7/Server2008 R2 Printer Driver Installation Infomation File
+;
+
+[Version]
+Signature="$Windows NT$"
+Provider=%PROV%
+ClassGUID={4D36E979-E325-11CE-BFC1-08002BE10318}
+Class=Printer
+DriverVer=09/07/2009,01.15.00
+CatalogFile=3201TA64.cat
+
+;
+; Manufacturer section.
+;
+; This section lists all of the manufacturers
+; that we will display in the Dialog box
+;
+
+[Manufacturer]
+%OKIDATA% = OKIDATA, NTamd64
+
+;
+; Model Specifications Section
+;
+
+[OKIDATA.NTamd64]
+"OKIDATA ML320_1 TURBO"		= 3201TA.GPD,LPTENUM\OKI_DATA_CORPML320/19846,OKI_DATA_CORPML320/19846,OKIDATA_ML320_1_TURBO
+;
+; Installer section(s) referenced above.
+;
+
+
+[3201TA.GPD]
+CopyFiles=@3201TA.Dll,@3201TA.GPD,@3201TVA.GPD
+DataSection=UNIDRV_DATA
+DataFile=3201TA.GPD
+Include=NTPRINT.INF
+Needs=UNIDRV.OEM
+
+
+[DestinationDirs]
+DefaultDestDir=66000
+
+[SourceDisksNames.amd64]
+1 = %disk1%,,,
+
+[SourceDisksFiles.amd64]
+3201TA.Dll = 1
+3201TA.GPD = 1
+3201TVA.GPD = 1
+
+[Strings]
+PrinterClassName="Printers"
+PROV="OKIDATA"
+OKIDATA="OKIDATA"
+disk1="OKI MICROLINE Printer Driver Setup Disk"
+

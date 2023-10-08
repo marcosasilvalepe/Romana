@@ -1,7 +1,7 @@
 "use strict";
 
 const mysql = require('mysql');
-/*
+
 const conn = mysql.createConnection({ 
     host: "192.168.1.90",
     port: 3306,
@@ -9,14 +9,16 @@ const conn = mysql.createConnection({
     password: "m1Ks3DVIAS28h7dt", 
     database: "romana" 
 });
-*/
+
+/*
 const conn = mysql.createConnection({ 
-    host: "localhost",
+    host: "172.25.80.141",
     port: 3306,
-    user: "root", 
-    password: "", 
+    user: "marcos", 
+    password: "M@r$l1985_:)", 
     database: "romana" 
 });
+*/
 
 const get_docs = () => {
     return new Promise((resolve, reject) => {
@@ -70,10 +72,10 @@ const get_docs = () => {
     })
 }
 
-const change_doc_status = doc_id => {
+const change_doc_status_to_sale = doc_id => {
     return new Promise((resolve, reject) => {
         conn.query(`
-            UPDATE documents_header SET type=1 WHERE id=${doc_id};
+            UPDATE documents_header SET type=2 WHERE id=${doc_id};
         `, (error, results, fields) => {
             if (error) return reject(error);
             return resolve();
@@ -100,7 +102,7 @@ const change_doc_status = doc_id => {
                 }
             }
     
-            if (constitutes_sale) await change_doc_status(doc.id);
+            if (constitutes_sale) await change_doc_status_to_sale(doc.id);
     
         }
 

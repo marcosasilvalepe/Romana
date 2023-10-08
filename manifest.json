@@ -1,10 +1,12 @@
 {
-    "name": "Comercial Lepefer Ltda.",
-    "short_name": "Lepefer",
-    "start_url": "/",
+    "name": "Sociedad Comercial Transporte y Otros Lepefer y Cía. Ltda.",
+    "sort_name": "Comercial Lepefer",
+    "start_url": "https://192.168.1.90:3000",
     "display": "standalone",
     "background_color": "#100a1c",
-    "theme_color": "#db4938",
+    "scope": "/",
+    "description": "ERP Lepefer",
+    "theme_color": "#cccccc",
     "orientation": "portrait-primary",
     "lang": "es",
     "icons": [

@@ -1,11 +1,25 @@
 "use strict";
 
+//TO PREVENT DOUBLE CLICK
+let clicked = false;
+let animating = false;
+
+function prevent_double_click() {
+	clicked = true;
+	setTimeout(() => { clicked = false }, 300);
+}
+
+document.body.addEventListener('click', () => {
+	if (clicked) return;
+	prevent_double_click();
+})
+
 /********** ERROR HANDLER STUFF **********/
 async function error_handler(custom_msg, msg) {
 
 	document.activeElement.blur();
 	
-	console.error(msg);
+	console.log(msg);
 	if (typeof msg === 'object') {
 		if (msg === null) msg = 'msg is null';
 		else if (msg.sqlMessage !== undefined) msg = msg.sqlMessage;
@@ -141,7 +155,7 @@ function validate_rut(rut) {
 }
 
 /*** WAIT DELAY FUNCTION ***/
-function delay(delayValue) { return new Promise(resolve => setTimeout(resolve, delayValue)); }
+function delay(delayValue) { return new Promise(resolve => setTimeout(resolve, delayValue)) }
 
 /*** NUMBER FORMATER ***/
 function thousand_separator(num) { 
@@ -238,20 +252,12 @@ function custom_input_change() {
 	else if (!el.classList.contains('has-content') && el.value.length > 0) el.classList.toggle('has-content');
 }
 
-//TO PREVENT DOUBLE CLICK
-let clicked = false; 
-function prevent_double_click() {
-	clicked = true;
-	setTimeout(() => { clicked = false }, 200);
-}
-
 function btn_double_clicked(btn) {
+
 	if (btn.classList.contains('clicked')) return true;
 	
 	btn.classList.add('clicked');
-	setTimeout(() => {
-		btn.classList.remove('clicked');
-	}, 200);
+	setTimeout(() => btn.classList.remove('clicked'), 200);
 	return false;
 }
 
@@ -336,4 +342,26 @@ function text_input_to_number(e) {
     e.target.value = thousand_separator(doc_number);
 }
 
-let animating = false;
+function puppeteer_progress_circle(e) {
+	const 
+	input = e.target,
+	circle = input.parentElement.querySelector('svg circle:last-child'),
+	val = parseInt(input.value);
+
+	if (isNaN(val)) val = 100;
+	else {
+
+		const r = circle.getAttribute('r');
+		const c = Math.PI * (r * 2);
+	
+		if (val < 0) val = 0;
+		else if (val > 100) val = 100;
+	
+		const pct = ((100 - val) / 100) * c;
+
+		circle.style.strokeDashoffset = pct;
+	
+	}
+
+	input.previousElementSibling.setAttribute('data-pct', val);
+}

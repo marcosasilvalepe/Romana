@@ -3,7 +3,7 @@ const products_router = express.Router();
 const conn = require('../config/db');
 const sharp = require('sharp');
 
-const { userMiddleware, error_handler } = require('./routes_functions');
+const { todays_date, userMiddleware, error_handler } = require('./routes_functions');
 
 /********************** PRODUCTS *********************/
 products_router.post('/get_products', userMiddleware.isLoggedIn, async (req, res) => {

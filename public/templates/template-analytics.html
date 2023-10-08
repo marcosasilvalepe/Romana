@@ -38,7 +38,7 @@
         
         </div>
 
-        <div class="card small green">
+        <div id="analytics__drivers-reports-btn" class="card small green">
 
             <h4 class="new-weight-header">INFORMES CHOFERES</h4>
             <div class="new-weight-icon green">
@@ -94,5 +94,216 @@
 
         </div>
 
+    </div>
+
+    <div id="analytics__drivers-table" class="hidden">
+
+        <div class="header">
+
+        </div>
+
+        <div class="body">
+            <div id="analytics__drivers-table__filters">
+
+                <div class="select-effect has-content">
+                    <p>INTERNO</p>
+                    <select id="analytics__drivers-filters__type">
+                        <option value="" hidden=""></option>
+                        <option value="All">TODOS</option>
+                        <option selected value="1">INTERNO</option>
+                        <option value="2">EXTERNO</option>
+                    </select>
+                    <i class="far fa-chevron-down"></i>
+                    <label>TIPO</label>
+                    <span class="focus-border"></span>
+                </div>
+
+                <div class="select-effect has-content">
+                    <p>ACTIVO</p>
+                    <select id="analytics__drivers-filters__active">
+                        <option value="" hidden=""></option>
+                        <option value="All">TODOS</option>
+                        <option selected value="1">ACTIVO</option>
+                        <option value="2">INACTIVO</option>
+                    </select>
+                    <i class="far fa-chevron-down"></i>
+                    <label>ACTIVOS</label>
+                    <span class="focus-border"></span>
+                </div>
+
+                <div>
+                    <input id="analytics__drivers-filters__start-date" type="date" class="input-effect has-content">
+                    <label>FECHA INICIAL</label>
+                    <span class="focus-border"></span>
+                </div>
+
+                <div>
+                    <input id="analytics__drivers-filters__end-date" type="date" class="input-effect has-content">
+                    <label>FECHA FINAL</label>
+                    <span class="focus-border"></span>							
+                </div>
+
+                <div class="select-effect has-content">
+                    <p>RECEPCION</p>
+                    <select id="analytics__drivers-filters__cycle">
+                        <option value="" hidden=""></option>
+                        <option value="All">TODOS</option>
+                        <option value="1" selected>RECEPCION</option>
+                        <option value="2">DESPACHO</option>
+                    </select>
+                    <i class="far fa-chevron-down"></i>
+                    <label>CICLO</label>
+                    <span class="focus-border"></span>
+                </div>
+
+            </div>
+            <div id="analytics__drivers-table__table-container">
+
+                <div class="table-header">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th class="name selected">
+                                    <div>
+                                        <i class="fas fa-chevron-down"></i>
+                                        <span>NOMBRE</span>
+                                    </div>    
+                                </th>
+                                <th class="rut">
+                                    <div>
+                                        <i class="fas fa-chevron-down"></i>
+                                        <span>RUT</span>
+                                    </div>
+                                </th>
+                                <th class="phone">
+                                    <div>
+                                        <i class="fas fa-chevron-down"></i>
+                                        <span>TELEFONO</span>                                    
+                                    </div>
+                                </th>
+                                <th class="internal">
+                                    <div>
+                                        <i class="fas fa-chevron-down"></i>
+                                        <span>INTERNO</span>    
+                                    </div>
+                                </th>
+                                <th class="active">
+                                    <div>
+                                        <i class="fas fa-chevron-down"></i>
+                                        <span>ACTIVO</span>    
+                                    </div>
+                                </th>
+                                <th class="kilos">
+                                    <div>
+                                        <i class="fas fa-chevron-down"></i>
+                                        <span>TOTAL</span>    
+                                    </div>
+                                </th>
+                            </tr>
+                        </thead>
+                    </table>
+                </div>
+                
+                <div class="table-body">
+                    <table>
+                        <tbody>
+                            <tr>
+                                <td class="name">Ramon Navarro</td>
+                                <td class="rut">9.367.447-2</td>
+                                <td class="phone">9 5689 1234</td>
+                                <td class="internal">
+                                    <div>
+                                        <i class="far fa-check"></i>
+                                    </div>
+                                </td>
+                                <td class="active">
+                                    <div>
+                                        <i class="far fa-check"></i>
+                                    </div>
+                                </td>
+                                <td class="total">87.456 KG</td>
+                            </tr>
+                            <tr>
+                                <td class="name">Ramon Navarro</td>
+                                <td class="rut">9.367.447-2</td>
+                                <td class="phone">9 5689 1234</td>
+                                <td class="internal">
+                                    <div>
+                                        <i class="far fa-check"></i>
+                                    </div>
+                                </td>
+                                <td class="active">
+                                    <div>
+                                        <i class="far fa-check"></i>
+                                    </div>
+                                </td>
+                                <td class="total">87.456 KG</td>
+                            </tr>
+                            <tr>
+                                <td class="name">Ramon Navarro</td>
+                                <td class="rut">9.367.447-2</td>
+                                <td class="phone">9 5689 1234</td>
+                                <td class="internal">
+                                    <div>
+                                        <i class="far fa-check"></i>
+                                    </div>
+                                </td>
+                                <td class="active">
+                                    <div>
+                                        <i class="far fa-check"></i>
+                                    </div>
+                                </td>
+                                <td class="total">87.456 KG</td>
+                            </tr>
+                            <tr>
+                                <td class="name">Ramon Navarro</td>
+                                <td class="rut">9.367.447-2</td>
+                                <td class="phone">9 5689 1234</td>
+                                <td class="internal">
+                                    <div>
+                                        <i class="far fa-check"></i>
+                                    </div>
+                                </td>
+                                <td class="active">
+                                    <div>
+                                        <i class="far fa-check"></i>
+                                    </div>
+                                </td>
+                                <td class="total">87.456 KG</td>
+                            </tr>
+                            <tr>
+                                <td class="name">Ramon Navarro</td>
+                                <td class="rut">9.367.447-2</td>
+                                <td class="phone">9 5689 1234</td>
+                                <td class="internal">
+                                    <div>
+                                        <i class="far fa-check"></i>
+                                    </div>
+                                </td>
+                                <td class="active">
+                                    <div>
+                                        <i class="far fa-check"></i>
+                                    </div>
+                                </td>
+                                <td class="total">87.456 KG</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="close-btn-absolute">
+                    <div>
+                        <i class="fas fa-times"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="footer">
+
+        </div>
+
+        
+        
     </div>
 </div>

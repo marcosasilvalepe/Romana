@@ -3,13 +3,12 @@
 const mysql = require('mysql');
 
 const conn = mysql.createConnection({ 
-    host: "localhost",
+    host: "192.168.1.90",
     port: 3306,
-    user: "root", 
-    password: "", 
+    user: "dte", 
+    password: "m1Ks3DVIAS28h7dt", 
     database: "romana" 
 });
-    
 
 const excel = require('exceljs');
 

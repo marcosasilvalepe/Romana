@@ -199,9 +199,9 @@ function print_with_dot_matrix(config, weight) {
             difference = 'Diferencia     ';
     
             let
-            corrected_net_value = thousand_separator(weight.final_net_weight),
-            informed_net_value = thousand_separator(weight.kilos.informed),
-            difference_value = thousand_separator(weight.final_net_weight - weight.kilos.informed);
+            corrected_net_value = thousand_separator(parseInt(weight.final_net_weight)),
+            informed_net_value = thousand_separator(parseInt(weight.kilos.informed)),
+            difference_value = thousand_separator(parseInt(weight.final_net_weight - weight.kilos.informed));
             
             //PRINT SPACES
             while (corrected_net_value.length < 6) { corrected_net_value = ' ' + corrected_net_value }
@@ -327,199 +327,210 @@ function print_with_browser(weight) {
                 document.getElementById('documents-body__header').remove();
             }
 
-            weight.documents.forEach(doc => {
-                doc.rows.forEach(row => {
+            //CLASSIC VIEW OF WEIGHT TICKET
+            if (jwt_decode(token.value).weightView === 1) {
+                weight.documents.forEach(doc => {
+                    doc.rows.forEach(row => {
+                        
+                        const div = document.createElement('div');
+                        div.innerHTML = `
+                            <div class="documents-body__first-column">
+                                <div></div>
+                                <div></div>
+                            </div>
                     
-                    const div = document.createElement('div');
-                    div.innerHTML = `
-                        <div class="documents-body__first-column">
-                            <div></div>
-                            <div></div>
-                        </div>
+                            <div class="documents-body__second-column">
+                                <div></div>
+                                <div></div>
+                            </div>
+                    
+                            <div class="documents-body__third-column">
+                                <div></div>
+                                <div></div>
+                            </div>
                 
-                        <div class="documents-body__second-column">
-                            <div></div>
-                            <div></div>
+                            <div class="documents-body__fourth-column">
+                                <div></div>
+                                <div></div>
+                            </div>
+                        `;
+    
+                        div.querySelector('.documents-body__first-column > div:first-child').innerText = (doc.number === null) ? '' : 'GDD' + doc.number;
+                        
+                        div.querySelector('.documents-body__second-column > div:first-child').innerText = (doc.client.entity.id === null) ? '' : reduce_string_length(doc.client.entity.name, 21).toUpperCase();
+                        div.querySelector('.documents-body__second-column > div:last-child').innerText = (doc.client.branch.id === null) ? '' : reduce_string_length(doc.client.branch.name, 21).toUpperCase();
+                        
+                        div.querySelector('.documents-body__third-column > div:first-child').innerText = (row.product.name === null) ? '' : reduce_string_length(row.product.name, 32);
+                        div.querySelector('.documents-body__third-column > div:last-child').innerText = (row.container.name === null) ? '' : reduce_string_length(row.container.name, 32);
+    
+                        div.querySelector('.documents-body__fourth-column > div:first-child').innerText = (row.product.kilos === null) ? 0 : row.product.kilos;
+                        div.querySelector('.documents-body__fourth-column > div:last-child').innerText = (row.container.amount === null) ? 0 : row.container.amount;
+    
+                        document.getElementById('documents-body__body').appendChild(div);
+                    });
+                });
+            }
+
+            //ROWS COLLAPSED BY PRODUCT 
+            else {
+
+                console.log('inside')
+
+                document.querySelector('#documents-body').remove();
+                document.querySelector('#documents-alternate-view').classList.add('active');
+
+                for (let doc of weight.documents) {
+
+                    let origin_entity, origin_branch, destination_entity, destination_branch;
+                    if (weight.cycle.id === 1) {
+                        origin_entity = (doc.client.entity.name === null) ? '' : doc.client.entity.name;
+                        origin_branch = (doc.client.branch.name === null) ? '' : doc.client.branch.name;
+                        destination_entity = (doc.internal.entity.name === null) ? '' : doc.internal.entity.name;
+                        destination_branch = (doc.internal.branch.name === null) ? '' : doc.internal.branch.name;
+                    } else {
+                        origin_entity = (doc.internal.entity.name === null) ? '' : doc.internal.entity.name;
+                        origin_branch = (doc.internal.branch.name === null) ? '' : doc.internal.branch.name;
+                        destination_entity = (doc.client.entity.name === null) ? '' : doc.client.entity.name;
+                        destination_branch = (doc.client.branch.name === null) ? '' : doc.client.branch.name;
+                    }
+        
+                    const 
+                    doc_date = (doc.date === null) ? '-' : new Date(doc.date).toLocaleString('es-CL').split(' ')[0].replace(/[,]/gm, ''),
+                    doc_number = (doc.number === null) ? '-' : thousand_separator(doc.number);
+    
+                    //SUM ALL PRODUCTS
+                    const products = [];
+    
+                    for (let row of doc.rows) {
+    
+                        let product_in_array = false, index;
+                        
+                        let i = 0;
+                        for (let product of products) {
+                            if (row.product.code === product.code && row.product.cut === product.cut && row.product.price === product.price) {
+                                product_in_array = true;
+                                index = i;
+                            }
+                            i++;
+                        }
+    
+                        //PRODUCT WASN'T FOUND IN ARRAY SO IT GETS PUSHED
+                        if (!product_in_array) {
+                            index = products.length;
+                            products.push({
+                                code: row.product.code,
+                                containers: 0,
+                                cut: row.product.cut,
+                                informed_kilos: 0,
+                                kilos: 0,
+                                name: row.product.name,
+                                price: row.product.price
+                            });
+                        }
+    
+                        const product = products[index];
+                        product.kilos += row.product.kilos;
+                        product.informed_kilos += row.product.informed_kilos;
+                        product.containers += row.container.amount;
+    
+                    }
+    
+                    console.log(products)
+
+                    //CREATE DIVS
+                    const doc_container = document.createElement('div');
+                    doc_container.className = 'alternate-view-doc';
+                    doc_container.innerHTML = `
+                        <div class="alternate-view__header">
+                            <div class="doc-header">
+                                <div class="doc-date"><b>FECHA DOC:</b> ${doc_date}</div>
+                                <div class="doc-number"><b>Nº DOC:</b> ${doc_number}</div>
+                            </div>
+                            <div class="origin">
+                                <div class="entity"><b>ORIGEN:</b> ${origin_entity}</div>
+                                <div class="branch"><b>SUCURSAL:</b> ${origin_branch}</div>
+                            </div>
+                            <div class="destination">
+                                <div class="entity"><b>DESTINO:</b> ${destination_entity}</div>
+                                <div class="branch"><b>SUCURSAL:</b> ${destination_branch}</div>
+                            </div>
+                            <div class="comments">
+                                <p>${(doc.comments === null) ? '' : '<b>COMENTARIOS DOC:</b>' + sanitize(doc.comments.split('\n').join(' - '))}</p>
+                            </div>
                         </div>
-                
-                        <div class="documents-body__third-column">
-                            <div></div>
-                            <div></div>
-                        </div>
-            
-                        <div class="documents-body__fourth-column">
-                            <div></div>
-                            <div></div>
+
+                        <div class="alternate-view__body">
+                            <div>
+                                <div class="product">PRODUCTO</div>
+                                <div class="cut">DESCARTE</div>
+                                <div class="price">PRECIO</div>
+                                <div class="containers">ENVASES</div>
+                                <div class="kilos">KILOS</div>
+                                <div class="informed-kilos">KG. INF.</div>
+                                <div class="average">PROMEDIO</div>
+                                <div class="total">TOTAL</div>
+                            </div>
                         </div>
                     `;
 
-                    div.querySelector('.documents-body__first-column > div:first-child').innerText = (doc.number === null) ? '' : 'GDD' + doc.number;
-                    
-                    div.querySelector('.documents-body__second-column > div:first-child').innerText = (doc.client.entity.id === null) ? '' : reduce_string_length(doc.client.entity.name, 21).toUpperCase();
-                    div.querySelector('.documents-body__second-column > div:last-child').innerText = (doc.client.branch.id === null) ? '' : reduce_string_length(doc.client.branch.name, 21).toUpperCase();
-                    
-                    div.querySelector('.documents-body__third-column > div:first-child').innerText = (row.product.name === null) ? '' : reduce_string_length(row.product.name, 32);
-                    div.querySelector('.documents-body__third-column > div:last-child').innerText = (row.container.name === null) ? '' : reduce_string_length(row.container.name, 32);
+                    let
+                    line_counter = 0,
+                    total_doc_containers = 0,
+                    total_doc_kilos = 0,
+                    total_informed_kilos = 0,
+                    total_average = 0,
+                    doc_total = 0;
 
-                    div.querySelector('.documents-body__fourth-column > div:first-child').innerText = (row.product.kilos === null) ? 0 : row.product.kilos;
-                    div.querySelector('.documents-body__fourth-column > div:last-child').innerText = (row.container.amount === null) ? 0 : row.container.amount;
+                    for (let product of products) {
 
-                    document.getElementById('documents-body__body').appendChild(div);
-                });
-            });
+                        const row_div = document.createElement('div');
+                        row_div.innerHTML = `
+                            <div class="product">${(product.name === null) ? '-' : product.name}</div>
+                            <div class="cut">${(product.cut === null) ? '-' : product.cut}</div>
+                            <div class="price">${(product.price === null) ? '-' : `$${thousand_separator(product.price)}`}</div>
+                            <div class="containers">${thousand_separator(product.containers)}</div>
+                            <div class="kilos">${(product.kilos === 0) ? '-' : thousand_separator(product.kilos) + ' KG'}</div>
+                            <div class="informed-kilos">${(product.informed_kilos === 0) ? '-' : thousand_separator(product.informed_kilos) + ' KG'}</div>
+                            <div class="average">${(product.informed_kilos === 0) ? '-' : Math.floor((product.informed_kilos / product.containers) * 10) / 10}</div>
+                            <div class="total">${(product.informed_kilos === 0) ? '-' : '$' + thousand_separator(product.informed_kilos * product.price)}</div>
+                        `;
 
+                        //SUM TOTALS
+                        total_doc_containers += 1 * product.containers;
+                        total_doc_kilos += 1 * product.kilos;
+                        total_informed_kilos += 1 * product.informed_kilos;
+                        total_average += 1 * (product.informed_kilos / product.containers);
+                        doc_total += 1 * (product.informed_kilos * product.price);
+                        
+                        if (1 * product.informed_kilos > 0) line_counter++;
+
+                        doc_container.querySelector('.alternate-view__body').appendChild(row_div);
+                    }
+        
+                    document.querySelector('#documents-alternate-view').appendChild(doc_container);
+
+                    //FOOTER ROW FOR TOTALS
+                    const hr = document.createElement('hr');
+                    const totals_row_div = document.createElement('div');
+                    totals_row_div.innerHTML = `
+                        <div class="product"></div>
+                        <div class="cut"></div>
+                        <div class="price">TOTALES</div>
+                        <div class="containers">${thousand_separator(total_doc_containers)}</div>
+                        <div class="kilos">${thousand_separator(total_doc_kilos)} KG</div>
+                        <div class="informed-kilos">${thousand_separator(total_informed_kilos)} KG</div>
+                        <div class="average">${Math.floor((total_average / line_counter)* 10) / 10}</div>
+                        <div class="total">$${thousand_separator(doc_total)}</div>
+                    `;
+
+                    doc_container.querySelector('.alternate-view__body').append(hr, totals_row_div);
+                }
+
+            }
+            
 			return resolve();
 		} catch(error) { console.log(`Error. ${error}`); reject() }
   	});
-}
-
-function test(weight) {
-    
-    const 
-    line_jump = '\n\n',
-    total_spaces = 43,
-    left_spaces = 15,
-    cycle_spaces = print_spaces('Ciclo', weight.cycle.name, total_spaces, left_spaces),
-    plates = (weight.secondary_plates === null) ? weight.frozen.primary_plates : weight.frozen.primary_plates + ' - ' + weight.secondary_plates,
-    plates_spaces = print_spaces('Patente', plates, total_spaces, left_spaces),
-    driver = reduce_string_length(weight.driver.name, 25),
-    driver_spaces = print_spaces('Chofer', driver, total_spaces, left_spaces),
-    gross_date = (weight.gross_weight.date === null) ? '' : weight.gross_weight.date,
-    gross_date_spaces = print_spaces('Fecha', gross_date, total_spaces, left_spaces),
-    gross_user = (weight.gross_weight.user.name === null) ? '' : weight.gross_weight.user.name,
-    gross_user_spaces = print_spaces('Operador', gross_user, total_spaces, left_spaces),
-    tare_date = (weight.tare_weight.date === null) ? '' : weight.tare_weight.date,
-    tare_user = (weight.tare_weight.user.name === null) ? '' : weight.tare_weight.user.name,
-    gross_brute = thousand_separator(weight.gross_weight.brute) + ' KG',
-    gross_brute_spaces = print_spaces('Peso Vehiculo', gross_brute, total_spaces, left_spaces),
-    gross_containers = thousand_separator(weight.gross_weight.containers_weight) + ' KG',
-    gross_containers_spaces = print_spaces('Peso Envases', gross_containers, total_spaces, left_spaces),
-    gross_net = thousand_separator(weight.gross_weight.net) + ' KG',
-    gross_net_spaces = print_spaces('Peso Neto', gross_net, total_spaces, left_spaces);
-
-    data = [
-        `                         Ticket de Pesaje Nº ${thousand_separator(weight.frozen.id)}`,
-        `                         Impreso ${new Date().toLocaleString('es-CL')}`,
-        line_jump,
-        'Empresa        78.447.760-6 - Sociedad Comercial Lepefer y Cia. Ltda.',
-      //'0         1         2         3         4         5         6         7         ',
-      //'01234567890123456789012345678901234567890123456789012345678901234567890123456789',
-      //`Ciclo          Despacho                    Neto Final     38.590 KG` + '\x0A',
-        'Ciclo          ' + weight.cycle.name + cycle_spaces + 'Neto Final     ' + thousand_separator(weight.final_net_weight) + ' KG',
-        
-      //`Patente        VB3427 - JF4701             Neto Inf.      0 KG` + '\x0A',
-        'Patente        ' + plates + plates_spaces + 'Neto Inf.      ' + thousand_separator(weight.kilos.informed) + ' KG',
-
-      //`Chofer         Felipe Ojeda Quijanes       Diferencia     38.590 KG` + '\x0A',
-        'Chofer         ' + driver + driver_spaces + 'Diferencia     ' + thousand_separator(weight.final_net_weight - weight.kilos.informed) + ' KG',
-
-        line_jump,
-        'INFORMACION PESO BRUTO                     INFORMACION PESO TARA',
-      //`Fecha          23/02/2021 12:01:20         Fecha          23/02/2021 18:11:45` + '\x0A',
-        'Fecha          ' + gross_date + gross_date_spaces + 'Fecha          ' + tare_date,
-
-      //`Operador       MARCOS                      Operador       FELIPE` + '\x0A',
-        'Operador       ' + gross_user + gross_user_spaces + 'Operador       ' + tare_user,
-
-      //`Peso Vehiculo  55.790 KG                   Peso Vehiculo  13.690 KG` + '\x0A',
-        'Peso Vehiculo  ' + gross_brute + gross_brute_spaces + 'Peso Vehiculo  ' + thousand_separator(weight.tare_weight.brute + ' KG'),
-
-      //`Peso Envases   3.510 KG                    Peso Envases   0 KG` + '\x0A',
-        'Peso Envases   ' + gross_containers + gross_containers_spaces + 'Peso Envases   ' + thousand_separator(weight.tare_weight.containers_weight) + ' KG',
-
-      //`Peso Neto      52.280 KG                   Peso Neto      13.690 KG` + '\x0A',
-        'Peso Neto      ' + gross_net + gross_net_spaces + 'Peso Neto      ' + thousand_separator(weight.tare_weight.net) + ' KG',
-
-        line_jump
-      //'0         1         2         3         4         5         6         7         ',
-      //'01234567890123456789012345678901234567890123456789012345678901234567890123456789',
-      //`Nº Doc: 162.456      Fecha Doc: 26-02-2021` + `\x0A`,
-      //`Origen: Servicios Agricolas Cumbre - Huelquen` + line_jump,
-      //`Destino: Soc. Comercial Lepefer y Cia. Ltda - Secado El Convento`,
-      //'0         1         2         3         4         5         6         7         ',
-      //'01234567890123456789012345678901234567890123456789012345678901234567890123456789',
-      //`PRODUCTO / ENVASES                        DESCARTE    PRECIO    KG INF.   KILOS` + `\x0A`,
-      //`25 Bins Plasticos Azul Con Marcado VL` + `\x0A`,
-      //`Uva Sweet Celebration - IFG 3             Packing     $1.200    38.590    38.590` + `\x0A`,
-      //`---` + `\x0A`,
-      //`19 Bins Plasticos Gris` + `\x0A`,
-      //`Uva IFG 14 - Sweet Saphire                Packing     $290      12.450    13.320` + `\x0A`,
-      //`---` + `\x0A`,
-      //`29 Bins Plasticos Gris` + `\x0A`,
-      //`Uva Flame                                 Packing     $250      22.440    32.520` + `\x0A`,
-      //`------------------------------------------`
-    ];
-
-    weight.documents.forEach(doc => {
-
-        const 
-        doc_number = (doc.number === null) ? '' : thousand_separator(doc.number),
-        doc_number_spaces = print_spaces('Nº Doc: ', doc_number, 21, 8);
-
-        //DOCUMENT DATE
-        let doc_date;
-        if (doc.date === null) doc_date = 'Fecha Doc: -';
-        else {
-            const 
-            date = new Date(doc.date.split('T')[0]),
-            doc_year = date.getFullYear(),
-            doc_month = (date.getMonth() + 1 < 10) ? '0' + (date.getMonth() + 1) : date.getMonth() + 1,
-            doc_day = (date.getDate() + 1 < 10) ? '0' + (date.getDate() + 1) : date.getDate() + 1;
-            doc_date = 'Fecha Doc: ' + DOMPurify().sanitize(doc_day + '-' + doc_month + '-' + doc_year);
-        }
-        
-        //ORIGIN AND DESTINATION
-        let origin, destination;
-        if (weight.cycle.id === 1) {
-            origin = reduce_string_length('Origen: ' + doc.client.entity.name + ' - ' + doc.client.branch.name, 80);
-            destination = reduce_string_length('Destino: ' + doc.internal.entity.name + ' - ' + doc.internal.branch.name, 80);
-        } else {
-            origin = reduce_string_length('Origen: ' + doc.internal.entity.name + ' - ' + doc.internal.branch.name, 80);
-            destination = reduce_string_length('Destino: ' + doc.client.entity.name + ' - ' + doc.client.branch.name);
-        }
-
-        data.push(
-          //`Nº Doc: 162.456      Fecha Doc: 26-02-2021` + `\x0A`,
-            'Nº Doc: ' + doc_number + doc_number_spaces + doc_date,
-            origin,
-            destination,
-            '\n',
-          //'0         1         2         3         4         5         6         7         ',
-          //'01234567890123456789012345678901234567890123456789012345678901234567890123456789',
-            `ENVASES / PRODUCTO                     DESCARTE     PRECIO     KG INF.    KILOS`
-        );
-
-        doc.rows.forEach(row => {
-
-            const 
-            containers = (row.container.code === null) ? '' : reduce_string_length(thousand_separator(row.container.amount) + ' ' + row.container.name, 39),
-            product = (row.product.name === null) ? '' : row.product.name,
-            cut = (row.product.cut === null) ? '' : proper_case(row.product.cut),
-            price = (row.product.cut === null) ? '' : '$' + thousand_separator(row.product.price);
-
-            let kilos, kg_inf;
-            if (weight.cycle.id === 1) {
-                kilos = (row.product.kilos === null) ? '' : thousand_separator(row.product.kilos);
-                kg_inf = (row.product.informed_kilos === null) ? '' : thousand_separator(row.product.informed_kilos);
-            } else {
-                kilos = (row.product.informed_kilos === null) ? '' : thousand_separator(row.product.informed_kilos);
-                kg_inf = (row.product.kilos === null) ? '' : thousand_separator(row.product.kilos);
-            }
-            data.push(containers, print_body_string(product, cut, price, kg_inf, kilos), '---');
-        });
-        
-        //REMOVE LAST --- ROW SEPARATOR IN DOCUMENT
-        data.splice(data.length - 1, 1);
-        data.push('------------------------------------------')
-
-    });
-    
-    //REMOVE LAST ----- DOCUMENT SEPARATOR
-    data.splice(data.length - 1, 1);
-
-    data.forEach(d => {
-        console.log(d)
-    })
 }
 
 (() => {
@@ -551,7 +562,7 @@ function test(weight) {
             //window.document.close(); // necessary for IE >= 10
             window.focus(); // necessary for IE >= 10*/
             window.print();
-            //window.close();    
+            window.close();    
         })
 
     }

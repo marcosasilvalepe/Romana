@@ -336,9 +336,6 @@ document.querySelector('#vehicles__internal-select').addEventListener('change', 
 document.getElementById('vehicles__delete-vehicle-btn').addEventListener('click', async function() {
 
     if (clicked) return;
-	prevent_double_click();
-
-
 
     const 
     btn = this,
@@ -375,7 +372,6 @@ document.getElementById('vehicles__delete-vehicle-btn').addEventListener('click'
 document.querySelector('#vehicles__create-vehicle-btn').addEventListener('click', async e => {
 
     if (clicked) return;
-	prevent_double_click();
 
     try {
 

@@ -3,7 +3,7 @@ const fs = require('fs');
 
 const jwt_auth_secret = process.env.ACCESS_TOKEN_SECRET;
 const jwt_refresh_secret = process.env.REFRESH_TOKEN_SECRET;
-const socket_domain = (process.env.NODE_ENV === 'development') ? 'http://localhost:3100/socket.io/socket.io.js' : 'https://192.168.1.90:3100/socket.io/socket.io.js';
+const socket_domain = (process.env.NODE_ENV === 'development') ? 'https://localhost:3100/socket.io/socket.io.js' : 'https://192.168.1.90:3100/socket.io/socket.io.js';
 
 const delay = ms => { return new Promise(resolve => setTimeout(resolve, ms)) }
 

@@ -257,7 +257,6 @@ const create_save_product = async create => {
 document.querySelector('#products__table .tbody').addEventListener('click', async e => {
 
     if (clicked) return;
-	prevent_double_click();
 
     let tr, edit = false;
 
@@ -321,8 +320,7 @@ document.querySelector('#products__table .tbody').addEventListener('click', asyn
             
             const btn = this;
 	        if (btn_double_clicked(btn)) return;
-	        
-            prevent_double_click();
+	        if (clicked) return;
             create_save_product(false);
         });
 
@@ -367,7 +365,6 @@ document.getElementById('products__create-product-btn').addEventListener('click'
         await product_template_event_listeners();
         document.getElementById('product-template__save').addEventListener('click', e => {
             if (clicked) return;
-	        prevent_double_click();
             create_save_product(true);
         });
 

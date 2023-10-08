@@ -94,9 +94,9 @@ const documents_create_trs = docs => {
                         <p>${sanitize(docs[i].cycle_name.toUpperCase())}</p>
                     </div>
                 </div>
+                <div class="td plates">${sanitize(docs[i].plates)}</div>
                 <div class="td date"></div>
                 <div class="td number"></div>
-                <div class="td doc_status">${(docs[i].doc_status === 'I') ? 'INGRESADO' : 'NULO'}</div>
                 <div class="td entity">${sanitize(docs[i].entity)}</div>
             `;
 
@@ -179,6 +179,21 @@ const documents_export_results_to_excel = async type => {
     const data = get_documents_filters();
     data.type = type;
 
+    //GET MIN AND MAX VALUES FOR WEIGHTS IF SHOWING FIRST 100 RESULTS
+    if (
+        data.cycle === 'All' && data.doc_number.length === 0 && data.doc_status === 'I' && data.end_date.length === 0 && 
+        data.entity.length === 0 && data.sort === 'weight_id' && data.start_date.length === 0 && data.weight_status === 'T'
+    )
+    {
+        const weights = [];
+        document.querySelectorAll('#documents__table .table-content .tbody .tr').forEach(tr => {
+            weights.push(parseInt(tr.getAttribute('data-weight-id')))
+        });
+
+        data.min_weight = Math.min(...weights);
+        data.max_weight = Math.max(...weights);
+    }
+
     try {
 
         const
@@ -197,7 +212,6 @@ const documents_export_results_to_excel = async type => {
 
         const file_name = response.file_name;
 		window.open(`${domain}:3000/get_excel_report?file_name=${file_name}`, 'GUARDAR EXCEL');
-
 
     } catch(e) { error_handler('Error al intentar generar archivo excel.', e) }
 }
@@ -413,7 +427,7 @@ const documents_search_by_date = e => {
         document.querySelector('#documents__end-date').addEventListener('input', documents_search_by_date);
         
         document.getElementById('documents__entity').addEventListener('keydown', e => {
-            if (e.code !== 'Enter') return;
+            if (e.key !== 'Enter') return;
             documents_search_with_filters();
         });
         

@@ -3,13 +3,17 @@
 const mysql = require('mysql');
 
 const conn = mysql.createConnection({ 
-    host: "localhost",
+    host: "192.168.1.90",
     port: 3306,
-    user: "root", 
-    password: "", 
+    user: "dte", 
+    password: "m1Ks3DVIAS28h7dt", 
     database: "romana" 
 });
-    
+
+const cycle = 1;
+
+const product = 'Uva';
+
 const excel = require('exceljs');
 
 const get_varieties = () => {
@@ -20,9 +24,9 @@ const get_varieties = () => {
             INNER JOIN weights ON header.weight_id=weights.id
             INNER JOIN documents_body body ON header.id=body.document_id
             INNER JOIN products ON body.product_code=products.code
-            WHERE weights.status='T' AND header.status='I' AND weights.cycle=1 AND
-            weights.created > '2021-12-01 00:00:00'
-            AND products.type='Uva'
+            WHERE weights.status='T' AND header.status='I' AND weights.cycle=${cycle} AND
+            (weights.created BETWEEN '2021-12-01 00:00:00' AND '2022-12-31 23:59:59')
+            AND products.type='${product}'
             GROUP BY products.name
             ORDER BY products.name ASC;
         `, (error, results, fields) => {
@@ -41,7 +45,7 @@ const get_providers = product_code => {
             INNER JOIN documents_body body ON header.id=body.document_id
             INNER JOIN entities ON header.client_entity=entities.id
             WHERE weights.status='T' AND header.status='I' AND (body.status='T' OR body.status='I')
-            AND weights.created > '2021-12-01 00:00:00' AND weights.cycle=1 AND
+            AND (weights.created BETWEEN '2021-12-01 00:00:00' AND '2022-12-31 23:59:59') AND weights.cycle=${cycle} AND
             body.product_code='${product_code}'
             GROUP BY entities.id
             ORDER BY entities.name ASC;
@@ -60,8 +64,8 @@ const get_kilos = (entity, product_code) => {
             INNER JOIN weights ON header.weight_id=weights.id
             INNER JOIN documents_body body ON header.id=body.document_id
             WHERE weights.status='T' AND header.status='I' AND (body.status='T' OR body.status='I')
-            AND weights.created > '2021-12-01 00:00:00' AND header.client_entity=${entity}
-            AND weights.cycle=1 AND body.product_code='${product_code}';
+            AND (weights.created BETWEEN '2021-12-01 00:00:00' AND '2022-12-31 23:59:59') AND header.client_entity=${entity}
+            AND weights.cycle=${cycle} AND body.product_code='${product_code}';
         `, (error, results, fields) => {
             if (error || results.length === 0) return reject(error);
             return resolve(results[0].kilos);
@@ -133,6 +137,8 @@ const get_kilos = (entity, product_code) => {
 
             const providers = varieties[i].providers;
 
+            let current_row = 4;
+
             for (let j = 0; j < providers.length; j++) {
 
                 const data_row = sheet.getRow(j + 3);
@@ -164,21 +170,26 @@ const get_kilos = (entity, product_code) => {
                         right: { style: 'thin' }
                     }
                 }
-
+                current_row++;
             }
 
-            /*
-            sheet.columns.forEach(column => {
+            //SET WIDTH FOR EACH COLUMN
+            for (let j = 1; j <= 4; j++) {
+
                 let dataMax = 0;
-                column.eachCell({ includeEmpty: false }, cell => {
-                    let columnLength = cell.value.length + 3;	
-                    if (columnLength > dataMax) {
-                        dataMax = columnLength;
-                    }
-                });
-                column.width = (dataMax < 5) ? 5 : dataMax;
-            });
-            */
+                for (let i = current_row - 1; i > 1; i--) {
+
+                    const 
+                    this_row = sheet.getRow(i),
+                    this_cell = this_row.getCell(j);
+
+                    if (this_cell.value === null) continue;
+
+                    let columnLength = this_cell.value.length + 3;	
+                    if (columnLength > dataMax) dataMax = columnLength;
+                }
+                sheet.getColumn(j).width = (dataMax < 5) ? 5 : dataMax; 
+            }
 
             const last_row = sheet.getRow(providers.length + 3);
             last_row.getCell(4).value =  { formula: `SUM(D3:D${providers.length + 2})` }
@@ -195,13 +206,13 @@ const get_kilos = (entity, product_code) => {
             last_row.getCell(4).numFmt = '#,##0;[Red]#,##0';
 
             const variety_name_row = sheet.getRow(1);
-            variety_name_row.getCell(1).value = varieties[i].name.toUpperCase();
-            sheet.mergeCells('A1:C1');
+            variety_name_row.getCell(1).value = varieties[i].name.toUpperCase() + ' TEMPORADA 2022';
+            sheet.mergeCells('A1:D1');
 
-            for (let j = 1; j <= 3; j++) {
+            for (let j = 1; j <= 4; j++) {
                 const active_cell = variety_name_row.getCell(j);
                 active_cell.font = {
-                    size: 11,
+                    size: 14,
                     name: font,
                     bold: true
                 }
@@ -211,6 +222,10 @@ const get_kilos = (entity, product_code) => {
                     horizontal: 'center'
                 }
             }
+
+            sheet.getRow(1).height = 18;
+
+            sheet.getColumn(4).width = 14;
 
             sheet.removeConditionalFormatting();
 

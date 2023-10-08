@@ -2,6 +2,7 @@
 
 const mysql = require('mysql');
 
+/*
 const conn = mysql.createConnection({ 
     host: "localhost",
     port: 3306,
@@ -9,10 +10,18 @@ const conn = mysql.createConnection({
     password: "", 
     database: "romana" 
 });
-
+*/
+const conn = mysql.createConnection({ 
+    host: "192.168.1.90",
+    port: 3306,
+    user: "dte", 
+    password: "m1Ks3DVIAS28h7dt", 
+    database: "romana" 
+});
 
 const excel = require('exceljs');
-
+const cycle = 1;
+const product = 'Uva';
 
 const get_grapes_providers = () => {
     return new Promise((resolve, reject) => {
@@ -21,8 +30,8 @@ const get_grapes_providers = () => {
             FROM weights
             INNER JOIN documents_header header ON weights.id=header.weight_id
             INNER JOIN entities ON header.client_entity=entities.id
-            WHERE weights.status='T' AND header.status='I' AND weights.cycle=2 AND
-            (weights.created BETWEEN '2021-12-01 00:00:00' AND '2022-08-09 23:59:59')
+            WHERE weights.status='T' AND header.status='I' AND weights.cycle=${cycle} AND
+            (weights.created BETWEEN '2023-01-01 00:00:00' AND NOW())
             GROUP BY entities.id
             ORDER BY entities.name ASC;
         `, (error, results, fields) => {
@@ -40,9 +49,9 @@ const get_providers_varieties = provider_id => {
             INNER JOIN weights ON header.weight_id=weights.id
             INNER JOIN documents_body body ON header.id=body.document_id
             INNER JOIN products ON body.product_code=products.code
-            WHERE weights.status='T' AND header.status='I' AND weights.cycle=2 AND
-            (weights.created BETWEEN '2021-12-01 00:00:00' AND '2022-08-09 23:59:59')
-            AND products.type='Pasas' AND header.client_entity=${provider_id}
+            WHERE weights.status='T' AND header.status='I' AND weights.cycle=${cycle} AND
+            (weights.created BETWEEN '2023-01-01 00:00:00' AND NOW())
+            AND products.type='${product}' AND header.client_entity=${provider_id}
             GROUP BY products.name
             ORDER BY products.name ASC;
         `, (error, results, fields) => {
@@ -60,8 +69,8 @@ const get_kilos = (provider_id, product_code, cut) => {
             INNER JOIN weights ON header.weight_id=weights.id
             INNER JOIN documents_body body ON header.id=body.document_id
             INNER JOIN products ON body.product_code=products.code
-            WHERE weights.status='T' AND header.status='I' AND weights.cycle=2 AND
-            weights.created > '2021-12-01 00:00:00' AND body.status='T'
+            WHERE weights.status='T' AND header.status='I' AND weights.cycle=${cycle} AND
+            (weights.created BETWEEN '2023-01-01 00:00:00' AND NOW()) AND body.status='T'
             AND body.product_code='${product_code}' AND body.cut='${cut}'
             AND header.client_entity=${provider_id};
         `, (error, results, fields) => {
@@ -101,7 +110,7 @@ const get_kilos = (provider_id, product_code, cut) => {
 
             if (providers[i].varieties.length === 0) continue;
 
-            const sheet = workbook.addWorksheet(providers[i].rut.replace(/[.-]/gm, ''), {
+            const sheet = workbook.addWorksheet(providers[i].rut, {
                 pageSetup:{
                     paperSize: 9
                 }
@@ -207,16 +216,14 @@ const get_kilos = (provider_id, product_code, cut) => {
                 active_cell.numFmt = '#,##0;[Red]#,##0';
             }
 
-            sheet.removeConditionalFormatting();
-
             const providers_name_row = sheet.getRow(1);
-            providers_name_row.getCell(1).value = providers[i].name.toUpperCase();
+            providers_name_row.getCell(1).value = providers[i].name.toUpperCase() + ' 2022';
             sheet.mergeCells('A1:E1');
 
             for (let j = 1; j <= 5; j++) {
                 const active_cell = providers_name_row.getCell(j);
                 active_cell.font = {
-                    size: 11,
+                    size: 14,
                     name: font,
                     bold: true
                 }
@@ -226,7 +233,11 @@ const get_kilos = (provider_id, product_code, cut) => {
                     horizontal: 'center'
                 }
             }
-            
+
+            sheet.getRow(1).height = 18;
+            sheet.getColumn(5).width = 12;
+
+            sheet.removeConditionalFormatting();
 
         }
 

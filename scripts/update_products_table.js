@@ -1,5 +1,24 @@
 const mysql = require('mysql');
-const conn = mysql.createPool({ connectionLimit: 15, host: "localhost", user: "root", password: "", database: "romana", multipleStatements: true });
+
+/*
+const conn = mysql.createPool({ 
+    connectionLimit: 15, 
+    host: "localhost", 
+    user: "root", 
+    password: "", 
+    database: "romana", 
+    multipleStatements: true 
+});
+*/
+
+
+const conn = mysql.createConnection({ 
+    host: "192.168.1.90",
+    port: 3306,
+    user: "dte", 
+    password: "m1Ks3DVIAS28h7dt", 
+    database: "romana" 
+});
 
 const get_records = () => {
     return new Promise((resolve, reject) => {

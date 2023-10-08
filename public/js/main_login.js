@@ -17,9 +17,29 @@ const token = {};
         token.expiration = jwt_decode(token.value).exp;
 
         await load_script('js/main.js');
+		await load_script('js/socket.js');
 
 		const user_data = jwt_decode(response.token);
+
+		
 		if (user_data.userProfile === 1) document.getElementById('menu-weights').click();
+		else document.getElementById('menu-analytics').click();
+		
+
+		//document.getElementById(`menu-containers`).click();
+
+		/*
+		if('serviceWorker' in navigator) {
+			// Register the service worker
+			const reg = await navigator.serviceWorker.register('service_worker.js?v=0.80', {
+				scope: '/'
+			});
+
+			console.log(reg)
+			console.log("Service worker has been registered for scope: " + reg.scope);
+
+		}
+		*/
 
 	} catch(error) { console.log(error) }
 })();

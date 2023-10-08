@@ -89,7 +89,7 @@ document.querySelector('input[type="submit"').addEventListener('click', async fu
 			first_vowel = Math.floor(Math.random() * (4 - 0 + 1) + 0),
 			second_vowel = Math.floor(Math.random() * (4 - 0 + 1) + 0),
 			thirh_vowel = Math.floor(Math.random() * (4 - 0 + 1) + 0);
-			user_name = 'Juan T' + vowels[first_vowel] + 'ch' + vowels[second_vowel] + 'p' + vowels[thirh_vowel];
+			user_name = `Juan T${vowels[first_vowel]}ch${vowels[second_vowel]}p${vowels[thirh_vowel]}`;
 		}
 		document.querySelector('.success p').innerHTML = `Bienvenido de vuelta<br>${user_name}`
 
@@ -106,7 +106,11 @@ document.querySelector('input[type="submit"').addEventListener('click', async fu
 		await delay(1000)
 		window.location = response.redirect;
 
-	} catch(e) { alert(`Error al intentar ingresar usuario`); login.classList.remove('test') }
+	} catch(e) { 
+		alert(`Error al intentar ingresar usuario`); 
+		login.classList.remove('test');
+		document.querySelector('.authent').classList.remove('active');
+	}
 })
 
 function focus_prev(that) { that.previousElementSibling.classList.toggle('focused') }
@@ -137,10 +141,8 @@ document.getElementById('username').focus();
 		user_name = jwt_decode(response.token).userName;
 		document.querySelector('.success p').innerHTML = `Bienvenido de vuelta<br>${user_name}`
 
-        if (response.success) {
-            window.location = response.redirect;;
-            return;
-        }
+		if (!response.success) return;
+		window.location = response.redirect;;
 
 	} catch(e) { console.log('error') }
 })();

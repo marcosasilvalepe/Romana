@@ -16,7 +16,7 @@ documents_router.get('/documents_get_docs', userMiddleware.isLoggedIn, async (re
         const get_docs = () => {
             return new Promise((resolve, reject) => {
                 conn.query(`
-                    SELECT header.weight_id, weights.status AS weight_status, weights.cycle AS cycle, cycles.name AS cycle_name, 
+                    SELECT header.weight_id, weights.primary_plates AS plates, weights.status AS weight_status, weights.cycle AS cycle, cycles.name AS cycle_name, 
                     header.number, header.status AS doc_status, entities.name AS entity, header.date
                     FROM documents_header header
                     INNER JOIN weights ON header.weight_id=weights.id
@@ -58,7 +58,7 @@ documents_router.post('/documents_docs_by_number', userMiddleware.isLoggedIn, as
         const get_documents = () => {
             return new Promise((resolve, reject) => {
                 conn.query(`
-                    SELECT header.weight_id, weights.status AS weight_status, weights.cycle, cycles.name AS cycle_name, 
+                    SELECT header.weight_id, weights.primary_plates AS plates, weights.status AS weight_status, weights.cycle, cycles.name AS cycle_name, 
                     header.number, header.status AS doc_status, entities.name AS entity, header.date
                     FROM documents_header header
                     INNER JOIN weights ON header.weight_id=weights.id
@@ -102,7 +102,7 @@ documents_router.post('/documents_get_docs_from_filters', userMiddleware.isLogge
         const get_documents = () => {
             return new Promise((resolve, reject) => {
                 conn.query(`
-                    SELECT header.weight_id, weights.status AS weight_status, weights.cycle, cycles.name AS cycle_name, 
+                    SELECT header.weight_id, weights.primary_plates AS plates, weights.status AS weight_status, weights.cycle, cycles.name AS cycle_name, 
                     header.number, header.status AS doc_status, entities.name AS entity, header.date
                     FROM documents_header header
                     INNER JOIN weights ON header.weight_id=weights.id
@@ -156,7 +156,7 @@ documents_router.post('/documents_get_docs_from_filters', userMiddleware.isLogge
 documents_router.post('/documents_generate_excel', userMiddleware.isLoggedIn, async (req, res) => {
 
     const 
-    { weight_status, doc_status, cycle, doc_number, entity, start_date, end_date, type } = req.body,
+    { weight_status, doc_status, cycle, doc_number, entity, start_date, end_date, type, min_weight, max_weight } = req.body,
     weight_status_sql = (weight_status === 'All') ? '' : `AND weights.status='${weight_status}'`,
     doc_status_sql = (doc_status === 'All') ? '' : `AND header.status='${doc_status}'`,
     cycle_sql = (cycle === 'All') ? '' : `AND weights.cycle=${parseInt(cycle)}`,
@@ -331,32 +331,10 @@ documents_router.post('/documents_generate_excel', userMiddleware.isLoggedIn, as
         const get_last_100_records_detailed = () => {
             return new Promise((resolve, reject) => {
                 conn.query(`
-                    SELECT header.id, header.weight_id, weights.status AS weight_status, cycles.name AS cycle_name, weights.primary_plates,
-                    header.number, header.status AS doc_status, entities.name AS entity, header.date, header.document_total, drivers.name AS driver,
-                    entity_branches.name AS branch
-                    FROM documents_header header
-                    INNER JOIN weights ON header.weight_id=weights.id
-                    LEFT OUTER JOIN entities ON header.client_entity=entities.id
-                    INNER JOIN cycles ON weights.cycle=cycles.id
-                    LEFT OUTER JOIN drivers ON weights.driver_id=drivers.id
-                    LEFT OUTER JOIN entity_branches ON header.client_branch=entity_branches.id
-                    WHERE 1=1 ${doc_number_sql} ${weight_status_sql} ${doc_status_sql} ${cycle_sql} ${entity_sql}
-                    ORDER BY weights.id DESC, header.id LIMIT 100;
-                `, async (error, results, fields) => {
-                    if (error) return reject(error);
-                    temp.documents = results;
-                    return resolve();    
-                })
-            })
-        }
-
-        const get_documents_detailed = () => {
-            return new Promise((resolve, reject) => {
-                conn.query(`
-                    SELECT header.id, header.weight_id, weights.status AS weight_status, weights.cycle, cycles.name AS cycle_name, weights.primary_plates,
-                    header.number, header.status AS doc_status, entities.name AS entity, header.date, header.document_total, drivers.name AS driver,
-                    entity_branches.name AS branch, containers.name AS container_name, body.container_amount, products.name AS product_name, 
-                    body.cut, body.kilos, body.informed_kilos, body.price, body.informed_kilos
+                    SELECT header.id, weights.created AS weight_date, header.weight_id, weights.status AS weight_status, weights.cycle, cycles.name AS cycle_name, 
+                    weights.primary_plates, header.number AS doc_number, header.status AS doc_status, entities.name AS entity, entities.billing_type, header.date, 
+                    header.document_total, drivers.name AS driver, entity_branches.name AS branch, containers.name AS container_name, body.container_amount, 
+                    body.product_name, body.cut, body.kilos, body.informed_kilos, body.price, body.informed_kilos, documents_comments.comments
                     FROM documents_header header
                     INNER JOIN documents_body body ON header.id=body.document_id
                     LEFT OUTER JOIN containers ON body.container_code=containers.code
@@ -366,7 +344,36 @@ documents_router.post('/documents_generate_excel', userMiddleware.isLoggedIn, as
                     INNER JOIN cycles ON weights.cycle=cycles.id
                     LEFT OUTER JOIN drivers ON weights.driver_id=drivers.id
                     LEFT OUTER JOIN entity_branches ON header.client_branch=entity_branches.id
-                    WHERE 1=1 ${doc_number_sql} ${weight_status_sql} ${doc_status_sql} ${cycle_sql} ${entity_sql} ${date_sql}
+                    LEFT OUTER JOIN documents_comments ON header.id=documents_comments.doc_id
+                    WHERE 1=1 AND (body.status='T' OR body.status='I') AND (weights.id BETWEEN ${parseInt(min_weight)} AND ${parseInt(max_weight)})
+                    ${doc_number_sql} ${weight_status_sql} ${doc_status_sql} ${cycle_sql} ${entity_sql}
+                    ORDER BY weights.id ASC, header.id DESC, body.id;
+                `, async (error, results, fields) => {
+                    if (error) return reject(error);
+                    return resolve(results);    
+                })
+            })
+        }
+
+        const get_documents_detailed = () => {
+            return new Promise((resolve, reject) => {
+                conn.query(`
+                    SELECT header.id, weights.created AS weight_date, header.weight_id, weights.status AS weight_status, weights.cycle, cycles.name AS cycle_name, 
+                    weights.primary_plates, header.number AS doc_number, header.status AS doc_status, entities.name AS entity, entities.billing_type, header.date, 
+                    header.document_total, drivers.name AS driver, entity_branches.name AS branch, containers.name AS container_name, body.container_amount, 
+                    body.product_name, body.cut, body.kilos, body.informed_kilos, body.price, body.informed_kilos, documents_comments.comments
+                    FROM documents_header header
+                    INNER JOIN documents_body body ON header.id=body.document_id
+                    LEFT OUTER JOIN containers ON body.container_code=containers.code
+                    LEFT OUTER JOIN products ON body.product_code=products.code
+                    INNER JOIN weights ON header.weight_id=weights.id
+                    LEFT OUTER JOIN entities ON header.client_entity=entities.id
+                    INNER JOIN cycles ON weights.cycle=cycles.id
+                    LEFT OUTER JOIN drivers ON weights.driver_id=drivers.id
+                    LEFT OUTER JOIN entity_branches ON header.client_branch=entity_branches.id
+                    LEFT OUTER JOIN documents_comments ON header.id=documents_comments.doc_id
+                    WHERE 1=1 AND (body.status='T' OR body.status='I')
+                    ${doc_number_sql} ${weight_status_sql} ${doc_status_sql} ${cycle_sql} ${entity_sql} ${date_sql}
                     ORDER BY header.id ASC, body.id ASC;
                 `, (error, results, fields) => {
                     if (error) return reject(error);
@@ -380,46 +387,54 @@ documents_router.post('/documents_generate_excel', userMiddleware.isLoggedIn, as
                 try {
 
                     //CREATE OBJECTS
-                    const documents = [], documents_array = [];
-                    for (let row of results) {
+                    const documents = [];
 
-                        if (documents_array.includes(row.id)) continue;
-                        documents_array.push(row.id);
+                    let current_doc_id;
 
-                        let weight_status;
-                        if (row.weight_status === 'T') weight_status = 'TERMINADO';
-                        else if (row.weight_status === 'I') weight_status = 'INGRESADO';
-                        else if (row.weight_status === 'N') weight_status = 'NULO';
-                        else weight_status = '???';
+                    for (let k = 0; k < results.length; k++) {
+
+                        if (current_doc_id === results[k].id) continue;
+                        current_doc_id = results[k].id;
 
                         const document = {
-                            id: row.id,
-                            doc_status: (row.doc_status === 'T') ? 'INGRESADO' : 'NULO',
-                            weight_id: row.weight_id,
+                            id: results[k].id,
+                            internal_billing: (results[k].billing_type === 0) ? false : true,
+                            doc_status: (results[k].doc_status === 'I') ? 'INGRESADO' : 'NULO',
+                            entity: results[k].entity,
+                            weight_id: results[k].weight_id,
                             weight_status,
-                            cycle: row.cycle_name,
-                            plates: row.primary_plates,
-                            driver: row.driver,
-                            date: row.date,
-                            branch: row.branch,
-                            number: row.number,
+                            weight_date: results[k].weight_date,
+                            cycle: results[k].cycle_name,
+                            plates: results[k].primary_plates,
+                            driver: results[k].driver,
+                            date: results[k].date,
+                            branch: results[k].branch,
+                            number: results[k].doc_number,
+                            comments: (results[k].comments === null) ? '' : results[k].comments.split('\n').join(' - '),
                             rows: []
                         }
 
-                        for (let doc of results) {
-                            if (document.id !== doc.id) continue;
+                        if (results[k].weight_status === 'T') document.weight_status = 'TERMINADO';
+                        else if (results[k].weight_status === 'I') document.weight_status = 'INGRESADO';
+                        else if (results[k].weight_status === 'N') document.weight_status = 'NULO';
+                        else results[k].weight_status = '???';
+
+                        for (let i = k; i < results.length; i++) {
+
+                            if (results[i].id !== document.id) break;
+
                             document.rows.push({
-                                container_name: doc.container_name,
-                                container_weight: doc.container_weight,
-                                container_amount: doc.container_amount,
-                                product_name: doc.product_name,
-                                cut: doc.cut,
-                                kilos: doc.kilos,
-                                informed_kilos: doc.informed_kilos,
-                                price: doc.price,
-                                product_total: 1 * doc.informed_kilos * doc.price
+                                container_name: results[i].container_name,
+                                container_weight: results[i].container_weight,
+                                container_amount: results[i].container_amount,
+                                product_name: results[i].product_name,
+                                cut: results[i].cut,
+                                kilos: results[i].kilos,
+                                informed_kilos: results[i].informed_kilos,
+                                price: results[i].price
                             });
                         }
+
                         documents.push(document);
                     }
 
@@ -436,21 +451,24 @@ documents_router.post('/documents_generate_excel', userMiddleware.isLoggedIn, as
                         const columns = [
                             { header: 'ESTADO PESAJE', key: 'weight_status' },
                             { header: 'PESAJE', key: 'weight_id' },
+                            { header: 'FECHA PESAJE', key: 'weight_date' },
                             { header: 'CICLO', key: 'cycle' },
                             { header: 'VEHICULO', key: 'plates' },
                             { header: 'CHOFER', key: 'driver' },
                             { header: 'FECHA DOC.', key: 'doc_date' },
+                            { header: 'Nº DOC.', key: 'doc_number' },
                             { header: 'ESTADO DOC.', key: 'doc_status' },
                             { header: 'ENTIDAD', key: 'entity' },
                             { header: 'SUCURSAL', key: 'branch' },
                             { header: 'ENVASE', key: 'container_name' },
-                            { header: 'CANT. ENVASE', key: 'container_amount' },
+                            { header: 'ENVASES', key: 'container_amount' },
                             { header: 'PRODUCTO', key: 'product' },
                             { header: 'DESCARTE', key: 'cut' },
                             { header: 'PRECIO', key: 'price' },
                             { header: 'KILOS', key: 'kilos' },
                             { header: 'KG. INF.', key: 'informed_kilos' },
-                            { header: 'TOTAL PROD.', key: 'product_total' }
+                            { header: 'TOTAL PROD.', key: 'product_total' },
+                            { header: 'OBSERVACIONES', key: 'comments' }
                         ]
 
                         const header_row = sheet.getRow(row_number);
@@ -480,41 +498,52 @@ documents_router.post('/documents_generate_excel', userMiddleware.isLoggedIn, as
 
                     for (let i = 0; i < documents.length; i++) {
 
-                        if (documents[i].length > 0) console.log(documents[i])
+                        let first_row = current_row + 1;
 
                         create_header_row(current_row);
                         current_row++;
 
-                        const data_row = sheet.getRow(current_row);
                         for (let row of documents[i].rows) {
+
+                            const data_row = sheet.getRow(current_row);
+
                             data_row.getCell(1).value = documents[i].weight_status;
                             data_row.getCell(2).value = parseInt(documents[i].weight_id);
-                            data_row.getCell(3).value = documents[i].cycle;
-                            data_row.getCell(4).value = documents[i].plates;
-                            data_row.getCell(5).value = documents[i].driver;
-                            data_row.getCell(6).value = documents[i].date
-                            data_row.getCell(7).value = documents[i].doc_status;
-                            data_row.getCell(8).value = documents[i].entity;
-                            data_row.getCell(9).value = documents[i].branch;
+                            data_row.getCell(3).value = new Date(documents[i].weight_date).toLocaleString('es-CL');
+                            data_row.getCell(4).value = documents[i].cycle;
+                            data_row.getCell(5).value = documents[i].plates;
+                            data_row.getCell(6).value = documents[i].driver;
+                            data_row.getCell(7).value = documents[i].date;
+                            data_row.getCell(8).value = documents[i].number;                           
+                            data_row.getCell(9).value = documents[i].doc_status;
+                            data_row.getCell(10).value = documents[i].entity;
+                            data_row.getCell(11).value = documents[i].branch;
 
-                            data_row.getCell(10).value = (row.container_name === null) ? '' : row.container_name;
-                            data_row.getCell(11).value = (row.container_amount === null) ? '' : parseInt(row.container_amount);
-                            data_row.getCell(12).value = (row.product_name === null) ? '' : row.product_name;
-                            data_row.getCell(13).value = (row.cut === null) ? '' : row.cut;
-                            data_row.getCell(14).value = (row.price === null) ? '' : parseInt(row.price);
-                            data_row.getCell(15).value = (row.kilos === null) ? '' : parseInt(row.kilos);
-                            data_row.getCell(16).value = (row.informed_kilos === null) ? '' : parseInt(row.informed_kilos);
-                            data_row.getCell(17).value = row.product_total;
+                            data_row.getCell(12).value = (row.container_name === null) ? '' : row.container_name;
+                            data_row.getCell(13).value = (row.container_amount === null) ? '' : parseInt(row.container_amount);
+                            data_row.getCell(14).value = (row.product_name === null) ? '' : row.product_name;
+                            data_row.getCell(15).value = (row.cut === null) ? '' : row.cut;
+                            data_row.getCell(16).value = (row.price === null) ? '' : parseInt(row.price);
+                            data_row.getCell(17).value = (row.kilos === null) ? '' : parseInt(row.kilos);
+                            data_row.getCell(18).value = (row.informed_kilos === null) ? '' : parseInt(row.informed_kilos);
+
+                            //IF ENTITY GET BILLED FOR OUR KILOS THEN TOTAL FORMULA MULTITPLIES KILOS WITH PRICE. OTHERWISE IT MULTIPLIES INFORMED_KILOS WITH PRICE
+                            if (documents[i].internal_billing) data_row.getCell(19).value = { formula: `=P${current_row}*Q${current_row}`};
+                            else data_row.getCell(19).value = { formula: `=P${current_row}*R${current_row}`};
+
+                            data_row.getCell(20).value = documents[i].comments;
 
                             data_row.getCell(2).numFmt = '#,##0;[Red]#,##0';
-                            data_row.getCell(11).numFmt = '#,##0;[Red]#,##0';
-                            data_row.getCell(14).numFmt = '#,##0;[Red]#,##0';
-                            data_row.getCell(15).numFmt = '#,##0;[Red]#,##0';
-                            data_row.getCell(16).numFmt = '#,##0;[Red]#,##0';
+                            data_row.getCell(3).numFmt = 'DD/MM/YYYY HH:MM:SS';
+                            data_row.getCell(8).numFmt = '#,##0;[Red]#,##0';
+                            data_row.getCell(13).numFmt = '#,##0;[Red]#,##0';
+                            data_row.getCell(16).numFmt = '$#,##0;[Red]-$#,##0';
                             data_row.getCell(17).numFmt = '#,##0;[Red]#,##0';
+                            data_row.getCell(18).numFmt = '#,##0;[Red]#,##0';
+                            data_row.getCell(19).numFmt = '$#,##0;[Red]-$#,##0';
 
                             //FORMAT EACH CELL ROW
-                            for (let j = 1; j <= 17; j++) {
+                            for (let j = 1; j <= 20; j++) {
                                 data_row.getCell(j).border = {
                                     top: { style: 'thin' },
                                     left: { style: 'thin' },
@@ -527,15 +556,52 @@ documents_router.post('/documents_generate_excel', userMiddleware.isLoggedIn, as
                                 }
                             }
 
+                            data_row.getCell(20).alignment = { vertical: 'top', horizontal: 'center', wrapText: true }
+
                             current_row++;
                         }
 
-                        current_row += 2;
+                        //SUM TOTALS
+                        const last_row = current_row - 1;
+                        const totals_row = sheet.getRow(current_row);
+                        
+                        totals_row.getCell(13).value = { formula: `SUM(M${first_row}:M${last_row})` }
+                        totals_row.getCell(17).value = { formula: `SUM(Q${first_row}:Q${last_row})` }
+                        totals_row.getCell(18).value = { formula: `SUM(R${first_row}:R${last_row})` }
+                        totals_row.getCell(19).value = { formula: `SUM(S${first_row}:S${last_row})` }
 
+                        for (let j = 2; j <= 20; j++) {
+                            totals_row.getCell(j).numFmt = '#,##0;[Red]#,##0';
+                            totals_row.getCell(j).alignment = {
+                                vertical: 'middle',
+                                horizontal: 'center'
+                            }
+                            totals_row.getCell(j).font = { 
+                                name: font,
+                                bold: true
+                            }
+                        }
+
+                        totals_row.getCell(19).numFmt = '$#,##0;[Red]-$#,##0';
+
+                        sheet.mergeCells(`A${first_row}:A${last_row}`);
+                        sheet.mergeCells(`B${first_row}:B${last_row}`);
+                        sheet.mergeCells(`C${first_row}:C${last_row}`);
+                        sheet.mergeCells(`D${first_row}:D${last_row}`);
+                        sheet.mergeCells(`E${first_row}:E${last_row}`);
+                        sheet.mergeCells(`F${first_row}:F${last_row}`);
+                        sheet.mergeCells(`G${first_row}:G${last_row}`);
+                        sheet.mergeCells(`H${first_row}:H${last_row}`);
+                        sheet.mergeCells(`I${first_row}:I${last_row}`);
+                        sheet.mergeCells(`J${first_row}:J${last_row}`);
+                        sheet.mergeCells(`K${first_row}:K${last_row}`);
+                        sheet.mergeCells(`T${first_row}:T${last_row}`);
+
+                        current_row += 2;
                     }
 
                     //SET WIDTH FOR EACH COLUMN
-                    for (let j = 1; j <= 17; j++) {
+                    for (let j = 1; j <= 20; j++) {
 
                         let dataMax = 0;
                         for (let i = current_row - 1; i > 1; i--) {
@@ -554,6 +620,10 @@ documents_router.post('/documents_generate_excel', userMiddleware.isLoggedIn, as
                         sheet.getColumn(j).width = (dataMax < 5) ? 5 : dataMax; 
                     }
 
+                    sheet.getColumn(2).width = 12;
+                    sheet.getColumn(3).width = 21;
+                    sheet.getColumn(20).width = 30;
+
                     sheet.removeConditionalFormatting();
 
                     const file_name = new Date().getTime();
@@ -564,8 +634,6 @@ documents_router.post('/documents_generate_excel', userMiddleware.isLoggedIn, as
                 } catch(e) { return reject(e) }
             })
         }
-
-
 
         let new_start_date, new_end_date;
         if (!validate_date(start_date) && validate_date(end_date)) new_start_date = new_end_date = end_date;
@@ -579,12 +647,11 @@ documents_router.post('/documents_generate_excel', userMiddleware.isLoggedIn, as
             }
         }
         else {
-            //const now = new Date();
             new_start_date = format_html_date(set_to_monday(new Date()));
             new_end_date = format_html_date(new Date());
         }
 
-        const date_sql = `AND (header.date BETWEEN '${new_start_date} 00:00:00' AND '${new_end_date} 00:00:00')`;
+        const date_sql = `AND (weights.created BETWEEN '${new_start_date} 00:00:00' AND '${new_end_date} 23:59:59')`;
 
         if (type === 'simple') {
 

@@ -1,7 +1,6 @@
-const UserInput = require('wait-for-user-input');
-const mysql = require('mysql');
+"use strict";
 
-/*
+const mysql = require('mysql');
 const conn = mysql.createConnection({ 
     host: "192.168.1.90",
     port: 3306,
@@ -9,7 +8,8 @@ const conn = mysql.createConnection({
     password: "m1Ks3DVIAS28h7dt", 
     database: "romana" 
 });
-*/
+
+/*
 const conn = mysql.createConnection({ 
     host: "localhost",
     port: 3306,
@@ -17,42 +17,85 @@ const conn = mysql.createConnection({
     password: "", 
     database: "romana" 
 });
+*/
 
-const get_weights = client => {
+const global = {}
+
+const todays_date = () => {
+    const 
+    now = new Date(),
+    year = now.getFullYear(),
+    month = (now.getMonth() + 1 < 10) ? '0' + (now.getMonth() + 1) : now.getMonth() + 1,
+    day = (now.getDate() < 10) ? '0' + now.getDate() : now.getDate(),
+    hour = now.toLocaleString('es-CL').split(' ')[1];
+    return year + '-' + month + '-' + day + ' ' + hour;
+}
+
+const get_current_season = () => {
     return new Promise((resolve, reject) => {
         conn.query(`
-            SELECT weights.created, weights.id, weights.cycle, weights.primary_plates, drivers.name AS driver, 
-            weights.gross_net, weights.tare_net, weights.final_net_weight
+            SELECT id, beginning, ending FROM seasons ORDER BY id DESC LIMIT 1;
+        `, (error, results, fields) => {
+            if (error || results.length === 0) return reject(error);
+
+            return resolve({
+                start: results[0].beginning.toISOString().split('T')[0] + ' 00:00:00',
+                end: (results[0].ending === null) ? todays_date() : results[0].ending.toLocaleString('es-CL').split(' ')[0]
+            });
+        })
+    })
+}
+
+const get_finished_weights = () => {
+    return new Promise((resolve, reject) => {
+        conn.query(`
+            SELECT weights.id AS weight_id, weights.final_net_weight, header.id AS doc_id, body.kilos
             FROM weights
-            INNER JOIN drivers ON weights.driver_id=drivers.id
             INNER JOIN documents_header header ON weights.id=header.weight_id
-            INNER JOIN entities ON header.client_entity=entities.id
-            WHERE weights.status='T' AND (header.status='I' OR header.status='T') AND weights.cycle <> 4
-            AND weights.created > '2021-12-01 00:00:00' AND weights.final_net_weight IS NOT NULL
-            AND weights.final_net_weight > 0;
-        `, async (error, results, fields) => {
+            INNER JOIN documents_body body ON header.id=body.document_id
+            WHERE (weights.created BETWEEN '${global.season.start}' AND '${global.season.end}')
+            AND (header.created BETWEEN '${global.season.start}' AND '${global.season.end}')
+            AND weights.status='T' AND header.status='I' AND (body.status='T' OR body.status='I')
+            AND weights.final_net_weight IS NOT NULL AND header.document_total IS NOT NULL
+            ORDER BY weights.id ASC, header.id ASC, body.id ASC;
+        `, (error, results, fields) => {
             if (error) return reject(error);
 
-            console.log(results.length)
             const weights = [];
+            let current_weight;
+            
             for (let i = 0; i < results.length; i++) {
 
-                const weight = { 
-                    id: results[i].id,
-                    cycle: results[i].cycle,
-                    created: new Date(results[i].created).toLocaleString('es-CL'),
-                    plates: results[i].primary_plates,
-                    driver: results[i].driver,
-                    gross_net: results[i].gross_net,
-                    tare_net: results[i].tare_net,
-                    final_net_weight: results[i].final_net_weight
-                }
-                
-                weight.documents = await get_documents(weight.id);
-                for (let j = 0; j < weight.documents.length; j++) {
-                    weight.documents[j].rows = await get_rows(weight.documents[j].id);
+                if (results[i].weight_id === current_weight) continue;
+                current_weight = results[i].weight_id;
+
+                const weight = {
+                    id: results[i].weight_id,
+                    documents: [],
+                    kilos: results[i].final_net_weight
                 }
 
+                let current_doc;
+                for (let j = i; j < results.length; j++) {
+                    
+                    if (weight.id !== results[j].weight_id) break;
+                    if (current_doc === results[j].doc_id) continue;
+                    current_doc = results[j].doc_id;
+
+                    const document = {
+                        id: results[j].doc_id,
+                        rows: []
+                    }
+
+                    for (let k = j; k < results.length; k++) {
+                        if (document.id !== results[k].doc_id) break;
+                        document.rows.push({
+                            kilos: 1 * results[k].kilos
+                        })
+                    }
+
+                    weight.documents.push(document)
+                }
                 weights.push(weight);
             }
 
@@ -61,82 +104,28 @@ const get_weights = client => {
     })
 }
 
-const get_documents = weight_id => {
-    return new Promise((resolve, reject) => {
-        conn.query(`
-            SELECT header.id, header.created, header.number, header.date, entities.name AS client
-            FROM documents_header header
-            INNER JOIN entities ON header.client_entity=entities.id
-            WHERE header.status='I' AND header.weight_id=${parseInt(weight_id)};
-        `, (error, results, fields) => {
-            if (error) return reject(error);
-            return resolve(results);
-        })
-    })
-}
-
-const get_rows = doc_id => {
-    return new Promise((resolve, reject) => {
-        conn.query(`
-            SELECT body.id, products.name AS product, body.cut, body.price, body.kilos, body.informed_kilos, 
-            containers.name AS container, body.container_amount
-            FROM documents_body body 
-            INNER JOIN products ON body.product_code=products.code
-            INNER JOIN containers ON body.container_code=containers.code
-            WHERE (body.status='T' OR body.status='I') AND body.product_code IS NOT NULL 
-            AND body.document_id=${parseInt(doc_id)}
-        `, (error, results, fields) => {
-            if (error) return reject(error);
-            return resolve(results);
-        })
-    })
-}
-
 (async () => {
+
     try {
 
-        /*
-        let client = '';
-        while (client.length === 0) { client = await UserInput('Ingresa el nombre del cliente:\r\n') }
+        global.season = await get_current_season();
+        const weights = await get_finished_weights();
 
-        const weights = await get_weights(client);
-        */
+        for (const weight of weights) {
+            
+            const total_kilos = weight.kilos;
 
-        const weights = await get_weights();
-
-        /*
-        for (let i = 0; i < weights.length; i++) {
-            if (weights[i].id === 27686) {
-                console.log(weights[i])
-                for (let j = 0; j < weights[i].documents.length; j++) {
-                    console.log(weights[i].documents[j])
-                }
-            }
-        }
-        */
-
-        for (let i = 0; i < weights.length; i++) {
-
-            const weight_id = weights[i].id;
-            const net = weights[i].final_net_weight;
-            let breakdown_sum = 0;
-
-            const documents = weights[i].documents;
-
-            for (let j = 0; j < documents.length; j++) {
-
-                const rows = documents[j].rows;
-                for (let k = 0; k < rows.length; k++) {
-                    breakdown_sum += rows[k].kilos;
-                }
-
+            let kilos = 0;
+            for (const document of weight.documents) {
+                for (const row of document.rows) {
+                    kilos += row.kilos;
+                }                
             }
 
-            if (net !== breakdown_sum) console.log(weight_id, weights[i].cycle, weights[i].created, net, breakdown_sum);
+            if (total_kilos !== kilos) 
+                console.log(`\r\nKilos breakdown in weight Nº ${weight.id} don't match.\r\nKilos in weight are: ${total_kilos}\r\nKilos in body are: ${kilos}\r\nDiference is: ${total_kilos - kilos}\r\n`);
 
         }
-        
-        console.log('finished')
 
     }
     catch(e) { console.log(e) }

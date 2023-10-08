@@ -52,7 +52,7 @@
 #documents__table .tr {
   display: grid;
   grid-auto-flow: column;
-  grid-template-columns: 50px 150px 120px 150px 120px 120px 140px 1fr;
+  grid-template-columns: 50px 150px 120px 150px 120px 120px 120px 1fr;
 }
 
 #documents__table .th > div {

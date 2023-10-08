@@ -303,8 +303,8 @@ function print_with_browser(weight) {
 				});
 				
 			});
-			resolve();
-		} catch(error) { console.log(`Error. ${error}`); reject() }
+			return resolve();
+		} catch(error) { console.log(`Error. ${error}`); return reject() }
   	});
 }
 
