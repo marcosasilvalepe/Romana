@@ -6,6 +6,7 @@ cert
 backup
 *.SHD
 *.SPL
+bank_balance/*.png
 electronic_document.js
 temp
 sii_webscraper
@@ -24,3 +25,4 @@ online_db
 *.xlsx
 *.zip
 *.php
+test.ovpn
