@@ -5,7 +5,7 @@ import ftplib
 import glob
 
 ftp = ftplib.FTP()
-host = "mslepe.cl"
+host = ""
 port = 21
 ftp.encoding = "utf-8"
 
@@ -23,7 +23,7 @@ try:
 
     print("Logging in ...")
     ftp.connect(host, port)
-    ftp.login("marcos@mslepe.cl", "VB3428jf4369")
+    ftp.login("", "")
     print("logged in")
     ftp.cwd("/romana/bk/")
 
