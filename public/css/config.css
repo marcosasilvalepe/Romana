@@ -180,3 +180,211 @@
     0% 0%;
   transform: scaleY(1);
 }
+
+
+#vehicles > .content,
+#drivers > .content,
+#containers > .content {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  position: relative;
+}
+
+#vehicles__table-grid,
+#drivers__table-grid,
+#containers__table-grid {
+  margin: 0 auto auto auto;
+  width: 100%;
+  height: 100%;
+  display: grid;
+  grid-auto-flow: row;
+  grid-template-rows: 520px 1fr;
+  border: 2px solid rgba(255, 255, 255, .3);
+}
+
+
+#vehicles-table .tr {
+  grid-template-columns: 90px 90px 90px 150px 150px 1fr 1fr;
+}
+
+#drivers-table .tr {
+  grid-template-columns: 100px 1fr 200px 300px 120px 120px;  
+}
+
+#containers-table .tr {
+  grid-template-columns: 100px 200px 1fr 200px 150px 150px;  
+}
+
+#vehicles-table .edit > div,
+#drivers-table .edit > div,
+#containers-table .edit > div {
+  width: 100%;
+  height: 100%;
+  display: flex;
+}
+
+#vehicles-table .edit i,
+#drivers-table .edit i,
+#containers-table .edit i {
+  margin: auto;
+  font-size: 18px;
+  transition: all 250ms 0s ease;
+}
+
+#vehicles-table .edit:hover i,
+#drivers-table .edit:hover i,
+#containers-table .edit:hover i {
+  transform: scale(1.7);
+}
+
+#vehicles__vehicle-template,
+#drivers__create-driver,
+#containers__create-container {
+  position: absolute;
+  z-index: 100;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  overflow: hidden;
+  transition: all 250ms 100ms ease;
+}
+
+#vehicles__vehicle-template.active,
+#drivers__create-driver.active,
+#containers__create-container.active {
+  background-color: rgba(0, 0, 0, .6);
+  transition: all 250ms 500ms ease;
+}
+
+@supports ((-webkit-backdrop-filter: none) or (backdrop-filter: none)) {
+  #vehicles__vehicle-template.active,
+  #drivers__create-driver.active,
+  #containers__create-container.active {
+    backdrop-filter: blur(10px);
+  }
+}
+
+#vehicles__create-edit-vehicles__container {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 10;
+  width: 500px;
+  height: 500px;
+  margin: auto;
+}
+
+#vehicles__create-edit-vehicles {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  padding: 25px;
+  display: grid;
+  grid-auto-flow: row;
+  grid-template-rows: 50px 100px 100px 130px 1fr;
+}
+
+.create-edit-vehicles:first-child {
+  display: flex;
+}
+
+#vehicles-btns,
+#drivers-btns,
+#containers-btns {
+  display: flex;
+}
+
+#vehicles-btns > .grid-column,
+#drivers-btns > .grid-column {
+  margin: auto;
+  grid-template-columns: repeat(5, 1fr);
+  column-gap: 25px;
+  width: 82%;
+}
+
+#containers-btns > .grid-column {
+  margin: auto;
+  grid-template-columns: repeat(3, 1fr);
+  column-gap: 25px;
+  width: 50%;
+}
+
+#vehicles-table .td.transport {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.vehicles-btn,
+.drivers-btn {
+  position: relative;
+  width: 100%;
+  height: 47px;
+  display: flex;
+}
+
+.vehicles-btn > div,
+.drivers-btn > div {
+  display: flex;
+  width: 100%;
+  height: 30px;
+  position: relative;
+  margin: auto auto 0 auto;
+}
+
+.vehicles-btn > div label,
+.drivers-btn > div label {
+  width: 100%;
+  text-align: center;
+}
+
+.vehicles-btn > div input,
+.drivers-btn > div input {
+  text-align: center;
+}
+
+.vehicles-btn p,
+.drivers-btn p {
+  width: 100%;
+}
+
+
+#drivers__create-driver .create-document-absolute,
+#containers__create-container .create-document-absolute { width: 450px }
+
+
+#drivers__create-driver .body,
+#containers__create-container .body {
+  display: flex;
+}
+
+#drivers__create-driver .body .grid,
+#containers__create-container .body .grid {
+  position: relative;
+  width: 100%;
+  height: 75%;
+  margin: auto;
+  grid-auto-flow: row;
+  grid-template-rows: repeat(4, 1fr);
+  gap: 20px;
+}
+
+#drivers__create-driver .create-driver-data-container,
+#containers__create-container .create-driver-data-container {
+  position: relative;
+  display: flex;
+  width: 60%;
+  margin: auto;
+}
+
+#drivers__create-driver .create-document-btns-container {
+  margin: auto;
+}
+
+#containers__create-container .select-effect > p {
+  text-align: left;
+}

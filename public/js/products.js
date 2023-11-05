@@ -117,8 +117,7 @@ const delete_product = async function() {
         delete_product = await fetch('/delete_product', {
             method: 'POST',
             headers: {
-                "Content-Type" : "application/json",
-                "Authorization" : token.value
+                "Content-Type" : "application/json"
             },
             body: JSON.stringify({ product_code })
         }),
@@ -187,8 +186,7 @@ const create_save_product = async create => {
             save_product_image = await fetch('/save_product_image', {
                 method: 'POST',
                 headers: {
-                    "Content-Type" : "application/json",
-                    "Authorization" : token.value
+                    "Content-Type" : "application/json"
                 },
                 body: JSON.stringify({ product_code: data.code, image_name: image_name })
             }),
@@ -219,8 +217,7 @@ const create_save_product = async create => {
         create_product = await fetch('/create_save_product', {
             method: 'POST',
             headers: {
-                "Content-Type" : "application/json",
-                "Authorization" : token.value
+                "Content-Type" : "application/json"
             },
             body: JSON.stringify(data)
         }),
@@ -294,8 +291,7 @@ document.querySelector('#products__table .tbody').addEventListener('click', asyn
         get_product = await fetch('/get_product', {
             method: 'POST',
             headers: {
-                "Content-Type" : "application/json",
-                "Authorization" : token.value
+                "Content-Type" : "application/json"
             },
             body: JSON.stringify({ code })
         }),
@@ -392,8 +388,7 @@ document.getElementById('products__search-product').addEventListener('keydown', 
         search_product = await fetch('/search_product_by_name', {
             method: 'POST',
             headers: {
-                "Content-Type" : "application/json",
-                "Authorization" : token.value
+                "Content-Type" : "application/json"
             },
             body: JSON.stringify({ product })
         }),
@@ -425,8 +420,7 @@ document.getElementById('products__type-select').addEventListener('change', asyn
         get_products = await fetch('/get_products', {
             method: 'POST',
             headers: {
-                "Content-Type" : "application/json",
-                "Authorization" : token.value
+                "Content-Type" : "application/json"
             },
             body: JSON.stringify({ type })
         }),
@@ -454,8 +448,7 @@ function get_all_products() {
             get_products = await fetch('/get_products', {
                 method: 'POST',
                 headers: {
-                    "Content-Type" : "application/json",
-                    "Authorization" : token.value
+                    "Content-Type" : "application/json"
                 },
                 body: JSON.stringify({ type: 'Uva' })
             }),

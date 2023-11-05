@@ -28,12 +28,7 @@ function update_companies_list() {
         try {
 
             const 
-            get_entities = await fetch('/companies_get_clients_list', {
-                method: 'GET',
-                headers: {
-                    "Authorization" : token.value
-                }
-            }),
+            get_entities = await fetch('/companies_get_clients_list'),
             response = await get_entities.json();
 
             console.log(response);
@@ -109,7 +104,6 @@ async function create_new_payment() {
         create_payment = await fetch('/create_new_payment', {
             method: 'POST',
             headers: {
-                "Authorization" : token.value,
                 "Content-Type" : "application/json"
             },
             body: JSON.stringify(data)
@@ -157,12 +151,7 @@ async function show_new_payment_div(e) {
     try {
 
         const
-        get_payment_data = await fetch('/new_payment_get_data', {
-            method: 'GET',
-            headers: {
-                "Authorization" : token.value
-            }
-        }),
+        get_payment_data = await fetch('/new_payment_get_data'),
         response = await get_payment_data.json();
 
         console.log(response);
@@ -391,12 +380,7 @@ async function companies_update_internal_entities() {
     try {
 
         const 
-        get_companies = await fetch('/companies_get_internal_entities', {
-            method: 'GET',
-            headers: {
-                "Authorization" : token.value
-            }
-        }),
+        get_companies = await fetch('/companies_get_internal_entities'),
         response = await get_companies.json();
 
         console.log(response)
@@ -528,8 +512,7 @@ const companies_show_entity_movements = async e => {
         get_company_movements = await fetch('/companies_get_entity_movements', {
             method: 'POST',
             headers: {
-                "Content-Type" : "application/json",
-                "Authorization" : token.value
+                "Content-Type" : "application/json"
             },
             body: JSON.stringify({ company_id })
         }),
@@ -682,8 +665,7 @@ const companies_entity_movements_export_to_excel = async type => {
         generate_excel = await fetch('/companies_generate_excel', {
             method: 'POST',
             headers: {
-                "Content-Type" : "application/json",
-                "Authorization" : token.value
+                "Content-Type" : "application/json"
             },
             body: JSON.stringify({ type, company_id, season_id })
         }),
@@ -800,12 +782,7 @@ const companies_filters_doc_types = e => {
     try {
 
         const 
-        get_companies = await fetch('/companies_get_internal_entities', {
-            method: 'GET',
-            headers: {
-                "Authorization" : token.value
-            }
-        }),
+        get_companies = await fetch('/companies_get_internal_entities'),
         response = await get_companies.json();
 
         console.log(response)

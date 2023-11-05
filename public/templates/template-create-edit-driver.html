@@ -1,0 +1,64 @@
+<div>
+    <div class="create-document-absolute">
+        <div class="header">
+            <h3>CREAR CHOFER</h3>
+        </div>
+        <div class="body">
+            <div class="grid">
+                <div class="create-driver-data-container">
+                    <input spellcheck="false" id="drivers__create-driver-name" type="text" class="input-effect" maxlength="64" data-next-tab-selector="#drivers__create-driver-rut" data-prev-tab-selector="#drivers__create-driver button.green">
+                    <label>NOMBRE</label>
+                    <span class="focus-border"></span>
+                </div>
+                <div class="create-driver-data-container">
+                    <input spellcheck="false" id="drivers__create-driver-rut" type="text" class="input-effect" maxlength="12" data-next-tab-selector="#drivers__create-driver-phone" data-prev-tab-selector="#drivers__create-driver-name">
+                    <label>RUT</label>
+                    <span class="focus-border"></span>
+                    <div class="widget-tooltip red hidden">
+                        <span>RUT inválido</span>
+                    </div>                 
+                </div>
+                <div class="create-driver-data-container">
+                    <input spellcheck="false" id="drivers__create-driver-phone" type="text" class="input-effect" maxlength="16" data-next-tab-selector="#drivers__create-driver__internal-cbx" data-prev-tab-selector="#drivers__create-driver-rut">
+                    <label>TELEFONO</label>
+                    <span class="focus-border"></span>              
+                </div>
+                <div class="create-driver-data-container">
+                    <div class="create-driver__checkbox-container">
+                        <input id="drivers__create-driver__internal-cbx" type="checkbox" data-prev-tab-selector="#drivers__create-driver-phone" data-next-tab-selector="#drivers__create-driver__active-cbx">
+                        <label class="cbx" for="drivers__create-driver__internal-cbx"></label>
+                        <label class="lbl" for="drivers__create-driver__internal-cbx">INTERNO</label>
+                    </div>
+                    <div class="create-driver__checkbox-container">
+                        <input id="drivers__create-driver__active-cbx" type="checkbox" data-prev-tab-selector="#drivers__create-driver__internal-cbx" data-next-tab-selector="#drivers__create-driver button.red">
+                        <label class="cbx" for="drivers__create-driver__active-cbx"></label>
+                        <label class="lbl" for="drivers__create-driver__active-cbx">ACTIVO</label>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+        <div class="footer">
+            <div class="create-document-btns-container">
+                <button class="svg-wrapper enabled red" data-prev-tab-selector="#drivers__create-driver__active-cbx" data-next-tab-selector="#drivers__create-driver button.green">
+                    <svg height="45" width="160" xmlns="http://www.w3.org/2000/svg">
+                        <rect class="shape" height="45" width="160"></rect>
+                    </svg>
+                    <div class="desc-container">
+                        <i class="fas fa-times-circle"></i>
+                        <p>CANCELAR</p>
+                    </div>
+                </button>
+                <button class="svg-wrapper enabled green" data-prev-tab-selector="#drivers__create-driver button.red" data-next-tab-selector="#drivers__create-driver-name">
+                    <svg height="45" width="160" xmlns="http://www.w3.org/2000/svg">
+                        <rect class="shape" height="45" width="160"></rect>
+                    </svg>
+                    <div class="desc-container">
+                        <i class="fas fa-users-medical"></i>
+                        <p>CREAR</p>
+                    </div>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>

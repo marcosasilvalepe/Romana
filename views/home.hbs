@@ -382,13 +382,70 @@
 			</nav>
 
 			<div class="content config">
+				<div id="containers__table-grid">
 
-				<div id="companies-charts">
-					<div class="companies-charts">
+					<div id="containers-table">
+
+						<div class="table-header">
+							<div class="table">
+								<div class="thead">
+									<div class="tr">
+										<div class="th edit">EDITAR</div>
+										<div class="th code">CODIGO</div>
+										<div class="th name">NOMBRE</div>
+										<div class="th type">TIPO</div>
+										<div class="th weight">PESO</div>
+										<div class="th stock">STOCK</div>
+									</div>
+								</div>
+							</div>
+						</div>
+
+						<div class="table-content">
+							<div class="table">
+								<div class="tbody"></div>
+							</div>
+						</div>
 
 					</div>
-				</div>
 
+					<div id="containers-btns">
+
+						<div class="grid-column">
+
+							<button id="containers__delete-container-btn" class="svg-wrapper icon-left red">
+								<svg height="45" width="160" xmlns="http://www.w3.org/2000/svg">
+									<rect class="shape" height="45" width="160"></rect>
+								</svg>
+								<div class="desc-container">
+									<i class="fad fa-trash"></i>
+									<p>ELIMINAR</p>
+								</div>
+							</button>
+
+							<div class="vehicles-btn">
+								<div>
+									<input id="containers__search-container" spellcheck="false" class="input-effect" type="text" name="search-origin-entity">
+									<label><i class="fal fa-search"></i>BUSCAR</label>
+									<span class="focus-border"></span>
+								</div>
+							</div>
+
+							<button id="containers__create-container-btn" class="svg-wrapper enabled green">
+								<svg height="45" width="160" xmlns="http://www.w3.org/2000/svg">
+									<rect class="shape" height="45" width="160"></rect>
+								</svg>
+								<div class="desc-container">
+									<i class="far fa-layer-plus"></i>
+									<p>CREAR</p>
+								</div>
+							</button>
+
+						</div>
+    
+					</div>
+
+				</div>
 			</div>
 			
 		</div>
@@ -408,7 +465,20 @@
 
 		</div>
 
-		<div id="drivers" class="content-container"></div>
+		<div id="drivers" class="content-container">
+			
+			<nav class="breadcrumb">
+				<ul id="drivers__breadcrumb">
+					<li>
+						<i class="fal fa-cogs"></i>
+						<h4>CHOFERES</h4>
+					</li>
+				</ul>
+			</nav>
+			
+			<div class="content config"></div>
+
+		</div>
 
 		<div id="errors" class="content-container"></div>
 

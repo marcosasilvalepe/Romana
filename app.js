@@ -93,10 +93,7 @@ if (process.env.NODE_ENV === 'production') {
 }
 */
 
-let cert_path;
-if (process.env.NODE_ENV === 'production') cert_path = 'cert';
-else cert_path = 'cert/localhost';
-
+const cert_path = (process.env.NODE_ENV === 'production') ? 'cert' : 'cert/localhost';
 const key = fs.readFileSync(path.join(__dirname, cert_path, 'romana_cert.key'));
 const cert = fs.readFileSync(path.join(__dirname, cert_path, 'romana_cert.crt'));
 

@@ -204,8 +204,7 @@ function home_change_cycle(cycle) {
             change_cycle = await fetch('/get_products_by_date', {
                 method: 'POST', 
                 headers: { 
-                    "Content-Type" : "application/json",
-                    "Authorization" : token.value 
+                    "Content-Type" : "application/json"
                 }, 
                 body: JSON.stringify(data)
             }),
@@ -520,8 +519,7 @@ async function home_smaller_screen_filter_menu() {
                 change_cycle = await fetch('/get_products_by_date', {
                     method: 'POST', 
                     headers: { 
-                        "Content-Type" : "application/json",
-                        "Authorization" : token.value 
+                        "Content-Type" : "application/json"
                     }, 
                     body: JSON.stringify(data)
                 }),
@@ -648,8 +646,7 @@ function get_products_by_date(start_date, end_date) {
             get_products = await fetch('/get_products_by_date', {
                 method: 'POST', 
                 headers: { 
-                    "Content-Type" : "application/json",
-                    "Authorization" : token.value 
+                    "Content-Type" : "application/json"
                 }, 
                 body: JSON.stringify(data)
             }),
@@ -697,8 +694,7 @@ function home_change_product(product_type) {
             change_cycle = await fetch('/get_products_by_date', {
                 method: 'POST', 
                 headers: { 
-                    "Content-Type" : "application/json",
-                    "Authorization" : token.value 
+                    "Content-Type" : "application/json"
                 }, 
                 body: JSON.stringify(data)
             }),
@@ -812,13 +808,12 @@ async function drag_product_in_modal(product_code) {
             const
             template = await (await fetch('./templates/template-product-movements.html', {
                 method: 'GET',
-                headers: { "Authorization" : token.value }
+			    headers: { "Cache-Control" : "no-cache" }
             })).text(),
             get_products_movements = await fetch('/get_products_movements', {
                 method: 'POST', 
                 headers: { 
-                    "Content-Type" : "application/json",
-                    "Authorization" : token.value 
+                    "Content-Type" : "application/json"
                 }, 
                 body: JSON.stringify({ cycle, internal, start_date, end_date, product_code })
             }),
@@ -929,8 +924,7 @@ async function home_show_client_documents(e) {
         get_documents = await fetch('/get_product_documents', {
             method: 'POST', 
             headers: { 
-                "Content-Type" : "application/json",
-                "Authorization" : token.value 
+                "Content-Type" : "application/json"
             }, 
             body: JSON.stringify({ client_id, product_code, cycle, start_date, end_date })
         }),
@@ -1168,8 +1162,7 @@ document.getElementById('home-products').addEventListener('click', async e => {
         get_products_movements = await fetch('/get_products_movements', {
             method: 'POST', 
             headers: { 
-                "Content-Type" : "application/json",
-                "Authorization" : token.value 
+                "Content-Type" : "application/json"
             }, 
             body: JSON.stringify({ cycle, internal, start_date, end_date, product_code })
         }),
@@ -1178,7 +1171,10 @@ document.getElementById('home-products').addEventListener('click', async e => {
         if (response.error !== undefined) throw response.error;
 	    if (!response.success) throw 'Success response from server is false.';
 
-        const template = await (await fetch('./templates/template-product-movements.html')).text();
+        const template = await (await fetch('./templates/template-product-movements.html', {
+            method: 'GET',
+			headers: { "Cache-Control" : "no-cache" }
+        })).text();
         response.template = template;
 
         const modal = document.getElementById('home-modal');
@@ -1199,8 +1195,7 @@ function home_get_initial_products() {
             get_grapes_total = await fetch('/grapes_data', { 
                 method: 'GET', 
                 headers: {
-                    "Cache-Control" : "no-cache",
-                    "Authorization" : token.value 
+                    "Cache-Control" : "no-cache"
                 } 
             }),
             response = await get_grapes_total.json();

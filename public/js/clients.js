@@ -12,8 +12,7 @@ const clients_search_entity = async e => {
         search_entity = await fetch('/search_client_entity', {
             method: 'POST',
             headers: {
-                "Content-Type" : "application/json",
-                "Authorization" : token.value
+                "Content-Type" : "application/json"
             },
             body: JSON.stringify({ entity })
         }),
@@ -92,8 +91,7 @@ function clients_select_filters() {
             get_entities = await fetch('/get_entities_data', {
                 method: 'POST',
                 headers: {
-                    "Content-Type" : "application/json",
-                    "Authorization" : token.valuen 
+                    "Content-Type" : "application/json"
                 },
                 body: JSON.stringify({ status, type })
             }),
@@ -216,8 +214,7 @@ const clients_edit_entity = async e => {
         get_entity_data = await fetch('/get_entity_data', {
             method: 'POST',
             headers: {
-                "Content-Type" : "application/json",
-                "Authorization" : token.value
+                "Content-Type" : "application/json"
             },
             body: JSON.stringify({ entity_id })
         }),
@@ -336,8 +333,7 @@ const clients_table_delete_entity = async function() {
         delete_entity = await fetch('/delete_entity', {
             method: 'POST',
             headers: {
-                "Content-Type" : "application/json",
-                "Authorization" : token.value
+                "Content-Type" : "application/json"
             },
             body: JSON.stringify({ entity })
         }),
@@ -363,8 +359,7 @@ const clients_create_entity_btn =  async e => {
         get_giros = await fetch('/get_giros', {
             method: 'GET',
             headers: {
-                "Cache-Control" : "no-cache",
-                "Authorization" : token.value
+                "Cache-Control" : "no-cache"
             }
         }),
         response = await get_giros.json();
@@ -432,8 +427,7 @@ async function clients_create_entity() {
         create_entity = await fetch('/create_entity', {
             method: 'POST',
             headers: {
-                "Content-Type" : "application/json",
-                "Authorization" : token.value
+                "Content-Type" : "application/json"
             },
             body: JSON.stringify(data)
         }),
@@ -504,8 +498,7 @@ async function clients_delete_entity() {
         delete_entity = await fetch('/delete_entity', {
             method: 'POST',
             headers: {
-                "Content-Type" : "application/json",
-                "Authorization" : token.value
+                "Content-Type" : "application/json"
             },
             body: JSON.stringify({ entity })
         }),
@@ -556,8 +549,7 @@ async function clients_save_data() {
         save_data = await fetch('/clients_save_data', {
             method: 'POST',
             headers: {
-                "Content-Type" : "application/json",
-                "Authorization" : token.value
+                "Content-Type" : "application/json"
             },
             body: JSON.stringify(data)
         }),
@@ -601,12 +593,7 @@ async function clients_add_branch() {
 
         const 
         create_branch_template = await (await fetch('templates/template-create-branch.html')).text(),
-        get_regions = await fetch('/get_regions', {
-            method: 'GET',
-            headers: {
-                "Authorization" : token.value
-            }
-        }),
+        get_regions = await fetch('/get_regions'),
         response = await get_regions.json();
 
         if (response.error !== undefined) throw response.error;
@@ -672,8 +659,7 @@ async function clients_edit_branch(e) {
         get_branch_data = await fetch('/get_branch_data', {
             method: 'POST',
             headers: {
-                "Content-Type" : "application/json",
-                "Authorization" : token.value
+                "Content-Type" : "application/json"
             },
             body: JSON.stringify({ branch_id })
         }),
@@ -794,8 +780,7 @@ async function clients_create_branch() {
         create_branch = await fetch('/create_branch', {
             method: 'POST',
             headers: {
-                "COntent-Type" : "application/json",
-                "Authorization" : token.value
+                "COntent-Type" : "application/json"
             },
             body: JSON.stringify(data)
         }),
@@ -859,8 +844,7 @@ async function client_save_branch_data() {
         save_data = await fetch('/save_branch_data', {
             method: 'POST',
             headers: {
-                "Content-Type" : "application/json",
-                "Authorization" : token.value
+                "Content-Type" : "application/json"
             },
             body: JSON.stringify(data)
         }),
@@ -902,8 +886,7 @@ async function clients_delete_branch() {
         delete_branch = await fetch('/delete_branch', {
             method: 'POST',
             headers: {
-                "Content-Type" : "application/json",
-                "Authorization" : token.value
+                "Content-Type" : "application/json"
             },
             body: JSON.stringify(data)
         }),
@@ -933,8 +916,7 @@ async function client_regions_select(e) {
         get_comunas = await fetch('/fetch_comunas', {
             method: 'POST',
             headers: {
-                "Content-Type" : "application/json",
-                "Authorization" : token.value
+                "Content-Type" : "application/json"
             },
             body: JSON.stringify({ selected_region })
         }),
@@ -972,8 +954,7 @@ function clients_get_entities() {
             get_entities = await fetch('/get_entities_data', {
                 method: 'POST',
                 headers: {
-                    "Content-Type" : "application/json",
-                    "Authorization" : token.valuen 
+                    "Content-Type" : "application/json"
                 },
                 body: JSON.stringify({ status, type })
             }),

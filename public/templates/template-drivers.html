@@ -1,0 +1,96 @@
+<div id="drivers__table-grid">
+
+    <div id="drivers-table">
+
+        <div class="table-header">
+            <div class="table">
+                <div class="thead">
+                    <div class="tr">
+                        <div class="th">EDITAR</div>
+                        <div class="th">CHOFER</div>
+                        <div class="th">RUT</div>
+                        <div class="th">TELEFONO</div>
+                        <div class="th">INTERNO</div>
+                        <div class="th">ACTIVO</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="table-content">
+            <div class="table">
+                <div class="tbody"></div>
+            </div>
+        </div>
+
+    </div>
+
+    <div id="drivers-btns">
+        <div class="grid-column">
+
+            <button id="drivers__delete-driver-btn" class="svg-wrapper icon-left red">
+                <svg height="45" width="160" xmlns="http://www.w3.org/2000/svg">
+                    <rect class="shape" height="45" width="160"></rect>
+                </svg>
+                <div class="desc-container">
+                    <i class="fad fa-trash"></i>
+                    <p>ELIMINAR</p>
+                </div>
+            </button>
+
+            <div class="vehicles-btn">
+                <div>
+                    <input spellcheck="false" class="input-effect" type="text" name="search-origin-entity" id="drivers__search-driver">
+                    <label><i class="fal fa-search"></i>BUSCAR</label>
+                    <span class="focus-border"></span>
+                </div>
+            </div>
+
+            <div class="drivers-btn">
+                <div>
+                    <div class="select-effect has-content">
+                        <p>Internos</p>
+                        <select id="drivers__internal-select">
+                            <option value="" hidden=""></option>
+                            <option value="All">Todos</option>
+                            <option selected="" value="1">Internos</option>
+                            <option value="0">Externos</option>
+                        </select>
+                        <i class="far fa-chevron-down"></i>
+                        <label>TIPO</label>
+                        <span class="focus-border"></span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="drivers-btn">
+                <div>
+                    <div class="select-effect has-content">
+                        <p>Todos</p>
+                        <select id="drivers__status-select">
+                            <option value="" hidden=""></option>
+                            <option selected="" value="All">Todos</option>
+                            <option value="1">Activos</option>
+                            <option value="0">Inactivos</option>
+                        </select>
+                        <i class="far fa-chevron-down"></i>
+                        <label>ESTADO</label>
+                        <span class="focus-border"></span>
+                    </div>
+                </div>
+            </div>
+
+            <button id="drivers__create-driver-btn" class="svg-wrapper enabled green">
+                <svg height="45" width="160" xmlns="http://www.w3.org/2000/svg">
+                    <rect class="shape" height="45" width="160"></rect>
+                </svg>
+                <div class="desc-container">
+                    <i class="far fa-layer-plus"></i>
+                    <p>CREAR</p>
+                </div>
+            </button>
+
+        </div>
+    </div>
+
+</div>

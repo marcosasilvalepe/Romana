@@ -21,13 +21,9 @@ const token = {};
 
 		const user_data = jwt_decode(response.token);
 
-		
 		if (user_data.userProfile === 1) document.getElementById('menu-weights').click();
 		else document.getElementById('menu-analytics').click();
 		
-
-		//document.getElementById(`menu-containers`).click();
-
 		/*
 		if('serviceWorker' in navigator) {
 			// Register the service worker

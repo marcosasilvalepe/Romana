@@ -42,8 +42,7 @@ document.querySelector('#documents__doc-number').addEventListener('keyup', async
         get_documents = await fetch('/documents_docs_by_number', {
             method: 'POST',
             headers: {
-                "Content-Type" : "application/json",
-                "Authorization" : token.value
+                "Content-Type" : "application/json"
             },
             body: JSON.stringify(data)
         }),
@@ -150,8 +149,7 @@ const documents_print_weight = async () => {
 		get_weight = await fetch('/get_finished_weight', {
 			method: 'POST', 
 			headers: { 
-				"Content-Type" : "application/json", 
-				"Authorization" : token.value 
+				"Content-Type" : "application/json"
 			}, 
 			body: JSON.stringify({ weight_id })
 		}),
@@ -200,8 +198,7 @@ const documents_export_results_to_excel = async type => {
         generate_excel = await fetch('/documents_generate_excel', {
             method: 'POST',
             headers: {
-                "Content-Type" : "application/json",
-                "Authorization" : token.value
+                "Content-Type" : "application/json"
             },
             body: JSON.stringify(data)
         }),
@@ -329,8 +326,7 @@ const documents_search_by_client_name = async e => {
         get_documents = await fetch('/documents_get_docs_by_entity', {
             method: 'POST',
             headers: {
-                "Content-Type" : "application/json",
-                "Authorization" : token.value
+                "Content-Type" : "application/json"
             },
             body: JSON.stringify(data)
         }),
@@ -368,8 +364,7 @@ const documents_search_with_filters = () => {
             get_documents = await fetch('/documents_get_docs_from_filters', {
                 method: 'POST',
                 headers: {
-                    "Content-Type" : "application/json",
-                    "Authorization" : token.value
+                    "Content-Type" : "application/json"
                 },
                 body: JSON.stringify(data)
             }),
@@ -411,8 +406,7 @@ const documents_search_by_date = e => {
         get_documents = await fetch('/documents_get_docs', {
             method: 'GET',
             headers: {
-                "Content-Type" : "application/json",
-                "Authorization" : token.value
+                "Content-Type" : "application/json"
             }
         }),
         response = await get_documents.json();

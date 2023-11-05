@@ -65,8 +65,7 @@ function get_file_version(src) {
 			get_latest_file_version = await fetch('/get_file_version', {
 				method: 'POST',
 				headers: {
-					"Content-Type" : "application/json",
-					"Authorization" : token.value
+					"Content-Type" : "application/json"
 				},
 				body: JSON.stringify({ file: src })
 			}),

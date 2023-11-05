@@ -243,8 +243,7 @@ let domain, socket;
 							get_entities_stock = await fetch('/analytics_stock_get_entities', {
 								method: 'GET',
 								headers: {
-									"Cache-Control" : "no-cache",
-									"Authorization" : token.value
+									"Cache-Control" : "no-cache"
 								}
 							}),
 							response = await get_entities_stock.json();

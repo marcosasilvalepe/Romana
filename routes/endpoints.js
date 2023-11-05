@@ -1419,12 +1419,219 @@ router.get('/download_electronic_document', userMiddleware.isLoggedIn, async (re
 
     } catch(e) { console.log(e) }
 })
-/********************** WEIGHTS AND DOCUMENTS *********************/
 
 router.get('/get_socket_domain', userMiddleware.isLoggedIn, async (req, res) => {
     const domain = (process.env.NODE_ENV === 'development') ? 'https://localhost' : 'https://192.168.1.90';
     res.json({ domain })
 })
+
+router.get('/get_containers', userMiddleware.isLoggedIn, async (req, res) => {
+
+    const response = { success: false };
+
+    try {
+
+        const get_containers = () => {
+            return new Promise((resolve, reject) => {
+                conn.query(`
+                    SELECT * FROM containers
+                    ORDER BY name ASC;
+                `, (error, results, fields) => {
+                    if (error) return reject(error);
+                    return resolve(results);
+                })
+            })
+        }
+
+        response.containers = await get_containers();
+        response.success = true;
+
+    }
+    catch(e) { 
+        response.error = e; 
+        console.log(`Error getting containers data. ${e}`);
+        error_handler(`Endpoint: /get_containers -> User Name: ${req.userData.userName}\r\n${e}`);
+    }
+    finally { res.json(response) }
+})
+
+router.post('/create_container', userMiddleware.isLoggedIn, async (req, res) => {
+
+    const 
+    { code, name, type, weight } = req.body,
+    response = { success: false };
+
+    try {
+
+        const check_existing_code = () => {
+            return new Promise((resolve, reject) => {
+                conn.query(`
+                    SELECT * FROM containers WHERE code=${conn.escape(code)} LIMIT 1;
+                `, (error, results, fields) => {
+                    if (error) return reject(error);
+                    if (results.length === 0) return resolve(false);
+                    return resolve(true);
+                })
+            })
+        }
+
+        const create_container = () => {
+            return new Promise((resolve, reject) => {
+                conn.query(`
+                    INSERT INTO containers (code, name, type, weight, initial_stock, created, created_by)
+                    VALUES (
+                        ${conn.escape(code)}, 
+                        ${conn.escape(name)}, 
+                        ${conn.escape(type)}, 
+                        ${parseFloat(weight)},
+                        ${null},
+                        NOW(),
+                        ${parseInt(req.userData.userId)})
+                    ;
+                `, (error, results, fields) => {
+                    if (error) return reject(error);
+                    return resolve();
+                })
+            })
+        }
+
+        const check_insert = () => {
+            return new Promise((resolve, reject) => {
+                conn.query(`
+                    SELECT * FROM containers WHERE code=${conn.escape(code)};
+                `, (error, results, fields) => {
+                    if (error || results.length === 0) return reject(error);
+                    return resolve(results[0]);
+                })
+            })
+        }
+
+        const container_code_already_exists = await check_existing_code();
+        if (container_code_already_exists) throw 'Código de envase ya existe.';
+
+        await create_container();
+        response.container = await check_insert();
+        response.success = true;
+
+    }
+    catch(e) { 
+        response.error = e; 
+        console.log(`Error creating container. ${e}`);
+        error_handler(`Endpoint: /create_container -> User Name: ${req.userData.userName}\r\n${e}`);
+    }
+    finally { res.json(response) }
+})
+
+router.post('/delete_container', userMiddleware.isLoggedIn, async (req, res) => {
+
+    const 
+    { container_code } = req.body,
+    response = { success: false };
+
+    try {
+
+        const container_has_regisitries_in_documents = () => {
+            return new Promise((resolve, reject) => {
+                conn.query(`
+                    SELECT * FROM documents_body WHERE container_code=${conn.escape(container_code)} AND status <> 'N' LIMIT 1;
+                `, (error, results, fields) => {
+                    if (error) return reject(error);
+                    if (results.length === 0) return resolve(false);
+                    return resolve(true);
+                })
+            })
+        }
+
+        const containers_has_regisitries_in_tare_containers = () => {
+            return new Promise((resolve, reject) => {
+                conn.query(`
+                    SELECT * FROM tare_containers WHERE container_code=${conn.escape(container_code)} AND status <> 'I' LIMIT 1;
+                `, (error, results, fields) => {
+                    if (error) return reject(error);
+                    if (results.length === 0) return resolve(false);
+                    return resolve(true);
+                })
+            })
+        }
+
+        const delete_container = () => {
+            return new Promise((resolve, reject) => {
+                conn.query(`
+                    DELETE FROM containers WHERE code=${conn.escape(container_code)};
+                `, (error, results, fields) => {
+                    if (error) return reject(error);
+                    return resolve();
+                })
+            })
+        }
+
+        if (!container_has_regisitries_in_documents()) throw `El envase tiene registros en documentos`;
+        if (!containers_has_regisitries_in_tare_containers()) throw 'El envase tiene regisros en envases de tara';
+
+        await delete_container();
+        response.success = true;
+    }
+    catch(e) { 
+        response.error = e; 
+        console.log(`Error deleting container. ${e}`);
+        error_handler(`Endpoint: /delete_container -> User Name: ${req.userData.userName}\r\n${e}`);
+    }
+    finally { res.json(response) }
+})
+
+router.post('/save_container_data', userMiddleware.isLoggedIn, async (req, res) => {
+
+    const 
+    { code, name, type, weight } = req.body,
+    response = { success: false };
+
+    try {
+
+        const save_data = () => {
+            return new Promise((resolve, reject) => {
+                conn.query(`
+                    UPDATE containers
+                    SET
+                        name=${conn.escape(name)},
+                        type=${conn.escape(type)},
+                        weight=${parseFloat(weight)}
+                    WHERE code=${conn.escape(code)};
+                `, (error, results, fields) => {
+                    if (error) return reject(error);
+                    return resolve();
+                })
+            })
+        }
+
+        const check_update = () => {
+            return new Promise((resolve, reject) => {
+                conn.query(`
+                    SELECT * FROM containers WHERE code=${conn.escape(code)};
+                `, (error, results, fields) => {
+                    if (error || results.length === 0) return reject(error);
+                    return resolve(results[0]);
+                })
+            })
+        }
+
+        if (code.length === 0) throw 'Codigo de envase vacío';
+        if (name.length === 0) throw 'Nombre de envase vacío';
+        if (type.length === 0) throw 'Tipo de envase vacío.';
+        if (parseFloat(weight) === NaN) throw 'Peso de envase inválido';
+
+        await save_data();
+        response.container = await check_update();
+        response.success = true;
+
+    }
+    catch(e) { 
+        response.error = e; 
+        console.log(`Error saving data of container. ${e}`);
+        error_handler(`Endpoint: /save_container_data -> User Name: ${req.userData.userName}\r\n${e}`);
+    }
+    finally { res.json(response) }
+})
+/********************** WEIGHTS AND DOCUMENTS *********************/
 
 router.post('/check_existing_plates', userMiddleware.isLoggedIn, async (req, res) => {
 
@@ -3183,33 +3390,217 @@ router.post('/get_drivers', userMiddleware.isLoggedIn, async (req, res) => {
     finally { res.json(response) }
 })
 
+router.get('/get_active_drivers', userMiddleware.isLoggedIn, async (req, res) => {
+
+    const response = { success: false };
+
+    try {
+
+        const get_drivers = () => {
+            return new Promise((resolve, reject) => {
+                conn.query(`
+                    SELECT * FROM drivers 
+                    WHERE internal=1
+                    ORDER BY name ASC;
+                    `, (error, results, fields) => {
+                    if (error) return reject(error);
+                    return resolve(results);
+                })
+            })
+        }
+
+        response.drivers = await get_drivers();
+        response.success = true;
+
+    }
+    catch(e) { 
+        console.log(`Error getting active drivers. ${e}`); 
+        response.error = e;
+        error_handler(`Endpoint: /get_active_drivers -> User Name: ${req.userData.userName}\r\n${e}`);
+    }
+    finally { res.json(response) }
+})
+
 router.post('/search_driver', userMiddleware.isLoggedIn, async (req, res) => {
 
     const
-    {driver} = req.body,
-    response = { success: false }
+    { driver, internal, active } = req.body,
+    response = { success: false };
 
     try {
 
         const search_driver = () => {
             return new Promise((resolve, reject) => {
                 conn.query(`
-                    SELECT * FROM drivers WHERE name LIKE '%${driver}%';
+                    SELECT * FROM drivers 
+                    WHERE name LIKE '%${driver}%'
+                    ORDER BY name ASC;
                 `, (error, results, fields) => {
                     if (error) return reject(error);
-                    response.drivers = results;
-                    response.success = true;
-                    return resolve();
+                    return resolve(results);
                 })
             })
         }
 
-        await search_driver();
+        const search_driver_with_query = (internal_query, active_query) => {
+            return new Promise((resolve, reject) => {
+                conn.query(`
+                SELECT * FROM drivers 
+                WHERE name LIKE '%${driver}%' ${active_query} ${internal_query}
+                ORDER BY name ASC;
+                `, (error, results, fields) => {
+                    if (error) return reject(error);
+                    return resolve(results);
+                })
+            })
+        }
+
+        if (active === undefined && internal === undefined) response.drivers = await search_driver();
+        else {
+
+            const
+            internal_query = (internal === 'All') ? ' ' : ` AND internal=${parseInt(internal)}`,
+            active_query = (active === 'All') ? ' ' : ` AND active=${parseInt(active)} `;
+
+            response.drivers = await search_driver_with_query(internal_query, active_query);
+
+        }
+
+        response.success = true;
+
     }
     catch (e) { 
         console.log(`Error searching for driver. ${e}`); 
         response.error = e;
         error_handler(`Endpoint: /search_driver -> User Name: ${req.userData.userName}\r\n${e}`);
+    }
+    finally { res.json(response) }
+})
+
+router.post('/get_driver_data', userMiddleware.isLoggedIn, async (req, res) => {
+
+    const 
+    { driver_id } = req.body,
+    response = { success: false }
+
+    try {
+
+        const get_driver_data = () => {
+            return new Promise((resolve, reject) => {
+                conn.query(`SELECT * FROM drivers WHERE id=${parseInt(driver_id)};`, (error, results, fields) => {
+                    if (error || results.length === 0) return reject(error);
+                    return resolve(results[0]);
+                })
+            })
+        }
+
+        response.driver = await get_driver_data();
+        response.success = true;
+
+    }
+    catch (e) { 
+        console.log(`Error getting driver data. ${e}`); 
+        response.error = e;
+        error_handler(`Endpoint: /get_driver_data -> User Name: ${req.userData.userName}\r\n${e}`);
+    }
+    finally { res.json(response) }
+})
+
+router.post('/delete_driver', userMiddleware.isLoggedIn, async (req, res) => {
+
+    const 
+    { driver_id } = req.body,
+    response = { success: false };
+    
+    try {
+
+        const driver_exists_in_db = () => {
+            return new Promise((resolve, reject) => {
+                conn.query(`
+                    SELECT * FROM weights 
+                    WHERE driver_id=${parseInt(driver_id)}
+                    LIMIT 1;
+                `, (error, results, fields) => {
+                    if (error) return reject(error);
+                    if (results.length === 0) return resolve(false);
+                    return resolve(true);
+                })
+            })
+        }
+
+        const delete_driver_from_db = () => {
+            return new Promise((resolve, reject) => {
+                conn.query(`
+                    DELETE FROM drivers WHERE id=${parseInt(driver_id)};
+                `, (error, results, fields) => {
+                    if (error) return reject(error);
+                    return resolve();
+                })
+            })
+        }
+
+        const driver_already_in_db = await driver_exists_in_db();
+
+        if (driver_already_in_db) throw 'El chofer tiene registros en la base de datos.';
+        else await delete_driver_from_db();
+
+        response.success = true;
+
+    }
+    catch (e) { 
+        console.log(`Error deleting driver. ${e}`); 
+        response.error = e;
+        error_handler(`Endpoint: /delete_driver -> User Name: ${req.userData.userName}\r\n${e}`);
+    }
+    finally { res.json(response) }
+})
+
+router.post('/save_driver_data', userMiddleware.isLoggedIn, async (req, res) => {
+
+    const
+    { id, name, rut, phone, internal, active } = req.body,
+    response = { success: false };
+
+    try {
+
+        const update_data = () => {
+            return new Promise((resolve, reject) => {
+                conn.query(`
+                    UPDATE drivers
+                    SET
+                        rut=${conn.escape(rut)},
+                        name=${conn.escape(name)},
+                        phone=${conn.escape(phone)},
+                        internal=${conn.escape(internal)},
+                        active=${conn.escape(active)}
+                    WHERE id=${parseInt(id)};
+                `, (error, results, fields) => {
+                    if (error) return reject(error);
+                    return resolve();
+                })
+            })
+        }
+
+        const check_update = () => {
+            return new Promise((resolve, reject) => {
+                conn.query(`
+                    SELECT * FROM drivers WHERE id=${parseInt(id)};
+                `, (error, results, fields) => {
+                    if (error || results.length === 0) return reject(error);
+                    return resolve(results[0]);
+                })
+            })
+        }
+
+        await update_data();
+        response.driver = await check_update();
+        response.success = true;
+
+    }
+    catch (e) { 
+        console.log(`Error updating driver data. ${e}`); 
+        response.error = e;
+        error_handler(`Endpoint: /update_driver_data -> User Name: ${req.userData.userName}\r\n${e}`);
     }
     finally { res.json(response) }
 })

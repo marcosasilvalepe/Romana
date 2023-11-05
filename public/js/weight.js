@@ -12,8 +12,7 @@ document.querySelector('#weight__breadcrumb li:first-child').addEventListener('c
 		get_pending_weights = await fetch('/list_pending_weights', {
 			method: 'GET', 
 			headers: { 
-				"Cache-Control" : "no-cache", 
-				"Authorization" : session_token 
+				"Cache-Control" : "no-cache"
 			}
 		}),
 		response = await get_pending_weights.json();
@@ -115,8 +114,7 @@ document.getElementById('weights-menu__create').addEventListener('click', async 
         get_template = await fetch('/get_vehicles', { 
 			method: 'GET', 
 			headers: { 
-				"Cache-Control" : "no-cache", 
-				"Authorization" : token.value 
+				"Cache-Control" : "no-cache"
 			} 
 		}),
         response = await get_template.json();
@@ -264,8 +262,7 @@ document.getElementById('select-vhc-create').addEventListener('click', async () 
 		get_transport_entities = await fetch('/get_transport', {
 			method: 'GET',
 			headers: {
-				"Cache-Control" : 'no-cache',
-				"Authorization" : token.value
+				"Cache-Control" : 'no-cache'
 			}
 		}),
 		response = await get_transport_entities.json();
@@ -273,7 +270,10 @@ document.getElementById('select-vhc-create').addEventListener('click', async () 
 		if (response.error !== undefined) throw response.error;
 		if (!response.success) throw 'Success response from server is false.';
 
-		const template = await (await fetch('./templates/template-create-vehicle.html')).text();
+		const template = await (await fetch('./templates/template-create-vehicle.html', {
+			method: 'GET',
+			headers: { "Cache-Control" : "no-cache" }
+		})).text();
 		modal.innerHTML = template;
 	
 		const transport_select = modal.querySelector('.create-vehicle__transport-select');
@@ -350,7 +350,7 @@ document.querySelector('#pending-weights-table tbody').addEventListener('click',
 		const
 		get_weight = await fetch('/get_pending_weight', {
 			method: 'POST', 
-			headers: { "Content-Type" : "application/json",  "Authorization" : token.value }, 
+			headers: { "Content-Type" : "application/json" }, 
 			body: JSON.stringify({ weight_id })
 		}),
 		response = await get_weight.json();
@@ -358,7 +358,10 @@ document.querySelector('#pending-weights-table tbody').addEventListener('click',
 		if (response.error !== undefined) throw response.error;
 		if (!response.success) throw 'Success response from server is false.';
 
-		const template = await (await fetch('./templates/template-weight-step-2.html')).text();
+		const template = await (await fetch('./templates/template-weight-step-2.html', {
+			method: 'GET',
+			headers: { "Cache-Control" : "no-cache" }
+		})).text();
 
 		await load_css('css/weights.css');
 		await load_script('js/weight.js');
@@ -486,8 +489,7 @@ const get_finished_weights = async weight_status => {
 		get_finished_weights = await fetch('/get_finished_weights', {
 			method: 'POST', 
 			headers: { 
-				"Content-Type" : "application/json", 
-				"Authorization" : token.value 
+				"Content-Type" : "application/json"
 			}, 
 			body: JSON.stringify({ weight_status })
 		}),
@@ -500,9 +502,7 @@ const get_finished_weights = async weight_status => {
 
 		const template = await (await fetch('./templates/templates-weights-list.html', {
 			method: 'GET', 
-			headers: {
-				"Cache-Control" : "no-cache"
-			}
+			headers: { "Cache-Control" : "no-cache" }
 		})).text();
 
 		//ANIMATION STUFF
@@ -663,8 +663,7 @@ const finished_weight_id_keydown = async e => {
 		get_weight = await fetch('/get_finished_weight_by_id', {
 			method: 'POST', 
 			headers: { 
-				"Content-Type" : "application/json", 
-				"Authorization" : token.value 
+				"Content-Type" : "application/json"
 			}, 
 			body: JSON.stringify({ weight_id })
 		}),
@@ -704,8 +703,7 @@ const finished_weight_get_records_from_filters = e => {
 			get_weights = await fetch('/get_finished_weights_by_filters', {
 				method: 'POST', 
 				headers: { 
-					"Content-Type" : "application/json", 
-					"Authorization" : token.value 
+					"Content-Type" : "application/json"
 				}, 
 				body: JSON.stringify(data)
 			}),
@@ -854,8 +852,7 @@ const change_weight_status = async (weight_id, status) => {
 		change_weight_status = await fetch('/change_weight_status', {
 			method: 'POST',
 			headers: {
-				"Content-Type" : "application/json",
-				"Authorization" : token.value
+				"Content-Type" : "application/json"
 			},
 			body: JSON.stringify({ weight_id, status })
 		}),
@@ -986,8 +983,7 @@ const save_view_preference = async view => {
 			save_view = await fetch('/save_view_preference', {
 				method: 'POST',
 				headers: {
-					"Content-Type" : "application/json",
-					"Authorization" : token.value
+					"Content-Type" : "application/json"
 				},
 				body: JSON.stringify({ view: parseInt(view) })
 			}),
@@ -1422,8 +1418,7 @@ const visualize_finished_weight = (weight_id, modal, edit) => {
 			get_weight = await fetch('/get_finished_weight', {
 				method: 'POST', 
 				headers: { 
-					"Content-Type" : "application/json", 
-					"Authorization" : token.value 
+					"Content-Type" : "application/json"
 				}, 
 				body: JSON.stringify({ weight_id })
 			}),
@@ -1456,7 +1451,11 @@ const visualize_finished_weight = (weight_id, modal, edit) => {
 
 			weight_objects_array.push(weight_object);
 
-			const template = await (await fetch('./templates/template-finished-weight.html')).text();
+			const template = await (await fetch('./templates/template-finished-weight.html', {
+				method: 'GET',
+				headers: { "Cache-Control" : "no-cache" }
+			})).text();
+
 			modal.innerHTML = template;
 			modal.setAttribute('data-cycle', weight_object.cycle.id);
 
@@ -1756,8 +1755,7 @@ const visualize_finished_weight = (weight_id, modal, edit) => {
 							delete_weight = await fetch('/annul_weight', {
 								method: 'POST', 
 								headers: { 
-									"Content-Type" : "application/json", 
-									"Authorization" : token.value 
+									"Content-Type" : "application/json"
 								}, 
 								body: JSON.stringify({ weight_id })
 							}),
@@ -1831,8 +1829,7 @@ const finished_weights_print_weight = async weight_id => {
 		get_weight = await fetch('/get_finished_weight', {
 			method: 'POST', 
 			headers: { 
-				"Content-Type" : "application/json", 
-				"Authorization" : token.value 
+				"Content-Type" : "application/json"
 			}, 
 			body: JSON.stringify({ weight_id })
 		}),
@@ -1878,8 +1875,7 @@ const finished_weights_export_to_excel_simple = async () => {
 		const generate_excel = await fetch('/finished_weights_excel_report_simple', {
 			method: 'POST',
 			headers: {
-				"Content-Type" : "application/json",
-				"Authorization" : token.value
+				"Content-Type" : "application/json"
 			},
 			body: JSON.stringify({ data })
 		}),
@@ -1908,8 +1904,7 @@ const finished_weights_export_to_excel_detailed = async () => {
 		generate_excel = await fetch('/finished_weights_excel_report_detailed', {
 			method: 'POST',
 			headers: {
-				"Content-Type" : "application/json",
-				"Authorization" : token.value
+				"Content-Type" : "application/json"
 			},
 			body: JSON.stringify(data)
 		}),
@@ -1936,8 +1931,7 @@ function create_weight_filter_vehicles(filter) {
 			fetch_vehicles = await fetch('/get_vehicles', {
 				method: 'POST',
 				headers: { 
-					"Content-Type" : "application/json", 
-					"Authorization" : token.value 
+					"Content-Type" : "application/json"
 				},
 				body: JSON.stringify({ vehicles: filter })
 			}),
@@ -2002,8 +1996,7 @@ async function create_weight_search_vehicle(e) {
 		search_vehicle = await fetch('/search_vehicle', {
 			method: 'POST',
 			headers: { 
-				"Content-Type" : "application/json", 
-				"Authorization" : token.value 
+				"Content-Type" : "application/json"
 			},
 			body: JSON.stringify({ partial_plate })
 		}),
@@ -2078,12 +2071,14 @@ async function create_vehicle_select_driver() {
 	try {
 
 		const
-		template = await (await fetch('./templates/template-change-driver.html')).text(),
+		template = await (await fetch('./templates/template-change-driver.html', {
+			method: 'GET',
+			headers: { "Cache-Control" : "no-cache" }
+		})).text(),
 		check_vehicle = await fetch('/check_primary_plates', {
 			method: 'POST', 
 			headers: { 
-				"Content-Type" : "application/json", 
-				"Authorization" : token.value 
+				"Content-Type" : "application/json"
 			}, 
 			body: JSON.stringify({ plates })
 		}),
@@ -2205,8 +2200,7 @@ async function create_vehicle_select_driver_choose_transport_btn() {
 		get_transport = await fetch('/get_transport', { 
 			method: 'GET', 
 			headers: { 
-				"Cache-Control" : "no-cache", 
-				"Authorization" : token.value 
+				"Cache-Control" : "no-cache"
 			} 
 		}),
 		response = await get_transport.json();
@@ -2283,7 +2277,7 @@ async function create_vehicle_select_driver_choose_transport_btn() {
 			widget.addEventListener('keydown', custom_select_navigate_li);
 		});
 	
-		modal.querySelectorAll('#create-document__header .custom-select ul').addEventListener('click', select_option_from_custom_select);
+		//modal.querySelectorAll('#create-document__header .custom-select ul').forEach(select => { selectaddEventListener('click', select_option_from_custom_select); })
 		
 		//SELECT TRANSPORT -> ACCEPT BTN
 		document.querySelector('#create-vehicle__select-transport__finish-btn').addEventListener('click', create_vehicle_accept_btn);
@@ -2378,8 +2372,7 @@ function create_weight(response) {
 				get_breakdown = await fetch('/kilos_breakdown', {
 					method: 'POST', 
 					headers: { 
-						"Content-Type" : "application/json",
-						"Authorization" : token.value 
+						"Content-Type" : "application/json"
 					}, 
 					body: JSON.stringify({ weight_id: weight_object.frozen.id })
 				}),
@@ -2570,8 +2563,7 @@ async function weights_fix_bin_average() {
 		check_weight = await fetch('/fix_weight_check_if_weight_is_saved', {
 			method: 'POST',
 			headers: {
-				"Content-Type" : "application/json",
-				"Authorization" : token.value
+				"Content-Type" : "application/json"
 			},
 			body: JSON.stringify({ weight_id: weight_object.frozen.id })
 		}),
@@ -2745,8 +2737,7 @@ async function weights_fix_bin_average() {
 				revert = await fetch('/fix_weight_undo_brute_weight', {
 					method: 'POST',
 					headers: {
-						"Content-Type" : "application/json",
-						"Authorization" : token.value
+						"Content-Type" : "application/json"
 					},
 					body: JSON.stringify({ weight_id: weight_object.frozen.id })
 				}),
@@ -2819,8 +2810,7 @@ async function weights_fix_bin_average() {
 				save_data = await fetch('/fix_weight_save_data', {
 					method: 'POST',
 					headers: {
-						"Content-Type" : "application/json",
-						"Authorization" : token.value
+						"Content-Type" : "application/json"
 					},
 					body: JSON.stringify({ 
 						kilos: parseInt(kilos), 
@@ -2977,8 +2967,7 @@ async function create_weight_btn() {
 		new_weight = await fetch('/create_new_weight', { 
 			method: 'POST', 
 			headers: { 
-				"Content-Type" : "application/json",
-				"Authorization" : token.value 
+				"Content-Type" : "application/json" 
 			}, 
 			body: JSON.stringify({ cycle, plates }) 
 		}),
@@ -2987,7 +2976,10 @@ async function create_weight_btn() {
 		if (response.error !== undefined) throw response.error;
 		if (!response.success) throw 'Success response from server is false.';
 
-		const template = await (await fetch('./templates/template-weight-step-2.html')).text();
+		const template = await (await fetch('./templates/template-weight-step-2.html', {
+			method: 'GET',
+			headers: { "Cache-Control" : "no-cache" }
+		})).text();
 		response.template = template;
 
 		breadcrumbs('remove', 'weight');
@@ -3042,8 +3034,7 @@ async function weight_change_tara_type() {
 		update = await fetch('/update_tara', {
 			method: 'POST', 
 			headers: { 
-				"Content-Type" : "application/json",
-				"Authorization" : token.value 
+				"Content-Type" : "application/json" 
 			}, 
 			body: JSON.stringify({ weight_id, process, type })
 		}),
@@ -3097,7 +3088,10 @@ async function change_cycle_widget() {
 	const modal = document.getElementById('create-weight__modal');
 	try {
 
-		const template = await (await fetch('./templates/template-change-cycle.html')).text();
+		const template = await (await fetch('./templates/template-change-cycle.html', {
+			method: 'GET',
+			headers: { "Cache-Control" : "no-cache" }
+		})).text();
 		modal.innerHTML = template;
 
 		modal.querySelectorAll('#create-weight__change-cycle-type .select-cycle-type').forEach(btn => {
@@ -3133,8 +3127,7 @@ async function change_cycle_type_accept_btn() {
 		update = await fetch('/update_cycle', {
 			method: 'POST', 
 			headers: { 
-				"Content-Type" : "application/json",
-				"Authorization" : token.value 
+				"Content-Type" : "application/json" 
 			}, 
 			body: JSON.stringify({ weight_id, cycle })
 		}),
@@ -3270,8 +3263,7 @@ async function add_secondary_plates(e) {
 		update = await fetch('/update_secondary_plates', {
 			method: 'POST', 
 			headers: { 
-				"Content-Type" : "application/json",
-				"Authorization" : token.value  
+				"Content-Type" : "application/json"  
 			}, 
 			body: JSON.stringify({ weight_id, plates })
 		}),
@@ -3410,7 +3402,10 @@ async function change_driver_widget(e) {
 
 	try {
 
-		const template = await (await fetch('./templates/template-change-driver.html')).text();
+		const template = await (await fetch('./templates/template-change-driver.html', {
+			method: 'GET',
+			headers: { "Cache-Control" : "no-cache" }
+		})).text();
 		
 		modal.innerHTML = template;
 
@@ -3461,8 +3456,7 @@ async function change_driver_widget(e) {
 			get_drivers = await fetch('/get_drivers', { 
 				method: 'POST', 
 				headers: { 
-					"Content-Type" : "application/json",
-					"Authorization" : token.value 
+					"Content-Type" : "application/json" 
 				}, 
 				body: JSON.stringify({ driver_type }) 
 			}),
@@ -3494,8 +3488,7 @@ async function list_drivers_by_type() {
 		drivers = await fetch('/get_drivers', {
 			method: 'POST', 
 			headers: { 
-				"Content-Type" : "application/json",
-				"Authorization" : token.value 
+				"Content-Type" : "application/json" 
 			}, 
 			body: JSON.stringify({ driver_type })
 		}),
@@ -3531,8 +3524,7 @@ async function select_driver_search_driver(e) {
 			drivers = await fetch('/get_drivers', {
 				method: 'POST', 
 				headers: { 
-					"Content-Type" : "application/json",
-					"Authorization" : token.value 
+					"Content-Type" : "application/json" 
 				}, 
 				body: JSON.stringify({ driver_type })
 			}),
@@ -3554,8 +3546,7 @@ async function select_driver_search_driver(e) {
 		search_driver = await fetch('/search_driver', {
 			method: 'POST', 
 			headers: { 
-				"Content-Type" : "application/json",
-				"Authorization" : token.value 
+				"Content-Type" : "application/json" 
 			}, 
 			body: JSON.stringify({ driver })
 		}),
@@ -3671,8 +3662,7 @@ async function select_driver_create_driver() {
 		create_driver = await fetch('/create_driver', {
 			method: 'POST', 
 			headers: { 
-				"Content-Type" : "application/json",
-				"Authorization" : token.value 
+				"Content-Type" : "application/json" 
 			}, 
 			body: JSON.stringify(data)
 		}),
@@ -3740,8 +3730,7 @@ const get_vehicle_history = async () => {
 		get_data = await fetch('/get_vehicle_history', {
 			method: 'POST',
 			headers: {
-				"Content-Type" : "application/json",
-				"Authorization" : token.value
+				"Content-Type" : "application/json"
 			},
 			body: JSON.stringify({ plates })
 		}),
@@ -3880,8 +3869,7 @@ function change_kilos_breakdown_status() {
 			change_status = await fetch('/change_kilos_breakdown_status', {
 				method: 'POST',
 				headers: {
-					"Content-Type" : "application/json",
-					"Authorization" : token.value
+					"Content-Type" : "application/json"
 				},
 				body: JSON.stringify({ weight_id })
 			}),
@@ -4178,8 +4166,7 @@ function document_modal_event_listeners(modal) {
 				change_type = await fetch('/change_type_of_document', {
 					method: 'POST',
 					headers: {
-						"Content-Type" : "application/json",
-						"Authorization" : token.value
+						"Content-Type" : "application/json"
 					},
 					body: JSON.stringify({ doc_id: document_object.frozen.id, doc_type })
 				}),
@@ -4329,8 +4316,7 @@ async function add_doc_widget(modal) {
 		create_document = await fetch('/create_new_document', {
 			method: 'POST', 
 			headers: { 
-				"Content-Type" : "application/json",
-				"Authorization" : token.value 
+				"Content-Type" : "application/json" 
 			}, 
 			body: JSON.stringify({ weight_id})
 		}),
@@ -4459,8 +4445,7 @@ async function close_create_document_modal() {
 			update_doc_status = await fetch('/update_doc_status', {
 				method: 'POST', 
 				headers: { 
-					"Content-Type" : "application/json",
-					"Authorization" : token.value 
+					"Content-Type" : "application/json" 
 				}, 
 				body: JSON.stringify({ doc_id })
 			}),
@@ -4509,8 +4494,7 @@ async function close_create_document_modal() {
 					recycle_row = await fetch('/recycle_row', {
 						method: 'POST', 
 						headers: { 
-							"Content-Type" : "application/json",
-							"Authorization" : token.value 
+							"Content-Type" : "application/json"
 						}, 
 						body: JSON.stringify({ row_id })
 					}),
@@ -4534,8 +4518,7 @@ async function close_create_document_modal() {
 			doc_totals = await fetch('/get_weight_totals', {
 				method: 'POST', 
 				headers: { 
-					"Content-Type" : "application/json",
-					"Authorization" : token.value 
+					"Content-Type" : "application/json" 
 				}, 
 				body: JSON.stringify({ weight_id })
 			}),
@@ -4737,8 +4720,7 @@ async function change_document_electronic_status() {
 		update_status = await fetch('/update_document_electronic_status', {
 			method: 'POST',
 			headers: {
-				"Content-Type" : "application/json",
-				"Authorization" : token.value
+				"Content-Type" : "application/json"
 			},
 			body: JSON.stringify({ new_electronic_status, doc_id })
 		}),
@@ -4927,8 +4909,7 @@ function edit_document_in_modal(doc_id, modal) {
 			get_entities = await fetch('/get_document_entities', { 
 				method: 'GET', 
 				headers: { 
-					"Cache-Control" : "no-cache",
-					"Authorization" : token.value 
+					"Cache-Control" : "no-cache" 
 				} 
 			}),
 			response = await get_entities.json();
@@ -4944,11 +4925,12 @@ function edit_document_in_modal(doc_id, modal) {
 			modal.innerHTML = template;
 	
 			for (let doc of weight_object.documents) {
-				if (doc.frozen.id === doc_id) {
-					document_object = doc;
-					document_object.active = true;
-					break;
-				}	
+
+				if (doc.frozen.id !== doc_id) continue;
+
+				document_object = doc;
+				document_object.active = true;
+				break;
 			}
 
 			//WATCH FOR CHANGES IF KILOS BREAKDOWN HAS BEEN DONE
@@ -5034,8 +5016,7 @@ async function delete_document(doc_id) {
 		delete_document = await fetch('/delete_document', {
 			method: 'POST', 
 			headers: { 
-				"Content-Type" : "application/json",
-				"Authorization" : token.value 
+				"Content-Type" : "application/json" 
 			}, 
 			body: JSON.stringify({ doc_id })
 		}),
@@ -5324,8 +5305,7 @@ async function open_entity_modal(e) {
 			fetch_entities = await fetch('/get_entities_for_document', { 
 				method: 'GET', 
 				headers: { 
-					"Cache-Control" : "no-cache",
-					"Authorization" : token.value 
+					"Cache-Control" : "no-cache" 
 				} 
 			}),
 			response = await fetch_entities.json();
@@ -5445,8 +5425,7 @@ async function create_document_search_client_entity(e) {
 		search_entity = await fetch('/search_for_entity', {
 			method: 'POST', 
 			headers: { 
-				"Content-Type": "application/json",
-				"Authorization" : token.value 
+				"Content-Type": "application/json" 
 			}, 
 			body: JSON.stringify({ entity_to_search })
 		}),
@@ -5485,8 +5464,7 @@ function patacon_add_info() {
 			add_comments = await fetch('/documents_add_patacon_comments', {
 				method: 'POST', 
 				headers: {
-					"Content-Type" : "application/json",
-					"Authorization" : token.value
+					"Content-Type" : "application/json"
 				},
 				body: JSON.stringify({ document_id: document_object.frozen.id })
 			}),
@@ -6617,8 +6595,7 @@ const show_product_container_modal = async (type, row_id) => {
 				search_product = await fetch(endpoint, {
 					method: 'POST',
 					headers: {
-						"Content-Type" : "application/json",
-						"Authorization" : token.value
+						"Content-Type" : "application/json"
 					},
 					body: JSON.stringify({ data })
 				}),
@@ -6857,8 +6834,7 @@ async function product_name_search(e) {
 		search_name = await fetch('/search_product_by_name', {
 			method: 'POST',
 			headers: { 
-				"Content-Type" : "application/json",
-				"Authorization" : token.value 
+				"Content-Type" : "application/json" 
 			},
 			body: JSON.stringify({ product })
 		}),
@@ -6999,8 +6975,7 @@ const get_traslado_description = row_id => {
 			get_description = await fetch('/get_traslado_description', {
 				method: 'POST',
 				headers: {
-					"Content-Type" : "application/json",
-					"Authorization" : token.value
+					"Content-Type" : "application/json"
 				},
 				body: JSON.stringify({ row_id })
 			}),
@@ -7162,8 +7137,7 @@ const create_new_document_row = row_element => {
 			create_new_row = await fetch('/create_new_document_row', {
 				method: 'POST', 
 				headers: { 
-					"Content-Type" : "application/json",
-					"Authorization" : token.value 
+					"Content-Type" : "application/json" 
 				}, 
 				body: JSON.stringify({ document_id })
 			}),
@@ -7454,7 +7428,10 @@ async function take_weight_widget(e) {
 	const modal = document.querySelector('#create-weight__modal');
 	try {
 
-		const template = await (await fetch('./templates/template-take-weight.html')).text();
+		const template = await (await fetch('./templates/template-take-weight.html', {
+			method: 'GET',
+			headers: { "Cache-Control" : "no-cache" }
+		})).text();
 		modal.innerHTML = template;
 
 		modal.querySelector('#create-weight__take-weight_close-modal').addEventListener('click', take_weight_back_to_weight);
@@ -7555,8 +7532,7 @@ async function save_cancel_click() {
 				reset_weight = await fetch('/reset_weight_data', {
 					method: 'POST', 
 					headers: { 
-						"Content-Type" : "application/json",
-						"Authorization" : token.value 
+						"Content-Type" : "application/json"
 					}, 
 					body: JSON.stringify({ weight_id, process })
 				}),
@@ -7636,8 +7612,7 @@ async function weight_comments_update(e) {
 		update_comments = await fetch('/update_weight_comments', {
 			method: 'POST', 
 			headers: { 
-				"Content-Type" : "application/json",
-				"Authorization" : token.value 
+				"Content-Type" : "application/json" 
 			}, 
 			body: JSON.stringify({ weight_id, process, comments })
 		}),
@@ -7859,7 +7834,10 @@ async function tare_containers_widget(modal) {
 
 	try {
 
-		const template = await (await fetch('./templates/template-tare-containers.html')).text();
+		const template = await (await fetch('./templates/template-tare-containers.html', {
+			method: 'GET',
+			headers: { "Cache-Control" : "no-cache" }
+		})).text();
 		modal.innerHTML = template;
 
 		const tare_containers = weight_object.tare_containers;
@@ -7956,8 +7934,7 @@ async function tare_containers_widget(modal) {
 				save_tare_containers = await fetch('/tare_containers_copy_from_documents', {
 					method: 'POST',
 					headers: {
-						"Content-Type" : "application/json",
-						"Authorization" : token.value
+						"Content-Type" : "application/json"
 					},
 					body: JSON.stringify({ weight_id: weight_object.frozen.id, containers })
 				}),
@@ -8109,8 +8086,7 @@ function add_containers_create_new_line() {
 			create_line = await fetch('/create_empty_containers_line', {
 				method: 'POST', 
 				headers: { 
-					"Content-Type" : "application/json",
-					"Authorization" : token.value 
+					"Content-Type" : "application/json" 
 				}, 
 				body: JSON.stringify({ weight_id })
 			}),
@@ -8188,8 +8164,7 @@ async function add_containers_delete_row() {
 		delete_row = await fetch('/delete_tare_containers_row', {
 			method: 'POST', 
 			headers: { 
-				"Content-Type" : "application/json",
-				"Authorization" : token.value 
+				"Content-Type" : "application/json" 
 			}, 
 			body: JSON.stringify({ weight_id: weight_object.frozen.id, row_id, first_row })
 		}),
@@ -8270,8 +8245,7 @@ async function add_containers_set_code(e) {
 		update_code = await fetch('/update_tare_container', {
 			method: 'POST', 
 			headers: { 
-				"Content-Type" : "application/json",
-				"Authorization" : token.value 
+				"Content-Type" : "application/json" 
 			}, 
 			body: JSON.stringify({ weight_id: weight_object.frozen.id, row_id, code })
 		}),
@@ -8327,8 +8301,7 @@ async function add_containers_search_by_name(e) {
 		search_container = await fetch('/search_tare_container_by_name', {
 			method: 'POST', 
 			headers: { 
-				"Content-Type" : "application/json",
-				"Authorization" : token.value 
+				"Content-Type" : "application/json" 
 			}, 
 			body: JSON.stringify({ partial_name })
 		}),
@@ -8388,8 +8361,7 @@ async function add_containers_update_weight(e) {
 		update_weight = await fetch('/update_tare_container_weight', {
 			method: 'POST', 
 			headers: { 
-				"Content-Type" : "application/json",
-				"Authorization" : token.value 
+				"Content-Type" : "application/json" 
 			}, 
 			body: JSON.stringify({ weight_id: weight_object.frozen.id, row_id, weight })
 		}),
@@ -8430,8 +8402,7 @@ async function add_containers_update_amount(e) {
 			update_amount = await fetch('/update_tare_container_amount', {
 				method: 'POST', 
 				headers: { 
-					"Content-Type" : "application/json",
-					"Authorization" : token.value 
+					"Content-Type" : "application/json" 
 				}, 
 				body: JSON.stringify({ weight_id: weight_object.frozen.id, row_id, amount })
 			}),
@@ -8542,8 +8513,7 @@ async function add_containers_accept_btn() {
 		get_totals = await fetch('/get_tare_containers_totals', {
 			method: 'POST', 
 			headers: { 
-				"Content-Type" : "application/json",
-				"Authorization" : token.value 
+				"Content-Type" : "application/json" 
 			}, 
 			body: JSON.stringify({ weight_id })
 		}),
@@ -8639,8 +8609,7 @@ async function tare_containers_delete(e) {
 		delete_row = await fetch('/delete_tare_containers_row', {
 			method: 'POST', 
 			headers: { 
-				"Content-Type" : "application/json",
-				"Authorization" : token.value 
+				"Content-Type" : "application/json" 
 			}, 
 			body: JSON.stringify({ weight_id: weight_object.frozen.id, row_id, first_row })
 		}),
@@ -8729,8 +8698,7 @@ async function annul_weight() {
 		delete_weight = await fetch('/annul_weight', {
 			method: 'POST', 
 			headers: { 
-				"Content-Type" : "application/json",
-				"Authorization" : token.value 
+				"Content-Type" : "application/json" 
 			}, 
 			body: JSON.stringify({ weight_id })
 		}),
@@ -8838,8 +8806,7 @@ async function documents_kilos_breadown(modal) {
 		get_kilos_for_breakdown = await fetch('/kilos_breakdown', {
 			method: 'POST', 
 			headers: { 
-				"Content-Type" : "application/json",
-				"Authorization" : token.value 
+				"Content-Type" : "application/json" 
 			}, 
 			body: JSON.stringify({ weight_id })
 		}),
@@ -8848,7 +8815,10 @@ async function documents_kilos_breadown(modal) {
 		if (response.error !== undefined) throw response.error;
 		if (!response.success) throw 'Success response from server is false.';
 
-		const template = await (await fetch('./templates/template-kilos-breakdown.html')).text();
+		const template = await (await fetch('./templates/template-kilos-breakdown.html', {
+			method: 'GET',
+			headers: { "Cache-Control" : "no-cache" }
+		})).text();
 
 		weight_object.breakdown = response.breakdown;
 		modal.innerHTML = template;
@@ -9273,8 +9243,7 @@ async function upload_kilos_breakdown() {
 		save_breakdown = await fetch('/save_kilos_breakdown', {
 			method: 'POST', 
 			headers: { 
-				"Content-Type" : "application/json",
-				"Authorization" : token.value 
+				"Content-Type" : "application/json" 
 			}, 
 			body: JSON.stringify({ weight_id, rows, kilos_informed })
 		}),
@@ -9482,8 +9451,7 @@ async function finalize_weight() {
 		finalize_weight = await fetch('/finalize_weight', {
 			method: 'POST', 
 			headers: { 
-				"Content-Type" : "application/json",
-				"Authorization" : token.value 
+				"Content-Type" : "application/json" 
 			}, 
 			body: JSON.stringify({ weight_id })
 		}),
@@ -9527,8 +9495,7 @@ async function save_weight_widget() {
 		get_pending_weights = await fetch('/list_pending_weights', {
 			method: 'GET', 
 			headers: { 
-				"Cache-Control" : "no-cache",
-				"Authorization" : token.value 
+				"Cache-Control" : "no-cache" 
 			}
 		}),
 		response = await get_pending_weights.json();

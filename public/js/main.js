@@ -4,6 +4,37 @@ const global = {
 	errors: []
 }
 
+const screen_width = window.screen.width;
+async function valid_session() {
+
+	const 
+	now = Math.floor(new Date().getTime() / 1000),
+	expiration = token.expiration;
+	
+	//CHECK IF TOKES HAS EXPIRED
+	if (expiration - now > 0) return;
+
+	//REFRESH TOKEN
+	try {
+
+		const 
+		refresh_token = await fetch('/refresh_token', {
+			method: 'GET', 
+			headers: { "Cache-Control" : "no-cache" } 
+		}),
+		response = await refresh_token.json();
+
+		if (!response.success || response.no_token !== undefined || response.error !== undefined) throw 'No refresh token';
+
+		token.value = response.token;
+		token.expiration = jwt_decode(token.value).exp;
+
+	} catch(error) { window.location = '/' }
+}
+
+setInterval(valid_session, 60000); //CHECK VALID SESSION EVERY MINUTE
+
+
 //WEIGHT AND DOCUMENT OBJECTS STUFF
 let weight_object, document_object, watch_document;
 const weight_objects_array = [], document_objects_array = [];
@@ -58,8 +89,7 @@ class create_weight_object {
 				get_weight = await fetch('/get_finished_weight', {
 					method: 'POST', 
 					headers: { 
-						"Content-Type" : "application/json",
-						"Authorization" : token.value
+						"Content-Type" : "application/json"
 					}, 
 					body: JSON.stringify({ weight_id })
 				}),
@@ -108,8 +138,7 @@ class create_weight_object {
 				const update = await fetch('/update_driver', {
 					method: 'POST', 
 					headers: { 
-						"Content-Type" : "application/json",
-						"Authorization" : token.value
+						"Content-Type" : "application/json"
 					}, 
 					body: JSON.stringify({ weight_id, driver_id, set_driver_as_default })
 				}),
@@ -135,8 +164,7 @@ class create_weight_object {
 				annul = await fetch('/annul_document', {
 					method: 'POST', 
 					headers: { 
-						"Content-Type" : "application/json",
-						"Authorization" : token.value 
+						"Content-Type" : "application/json" 
 					}, 
 					body: JSON.stringify({ doc_id })
 				}),
@@ -172,8 +200,7 @@ class create_weight_object {
 				save_weight = await fetch('/save_weight', {
 					method: 'POST', 
 					headers: { 
-						"Content-Type" : "application/json",
-						"Authorization" : token.value
+						"Content-Type" : "application/json"
 					}, 
 					body: JSON.stringify({ weight_id, process })
 				}),
@@ -249,8 +276,7 @@ class create_document_object {
 				get_doc_data = await fetch('/get_doc_data_for_printing', {
 					method: 'POST',
 					headers: {
-						"Content-Type" : "application/json",
-						"Authorization" : token.value
+						"Content-Type" : "application/json"
 					},
 					body: JSON.stringify({ doc_id })
 				}),
@@ -450,8 +476,7 @@ class create_document_object {
 				update = await fetch('/update_doc_number', {
 					method: 'POST', 
 					headers: { 
-						"Content-Type" : "application/json",
-						"Authorization" : token.value 
+						"Content-Type" : "application/json" 
 					}, 
 					body: JSON.stringify({ doc_id, doc_number })
 				}),
@@ -480,8 +505,7 @@ class create_document_object {
 				update = await fetch('/update_doc_date', {
 					method: 'POST', 
 					headers: { 
-						"Content-Type" : "application/json",
-						"Authorization" : token.value 
+						"Content-Type" : "application/json" 
 					}, 
 					body: JSON.stringify({ doc_id, doc_date })
 				}),
@@ -509,8 +533,7 @@ class create_document_object {
 				update_client_entity = await fetch('/update_client_entity', {
 					method: 'POST', 
 					headers: { 
-						"Content-Type" : "application/json",
-						"Authorization" : token.value 
+						"Content-Type" : "application/json" 
 					}, 
 					body: JSON.stringify({ document_id, client_id })
 				}),
@@ -555,8 +578,7 @@ class create_document_object {
 				update = await fetch('/document_update_branch', {
 					method: 'POST', 
 					headers: { 
-						"Content-Type" : "application/json",
-						"Authorization" : token.value 
+						"Content-Type" : "application/json" 
 					}, 
 					body: JSON.stringify({ branch_id, doc_number, document_id, electronic_document })
 				}),
@@ -589,8 +611,7 @@ class create_document_object {
 				update = await fetch('/document_select_internal_entity', {
 					method: 'POST', 
 					headers: { 
-						"Content-Type" : "application/json",
-						"Authorization" : token.value 
+						"Content-Type" : "application/json" 
 					}, 
 					body: JSON.stringify({ entity_id, document_id })
 				}),
@@ -623,8 +644,7 @@ class create_document_object {
 				update = await fetch('/document_select_internal_branch', {
 					method: 'POST', 
 					headers: { 
-						"Content-Type" : "application/json",
-						"Authorization" : token.value 
+						"Content-Type" : "application/json" 
 					}, 
 					body: JSON.stringify({ branch_id, document_id })
 				}),
@@ -651,8 +671,7 @@ class create_document_object {
 				save_comments = await fetch('/update_document_comments', {
 					method: 'POST',
 					headers: {
-						"Content-Type" : "application/json",
-						"Authorization" : token.value
+						"Content-Type" : "application/json"
 					},
 					body: JSON.stringify({ comments: sanitize(comments), document_id })
 				}),
@@ -685,8 +704,7 @@ class document_row {
 				update = await fetch('/update_product', {
 					method: 'POST',
 					headers: {
-						"Content-Type" : "application/json",
-						"Authorization" : token.value 
+						"Content-Type" : "application/json" 
 					},
 					body: JSON.stringify({ row_id, code })
 				}),
@@ -720,8 +738,7 @@ class document_row {
 				update_cut = await fetch('/update_cut', {
 					method: 'POST', 
 					headers: { 
-						"Content-Type" : "application/json",
-						"Authorization" : token.value
+						"Content-Type" : "application/json"
 					}, 
 					body: JSON.stringify({ row_id, product_code, cut, entity_id })
 				}),
@@ -757,8 +774,7 @@ class document_row {
 				update_description = await fetch('/update_product_description', {
 					method: 'POST',
 					headers: {
-						"Content-Type" : "application/json",
-						"Authorization" : token.value
+						"Content-Type" : "application/json"
 					},
 					body: JSON.stringify({ row_id: this.id, description })
 				}),
@@ -786,8 +802,7 @@ class document_row {
 				update = await fetch('/update_price', {
 					method: 'POST', 
 					headers: { 
-						"Content-Type" : "application/json",
-						"Authorization" : token.value 
+						"Content-Type" : "application/json" 
 					}, 
 					body: JSON.stringify({ row_id, price })
 				}),
@@ -815,8 +830,7 @@ class document_row {
 				update = await fetch('/update_kilos', {
 					method: 'POST', 
 					headers: { 
-						"Content-Type" : "application/json",
-						"Authorization" : token.value 
+						"Content-Type" : "application/json" 
 					}, 
 					body: JSON.stringify({ row_id, kilos })
 				}),
@@ -847,8 +861,7 @@ class document_row {
 				update = await fetch('/update_container', {
 					method: 'POST', 
 					headers: { 
-						"Content-Type" : "application/json",
-						"Authorization" : token.value 
+						"Content-Type" : "application/json" 
 					}, 
 					body: JSON.stringify({ row_id, code })
 				}),
@@ -886,8 +899,7 @@ class document_row {
 				update = await fetch('/update_container_amount', {
 					method: 'POST', 
 					headers: { 
-						"Content-Type" : "application/json",
-						"Authorization" : token.value 
+						"Content-Type" : "application/json" 
 					}, 
 					body: JSON.stringify({ row_id, amount })
 				}),
@@ -916,8 +928,7 @@ class document_row {
 				annul = await fetch('/annul_row', {
 					method: 'POST', 
 					headers: { 
-						"Content-Type" : "application/json",
-						"Authorization" : token.value 
+						"Content-Type" : "application/json" 
 					}, 
 					body: JSON.stringify({ row_id })
 				}),
@@ -951,36 +962,6 @@ class document_row {
 		this.container = row.container;
 	}
 }
-
-const screen_width = window.screen.width;
-async function valid_session() {
-
-	const 
-	now = Math.floor(new Date().getTime() / 1000),
-	expiration = token.expiration;
-	
-	//CHECK IF TOKES HAS EXPIRED
-	if (expiration - now > 0) return;
-
-	//REFRESH TOKEN
-	try {
-
-		const 
-		refresh_token = await fetch('/refresh_token', {
-			method: 'GET', 
-			headers: { "Cache-Control" : "no-cache" } 
-		}),
-		response = await refresh_token.json();
-
-		if (!response.success || response.no_token !== undefined || response.error !== undefined) throw 'No refresh token';
-
-		token.value = response.token;
-		token.expiration = jwt_decode(token.value).exp;
-
-	} catch(error) { window.location = '/' }
-}
-
-setInterval(valid_session, 60000); //CHECK VALID SESSION EVERY MINUTE
 
 Array.prototype.sortBy = function(p) {
     return this.slice(0).sort(function(a,b) {
@@ -1213,8 +1194,7 @@ const create_vehicle_finalize = async function() {
 		create_vehicle = await fetch('/create_vehicle', {
 			method: 'POST',
 			headers: {
-				"Content-Type" : "application/json",
-				"Authorization" : token.value
+				"Content-Type" : "application/json"
 			},
 			body: JSON.stringify(data)
 		}),
@@ -1321,8 +1301,7 @@ const edit_vehicle_finalize = async function() {
 		save_vehicle_data = await fetch('/save_vehicle_data', {
 			method: 'POST',
 			headers: {
-				"Content-Type" : "application/json",
-				"Authorization" : token.value
+				"Content-Type" : "application/json"
 			},
 			body: JSON.stringify(data)
 		}),
@@ -1378,8 +1357,7 @@ const create_vehicle_choose_driver = async () => {
 			check_plates = await fetch('/check_existing_plates', {
 				method: 'POST',
 				headers: {
-					"Content-Type" : "application/json",
-					"Authorization" : token.value
+					"Content-Type" : "application/json"
 				},
 				body: JSON.stringify({ plates })
 			}),
@@ -1397,8 +1375,7 @@ const create_vehicle_choose_driver = async () => {
 			get_default_driver = await fetch('/get_vehicle_default_driver', {
 				method: 'POST',
 				headers: {
-					"Content-Type" : "application/json",
-					"Authorization" : token.value
+					"Content-Type" : "application/json"
 				},
 				body: JSON.stringify({ plates })
 			}),
@@ -1460,7 +1437,10 @@ const create_vehicle_choose_driver = async () => {
 		}
 
 		const 
-		driver_template = await (await fetch('./templates/template-change-driver.html')).text(),
+		driver_template = await (await fetch('./templates/template-change-driver.html', {
+			method: 'GET',
+			headers: { "Cache-Control" : "no-cache" }
+		})).text(),
 		driver_div = document.createElement('div');
 		
 		driver_div.innerHTML = driver_template;
@@ -1474,8 +1454,7 @@ const create_vehicle_choose_driver = async () => {
 		get_drivers = await fetch('/get_drivers', { 
 			method: 'POST', 
 			headers: { 
-				"Content-Type" : "application/json",
-				"Authorization" : token.value 
+				"Content-Type" : "application/json" 
 			}, 
 			body: JSON.stringify({ driver_type }) 
 		}),
@@ -1840,8 +1819,7 @@ document.getElementById('menu-user').addEventListener('click', () => {
 			update_password = await fetch('/change_user_password', {
 				method: 'POST',
 				headers: {
-					"Content-Type" : "application/json",
-					"Authorization" : token.value
+					"Content-Type" : "application/json"
 				},
 				body: JSON.stringify({ current_password, new_password, confirm_password })
 			}),
@@ -1869,8 +1847,7 @@ document.getElementById('menu-user').addEventListener('click', () => {
 
 			const
 			close_session = await fetch('/close_user_session', {
-				method: 'GET',
-				"Authorization" : token.value
+				method: 'GET'
 			}),
 			response = await close_session.json();
 
@@ -1905,8 +1882,7 @@ document.getElementById('menu-user').addEventListener('click', () => {
 			save_preferences = await fetch('/save_user_preferences', {
 				method: 'POST',
 				headers: {
-					"Content-Type" : "application/json",
-					"Authorization" : token.value
+					"Content-Type" : "application/json"
 				},
 				body: JSON.stringify(data)
 			}),
@@ -2106,12 +2082,10 @@ document.getElementById('menu-weights').addEventListener('click', async function
 		}
 
 		const 
-		session_token = token.value,
 		get_pending_weights = await fetch('/list_pending_weights', {
 			method: 'GET', 
 			headers: { 
-				"Cache-Control" : "no-cache", 
-				"Authorization" : session_token 
+				"Cache-Control" : "no-cache"
 			}
 		}),
 		response = await get_pending_weights.json();
@@ -2161,7 +2135,10 @@ document.getElementById('menu-documents').addEventListener('click', async functi
 	try {
 
 		if (!!document.querySelector('#documents__table-grid') === false) {
-			const template = await (await fetch('/templates/template-documents.html')).text();
+			const template = await (await fetch('/templates/template-documents.html', {
+				method: 'GET',
+				headers: { "Cache-Control" : "no-cache" }
+			})).text();
             document.querySelector('#documents').innerHTML = template;
 
 			await load_css('css/documents.css');
@@ -2227,7 +2204,10 @@ document.getElementById('menu-analytics').addEventListener('click', async functi
 		//FETCH TEMPLATE IF IT HASN'T DOEN IT YET
         if (!!document.querySelector('#analytics__entities-table') === false) {
 
-            const template = await (await fetch('/templates/template-analytics.html')).text();
+            const template = await (await fetch('/templates/template-analytics.html', {
+				method: 'GET',
+				headers: { "Cache-Control" : "no-cache" }
+			})).text();
             document.querySelector('#analytics').innerHTML = template;
 
 			await load_css('css/analytics.css');
@@ -2286,7 +2266,10 @@ document.getElementById('menu-clients').addEventListener('click', async function
 	try {
 
 		if (!!document.querySelector('#clients__table-grid') === false) {
-			const template = await (await fetch('/templates/template-client-main.html')).text();
+			const template = await (await fetch('/templates/template-client-main.html', {
+				method: 'GET',
+				headers: { "Cache-Control" : "no-cache" }
+			})).text();
 
 			while (animating) { await delay(10) }
 
@@ -2342,7 +2325,10 @@ document.getElementById('menu-products').addEventListener('click', async functio
 
 		if (!!document.querySelector('#products__table-grid') === false) {
 
-			const template = await (await fetch('/templates/template-products.html')).text();
+			const template = await (await fetch('/templates/template-products.html', {
+				method: 'GET',
+				headers: { "Cache-Control" : "no-cache" }
+			})).text();
 			document.querySelector('#products > .content').innerHTML = template;
 
 			await load_css('css/products.css');
@@ -2366,7 +2352,7 @@ document.getElementById('menu-products').addEventListener('click', async functio
 	} catch(error) { error_handler('Error al intentar abrir productos', error); animating = false }
 });
 
-/*********** PRODUCTS ***********/
+/*********** VEHICLES ***********/
 document.getElementById('menu-vehicles').addEventListener('click', async function() {
 
 	const btn = this;
@@ -2380,10 +2366,13 @@ document.getElementById('menu-vehicles').addEventListener('click', async functio
 
 		if (!!document.querySelector('#vehicles__table-grid') === false) {
 			
-			const template = await (await fetch('/templates/template-vehicles.html')).text();
+			const template = await (await fetch('/templates/template-vehicles.html', {
+				method: 'GET',
+				headers: { "Cache-Control" : "no-cache" }
+			})).text();
 			document.querySelector('#vehicles > .content').innerHTML = template;
 			
-			await load_css('css/vehicles.css');
+			await load_css('css/config.css');
 			await load_script('js/vehicles.js');
 
 		}
@@ -2405,15 +2394,16 @@ document.getElementById('menu-vehicles').addEventListener('click', async functio
 	catch(error) { error_handler('Error al intentar abrir vehiculos.', error); animating = false }
 });
 
-/*********** PRODUCTS ***********/
+/*********** COMPANIES ***********/
 document.getElementById('menu-companies').addEventListener('click', async function() {
 
 	const btn = this;
 	if (btn_double_clicked(btn) || animating) return;
 
-	const active_container = document.querySelector('#main__content > .active');
 	animating = true;
-	if (!!active_container) main_content_animation()
+
+	const active_container = document.querySelector('#main__content > .active');
+	if (!!active_container) main_content_animation();
 	
 	await load_css('css/companies.css');
 	await load_script('js/companies.js');
@@ -2431,6 +2421,41 @@ document.getElementById('menu-companies').addEventListener('click', async functi
 	animating = false;
 });
 
+/*********** DRIVERS ***********/
+document.getElementById('menu-drivers').addEventListener('click', async function() {
+
+	const btn = this;
+	if (btn_double_clicked(btn) || animating) return;
+
+	animating = true;
+
+	const active_container = document.querySelector('#main__content > .active');
+	if (!!active_container) main_content_animation();
+
+	const template = await (await fetch('../templates/template-drivers.html', {
+		method: 'GET',
+		headers: { "Cache-Control" : "no-cache" }
+	})).text();
+
+	document.querySelector('#drivers > .content').innerHTML = template;
+
+	await load_css('css/config.css');
+	await load_script('js/drivers.js');
+
+	if (!!active_container) {
+		while (animating) await delay(10);
+		document.querySelector('.menu-item.active').classList.remove('active');
+		active_container.classList.remove('active');
+	}
+
+	btn.classList.add('active');
+	document.getElementById('drivers').classList.add('active');
+
+	if (!!active_container) main_content_animation();
+	animating = false;
+
+});
+
 document.getElementById('menu-containers').addEventListener('click', async function() {
 
 	try {
@@ -2442,9 +2467,8 @@ document.getElementById('menu-containers').addEventListener('click', async funct
 		animating = true;
 		if (!!active_container) main_content_animation()
 		
-		await load_css('css/companies.css');
-		await load_script('js/echart.js');
-		await load_script('js/companies_charts.js');
+		await load_css('css/config.css');
+		await load_script('js/containers.js');
 
 		if (!!active_container) {
 			while (animating) await delay(10);
@@ -2491,22 +2515,24 @@ if (screen_width < 768) {
 const tachapa = () => {
 	const 
 	vowels = ['a', 'e', 'i', 'o', 'u'],
-	first_vowel = Math.floor(Math.random() * (4- 0 + 1) + 0),
-	second_vowel = Math.floor(Math.random() * (4- 0 + 1) + 0),
-	third_vowel = Math.floor(Math.random() * (4- 0 + 1) + 0);
+	first_vowel = Math.floor(Math.random() * (4 - 0 + 1) + 0),
+	second_vowel = Math.floor(Math.random() * (4 - 0 + 1) + 0),
+	third_vowel = Math.floor(Math.random() * (4 - 0 + 1) + 0);
 	return 'Juan T' + vowels[first_vowel] + 'ch' + vowels[second_vowel] + 'p' + vowels[third_vowel];
 }
 
-const user_name = (jwt_decode(token.value).userName === 'Felipe') ? tachapa() : jwt_decode(token.value).userName;
-document.querySelector('#user-profile-container p').innerText = user_name;
-
 (async () => {
 	try {
+
+		const user_name = (jwt_decode(token.value).userName === 'Felipe') ? tachapa() : jwt_decode(token.value).userName;
+		document.querySelector('#user-profile-container p').innerText = user_name;
+		document.querySelectorAll('input').forEach(input => input.value = '' );
+
 		await load_css('css/main.css');
 		await check_loader();
+
 		fade_in_animation(document.querySelector('body > main'));
 		document.querySelector('body > main').removeAttribute('style');
+
 	} catch(e) { error_handler('No se pudo cargar recurso.', e) }
 })();
-
-document.querySelectorAll('input').forEach(input => input.value = '' );

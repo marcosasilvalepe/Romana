@@ -4,8 +4,8 @@ const mysql = require('mysql');
 //DELETE AFTERWARDS -> MULTIPLE STATEMENTS LEADS TO SQL INJECTION!!!!
 const conn = mysql.createPool({ 
     connectionLimit: 15, 
-    host: "172.20.25.68", 
-    user: "marcos", 
+    host: "localhost", 
+    user: "root", 
     password: "M@r$l1985_:)", 
     database: "romana", 
     multipleStatements: true 

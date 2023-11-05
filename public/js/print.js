@@ -545,10 +545,7 @@ function print_with_browser(weight) {
             weight_id = urlParams.get('weight_id'),
             get_weight = await fetch('/get_finished_weight', {
                 method: 'POST', 
-                headers: { 
-                    "Content-Type" : "application/json",
-                    "Authorization" : token.value
-                }, 
+                headers: { "Content-Type" : "application/json" }, 
                 body: JSON.stringify({ weight_id })
             }),
             response = await get_weight.json();

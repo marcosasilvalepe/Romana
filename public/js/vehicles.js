@@ -45,8 +45,7 @@ const vehicles_list_vehicles = (status, internal) => {
             list_vehicles = await fetch('/list_vehicles', {
                 method: 'POST',
                 headers: {
-                    "Content-Type" : "application/json",
-                    "Authorization" : token.value
+                    "Content-Type" : "application/json"
                 },
                 body: JSON.stringify({ status, internal })
             }),
@@ -149,8 +148,7 @@ document.querySelector('#vehicles-table .tbody').addEventListener('click', async
         get_vehicle = await fetch('/get_vehicle', {
             method: 'POST',
             headers: {
-                "Content-Type" : "application/json",
-                "Authorization" : token.value
+                "Content-Type" : "application/json"
             },
             body: JSON.stringify({ primary_plates })
         }),
@@ -158,8 +156,6 @@ document.querySelector('#vehicles-table .tbody').addEventListener('click', async
 
         if (response.error !== undefined) throw response.error;
 	    if (!response.success) throw 'Success response from server is false.';
-
-        console.log(response)
 
         const 
         modal = document.getElementById('vehicles__vehicle-template'),
@@ -181,6 +177,7 @@ document.querySelector('#vehicles-table .tbody').addEventListener('click', async
 		});
 
         modal.querySelector('.create-vehicle__vehicle-data .header h3').innerText = 'EDITAR VEHICULO';
+        modal.querySelector('button.green .desc-container p').innerText = 'GUARDAR';
 
         //PRIMARY PLATES
         modal.querySelector('.create-vehicle__primary-plates').value = response.vehicle.primary_plates;
@@ -230,8 +227,7 @@ document.querySelector('#vehicles__search-vehicle').addEventListener('keydown', 
         get_vehicles = await fetch('/get_vehicles_by_plates', {
             method: 'POST',
             headers: {
-                "Content-Type" : "application/json",
-                "Authorization" : token.value
+                "Content-Type" : "application/json"
             },
             body: JSON.stringify({ partial_plates })
         }),
@@ -268,8 +264,7 @@ const vehicles_get_vehicles_by_select = (status, internal) => {
             get_vehicles = await fetch('/get_vehicles_from_filters', {
                 method: 'POST',
                 headers: {
-                    "Content-Type" : "application/json",
-                    "Authorization" : token.value
+                    "Content-Type" : "application/json"
                 },
                 body: JSON.stringify({ status, internal })
             }),
@@ -351,8 +346,7 @@ document.getElementById('vehicles__delete-vehicle-btn').addEventListener('click'
         delete_vehicle = await fetch('/delete_vehicle', {
             method: 'POST',
             headers: {
-                "Content-Type" : "application/json",
-                "Authorization" : token.value
+                "Content-Type" : "application/json"
             },
             body: JSON.stringify({ plates })
         }),
@@ -379,8 +373,7 @@ document.querySelector('#vehicles__create-vehicle-btn').addEventListener('click'
         get_transport = await fetch('/get_transport', {
             method: 'GET',
             headers: {
-                "Cache-Control" : "no-cache",
-                "Authorization" : token.value
+                "Cache-Control" : "no-cache"
             }
         }),
         response = await get_transport.json();
@@ -390,7 +383,10 @@ document.querySelector('#vehicles__create-vehicle-btn').addEventListener('click'
 
         const 
         fade_in_div = document.getElementById('vehicles__vehicle-template'),
-        template = await (await fetch('templates/template-create-vehicle.html')).text();
+        template = await (await fetch('templates/template-create-vehicle.html', {
+            method: 'GET',
+            headers: { "Cache-Control" : "no-cache" }
+        })).text();
 
         fade_in_div.innerHTML = template;
 

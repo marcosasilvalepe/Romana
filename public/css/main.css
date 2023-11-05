@@ -210,6 +210,10 @@ ul { list-style: none; padding: 0; margin: 0 }
   transition: 0.3s;
 }
 
+.input-effect ~ label i {
+  margin-right: 3px;
+}
+
 @media only screen and (max-width: 576px) {
 
   .input-effect ~ label {

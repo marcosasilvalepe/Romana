@@ -288,8 +288,7 @@ document.getElementById('menu-user').addEventListener('click', () => {
 			update_password = await fetch('/change_user_password', {
 				method: 'POST',
 				headers: {
-					"Content-Type" : "application/json",
-					"Authorization" : token.value
+					"Content-Type" : "application/json"
 				},
 				body: JSON.stringify({ current_password, new_password, confirm_password })
 			}),
@@ -316,10 +315,7 @@ document.getElementById('menu-user').addEventListener('click', () => {
 		try {
 
 			const
-			close_session = await fetch('/close_user_session', {
-				method: 'GET',
-				"Authorization" : token.value
-			}),
+			close_session = await fetch('/close_user_session'),
 			response = await close_session.json();
 
 			if (response.error !== undefined) throw response.error;
@@ -352,8 +348,7 @@ document.getElementById('menu-user').addEventListener('click', () => {
 			save_preferences = await fetch('/save_user_preferences', {
 				method: 'POST',
 				headers: {
-					"Content-Type" : "application/json",
-					"Authorization" : token.value
+					"Content-Type" : "application/json"
 				},
 				body: JSON.stringify(data)
 			}),
@@ -554,8 +549,7 @@ document.getElementById('menu-weights').addEventListener('click', async function
 		get_pending_weights = await fetch('/list_pending_weights', {
 			method: 'GET', 
 			headers: { 
-				"Cache-Control" : "no-cache", 
-				"Authorization" : session_token 
+				"Cache-Control" : "no-cache"
 			}
 		}),
 		response = await get_pending_weights.json();
@@ -605,7 +599,10 @@ document.getElementById('menu-documents').addEventListener('click', async functi
 	try {
 
 		if (!!document.querySelector('#documents__table-grid') === false) {
-			const template = await (await fetch('/templates/template-documents.html')).text();
+			const template = await (await fetch('/templates/template-documents.html', {
+				method: 'GET',
+				headers: { "Cache-Control" : "no-cache" }
+			})).text();
             document.querySelector('#documents').innerHTML = template;
 
 			await load_css('css/documents.css');
@@ -671,7 +668,10 @@ document.getElementById('menu-analytics').addEventListener('click', async functi
 		//FETCH TEMPLATE IF IT HASN'T DOEN IT YET
         if (!!document.querySelector('#analytics__entities-table') === false) {
 
-            const template = await (await fetch('/templates/template-analytics.html')).text();
+            const template = await (await fetch('/templates/template-analytics.html', {
+				method: 'GET',
+				headers: { "Cache-Control" : "no-cache" }
+			})).text();
             document.querySelector('#analytics').innerHTML = template;
 
 			await load_css('css/analytics.css');
@@ -730,7 +730,10 @@ document.getElementById('menu-clients').addEventListener('click', async function
 	try {
 
 		if (!!document.querySelector('#clients__table-grid') === false) {
-			const template = await (await fetch('/templates/template-client-main.html')).text();
+			const template = await (await fetch('/templates/template-client-main.html', {
+				method: 'GET',
+				headers: { "Cache-Control" : "no-cache" }
+			})).text();
 
 			while (animating) { await delay(10) }
 
@@ -786,7 +789,10 @@ document.getElementById('menu-products').addEventListener('click', async functio
 
 		if (!!document.querySelector('#products__table-grid') === false) {
 
-			const template = await (await fetch('/templates/template-products.html')).text();
+			const template = await (await fetch('/templates/template-products.html', {
+				method: 'GET',
+				headers: { "Cache-Control" : "no-cache" }
+			})).text();
 			document.querySelector('#products > .content').innerHTML = template;
 
 			await load_css('css/products.css');
@@ -824,7 +830,10 @@ document.getElementById('menu-vehicles').addEventListener('click', async functio
 
 		if (!!document.querySelector('#vehicles__table-grid') === false) {
 			
-			const template = await (await fetch('/templates/template-vehicles.html')).text();
+			const template = await (await fetch('/templates/template-vehicles.html', {
+				method: 'GET',
+				headers: { "Cache-Control" : "no-cache" }
+			})).text();
 			document.querySelector('#vehicles > .content').innerHTML = template;
 			
 			await load_css('css/vehicles.css');

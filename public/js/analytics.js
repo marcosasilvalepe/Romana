@@ -90,8 +90,7 @@ document.getElementById('analytics__containers-stock-btn').addEventListener('cli
         get_entities_stock = await fetch('/analytics_stock_get_entities', {
             method: 'GET',
             headers: {
-                "Cache-Control" : "no-cache",
-                "Authorization" : token.value
+                "Cache-Control" : "no-cache"
             }
         }),
         response = await get_entities_stock.json();
@@ -226,8 +225,7 @@ const analytics_drivers_filter_select = async e => {
         get_drivers = await fetch('/analytics_get_drivers_kilos', {
             method:'POST',
             headers: {
-                "Content-Type" : "application/json",
-                "Authorization" : token.value
+                "Content-Type" : "application/json"
             },
             body: JSON.stringify(data)
         }),
@@ -262,8 +260,7 @@ const analytics_drivers_filter_date_input = async e => {
         get_drivers = await fetch('/analytics_get_drivers_kilos', {
             method:'POST',
             headers: {
-                "Content-Type" : "application/json",
-                "Authorization" : token.value
+                "Content-Type" : "application/json"
             },
             body: JSON.stringify(data)
         }),
@@ -301,8 +298,7 @@ const analytics_drivers_export_to_excel = async report_type => {
         generate_excel = await fetch('/analytics_drivers_generate_excel', {
             method: 'POST',
             headers: {
-                "Content-Type" : "application/json",
-                "Authorization" : token.value
+                "Content-Type" : "application/json"
             },
             body: JSON.stringify(data)
         }),
@@ -393,8 +389,7 @@ document.querySelector('#analytics__drivers-reports-btn').addEventListener('clic
         get_drivers = await fetch('/analytics_get_drivers_kilos', {
             method:'POST',
             headers: {
-                "Content-Type" : "application/json",
-                "Authorization" : token.value
+                "Content-Type" : "application/json"
             },
             body: JSON.stringify({ 
                 cycle: 1, 
@@ -635,8 +630,7 @@ const get_entity_stock_excel_report = async (entity_id, report_type) => {
         generate_excel = await fetch('/analytics_stock_generate_excel', {
             method: 'POST',
             headers: {
-                "Content-Type" : "application/json",
-                "Authorization" : token.value
+                "Content-Type" : "application/json"
             },
             body: JSON.stringify({ entity_id, report_type, start_date, end_date })
         }),
@@ -898,8 +892,7 @@ const entity_stock_search_by_date = async () => {
         get_documents = await fetch('/analytics_entity_movements', {
             method: 'POST',
             headers: {
-                "Content-Type" : "application/json",
-                "Authorization" : token.value
+                "Content-Type" : "application/json"
             },
             body: JSON.stringify({ entity_id, start_date, end_date })
         }),
@@ -975,8 +968,7 @@ document.querySelector('#analytics__entities-table .tbody').addEventListener('cl
         get_entity_movements = await fetch('/analytics_entity_movements', {
             method: 'POST', 
             headers: {
-                "Content-Type" : "application/json",
-                "Authorization" : token.value
+                "Content-Type" : "application/json"
             },
             body: JSON.stringify({ entity_id, start_date: '', end_date: '' })
         }),

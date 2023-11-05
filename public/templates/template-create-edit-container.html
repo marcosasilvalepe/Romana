@@ -1,0 +1,64 @@
+<div>
+    <div class="create-document-absolute">
+        <div class="header">
+            <h3>CREAR ENVASE</h3>
+        </div>
+        <div class="body">
+            <div class="grid">
+                <div class="create-driver-data-container">
+                    <input id="containers__create-container-code" spellcheck="false" type="text" class="input-effect" maxlength="10" data-prev-tab-selector="#containers__create-container button.green" data-next-tab-selector="#containers__create-container-name">
+                    <label>CODIGO</label>
+                    <span class="focus-border"></span>
+                </div>
+                <div class="create-driver-data-container">
+                    <input id="containers__create-container-name" spellcheck="false" type="text" class="input-effect" maxlength="128" data-prev-tab-selector="#containers__create-container-code" data-next-tab-selector="#containers__create-container-type">
+                    <label>NOMBRE</label>
+                    <span class="focus-border"></span>
+                </div>
+                <div class="create-driver-data-container">
+                    <div class="select-effect">
+                        <p></p>
+                        <select id="containers__create-container-type" data-prev-tab-selector="#containers__create-container-name" data-next-tab-selector="#containers__create-container-weight">
+                            <option selected="" value="" hidden=""></option>
+                            <option value="Bin de Madera">Bin de Madera</option>
+                            <option value="Bin Plastico">Bin Plastico</option>
+                            <option value="Caja Plastica">Caja Plastica</option>
+                            <option value="Pallet">Pallet</option>
+                            <option value="Otro">Otro</option>
+                        </select>
+                        <i class="far fa-chevron-down"></i>
+                        <label>TIPO DE ENVASE</label>
+                        <span class="focus-border"></span>
+                    </div>
+                </div>
+                <div class="create-driver-data-container">
+                    <input id="containers__create-container-weight" spellcheck="false" type="text" class="input-effect" maxlength="16" data-prev-tab-selector="#containers__create-container-type" data-next-tab-selector="#containers__create-container button.red">
+                    <label>PESO</label>
+                    <span class="focus-border"></span>              
+                </div>
+            </div>
+        </div>
+        <div class="footer">
+            <div class="create-document-btns-container">
+                <button class="svg-wrapper enabled red" data-prev-tab-selector="#containers__create-container-weight" data-next-tab-selector="#containers__create-container button.green">
+                    <svg height="45" width="160" xmlns="http://www.w3.org/2000/svg">
+                        <rect class="shape" height="45" width="160"></rect>
+                    </svg>
+                    <div class="desc-container">
+                        <i class="fas fa-times-circle"></i>
+                        <p>CANCELAR</p>
+                    </div>
+                </button>
+                <button class="svg-wrapper enabled green" data-prev-tab-selector="#containers__create-container button.red" data-next-tab-selector="#containers__create-container-code">
+                    <svg height="45" width="160" xmlns="http://www.w3.org/2000/svg">
+                        <rect class="shape" height="45" width="160"></rect>
+                    </svg>
+                    <div class="desc-container">
+                        <i class="fas fa-users-medical"></i>
+                        <p>CREAR</p>
+                    </div>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
