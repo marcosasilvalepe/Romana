@@ -1,4 +1,4 @@
-# Full Stack Web Application - ERP for a company that produces sun dried raisins
+# Full Stack Web Application - ERP
 
 ## Frontend -> Plain CSS and Vanilla Javascript
 ## Backend -> NodeJs, MySQL Database, SocketIO, SerialPort, Puppeteer for webscraping and Express Handlebars
