@@ -3,7 +3,7 @@
 ## Frontend -> Plain CSS and Vanilla Javascript
 ## Backend -> NodeJs, MySQL Database, SocketIO, SerialPort, Puppeteer for webscraping and Express Handlebars
 
-The project functions as a custom ERP developed exclusively for a holding company that produces sun dried raisins that has 6 different companies working as a whole. 
+The project functions as a custom ERP developed exclusively for a holding company that has 6 different companies working as a whole and all of them produce sun dried raisins . 
 
 The Web App is used for controlling stock of plastic bin containers, amount of kilos of grapes received, amount of kilos of raisins produced, generating and exporting reports in Excel, etc., automating most of the administrative work and cutting down the amount of administrative personel by more than half.
 
