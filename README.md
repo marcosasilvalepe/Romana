@@ -7,4 +7,4 @@ The project functions as a custom ERP developed exclusively for a holding compan
 
 It uses SerialPort to connect to a digital scale of up to 60.000 KG used for weighing trucks and SocketIO for transmitting the data to the user.
 
-It also uses Puppeteer to generate electronic dispatch documents for trucks, according to the data stored in the database, in the Chilean Internal Revenue System's website (SII) and also access bank statements from all 6 of the companies.
+It also uses Puppeteer to generate electronic dispatch documents for trucks, according to the data stored in the database, in the Chilean Internal Revenue System's website (SII) and also access bank statements from all 6 of the companies, without the user having to know the credentials.
