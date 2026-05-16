@@ -6,14 +6,12 @@ const morgan = require('morgan');
 const path = require('path');
 const axios = require('axios');
 const app = express();
+const engine = require('express-handlebars').engine;
 
 const dotenv = require('dotenv');
 dotenv.config({ path: './config/config.env' })
 
 const conn = require('./config/db');
-const uuid = require('uuid');
-
-const engine = require('express-handlebars').engine;
 
 if (process.env.NODE_ENV === 'production') SerialPort = require('serialport');
 else app.use(morgan('dev'));
