@@ -6,15 +6,21 @@ const morgan = require('morgan');
 const path = require('path');
 const axios = require('axios');
 const app = express();
-const engine = require('express-handlebars').engine;
 
 const dotenv = require('dotenv');
 dotenv.config({ path: './config/config.env' })
 
 const conn = require('./config/db');
+const uuid = require('uuid');
 
-if (process.env.NODE_ENV === 'production') SerialPort = require('serialport');
-else app.use(morgan('dev'));
+//const { connectToWebHostingSocket } = require('./hosting_frontend/socket');
+//connectToWebHostingSocket();
+
+const engine = require('express-handlebars').engine;
+
+if (process.env.NODE_ENV !== 'production') app.use(morgan('dev'));
+
+const { SerialPort } = require('serialport');
 
 //app.use(express.urlencoded({ extended: false }));
 
@@ -91,7 +97,7 @@ if (process.env.NODE_ENV === 'production') {
 }
 */
 
-const cert_path = (process.env.NODE_ENV === 'production') ? 'cert' : 'cert/localhost';
+const cert_path = (process.env.NODE_ENV === 'production') ? 'cert' : 'cert';
 const key = fs.readFileSync(path.join(__dirname, cert_path, 'romana_cert.key'));
 const cert = fs.readFileSync(path.join(__dirname, cert_path, 'romana_cert.crt'));
 
@@ -118,45 +124,140 @@ server.listen(PORT, () => {
     console.log(`Server running in ${process.env.NODE_ENV} mode in port ${PORT} - MYSQL Status is: ${conn.state}`);
 });
 
-let weight_interval, weight_value = 0, serial_value, serial_opened = false;
+let weight_interval, weight_value = 0, serial_value, serial_opened = false, transmitting_data = false;
 
-const serial = {};
+const serial = {
+    port: new SerialPort({
+        path: "/dev/ttyUSB0",
+        baudRate: 9600,
+        dataBits: 7,
+        parity: 'none',
+        topBits: 1,
+        flowControl: false,
+        autoOpen: false
+    }).setEncoding('utf8'),
+    opening_date: new Date(),
+    sockets: []
+};
 
-if (process.env.NODE_ENV === 'production') {
-
-	serial.port = new SerialPort(
-        "/dev/ttyUSB0", 
-        {
-            baudRate: 9600,
-            parser: new SerialPort.parsers.Readline('\n'),
-            dataBits: 7,
-            parity: 'none',
-            topBits: 1,
-            flowControl: false
-        },
-        false //openInmediately flag
-    ).setEncoding('utf8');
-
-	serial.opening_date = new Date();
-
-	//CLOSES SERIAL PORT 3 MINUTES AFTER IT WAS OPENED -> CHECKS EVERY MINUTE
-	setInterval(() => {
-		if (new Date() - serial.opening_date > (60000 * 10) && serial.port.isOpen) 
-            serial.port.close(() => { 
-                console.log(`Serial Port closed automatically after ${Math.floor((new Date() - serial.opening_date) / 60000)}`);
-                io.sockets.emit('serial port automatically closed');
-            });
-	}, 60000);
-
-}
-
-const save_data_to_online_db = async weight_data => {
+//CLOSES SERIAL PORT 3 MINUTES AFTER IT WAS OPENED -> CHECKS EVERY MINUTE
+setInterval(() => {
     try {
 
-        const response = await axios.post('http://mslepe.cl/lepefer/upload_romana_weight_data.php', weight_data);
-        
-        console.log(response)
+        // REMOVE SOCKETS THAT AREN'T CONNECTED FROM serial.sockets ARRAY
+        for (let i = 0; i < serial.sockets.length; i++) {
+            for (const s of io.sockets.sockets) {
 
+                // MATCH THE SOCKET ID TO THE ONE IN serial.sockets
+                if (s[0] !== serial.sockets[i].id) continue;
+
+                // IF IT'S CONNECTED THEN DO NOTHING
+                if (s[1].connected) continue;
+
+                // SOCKET IS NOT CONNECTED BUT FOR SOME REASON IS INSIDE THE ARRAY SO IT GETS REMOVED
+                serial.sockets.splice(i, 1);
+            }
+        }
+
+        // SERIAL PORT IS CLOSED SO ALL USERS NEED TO GET REMOVED FROM THE ARRAY
+        if (!serial.port.isOpen) return;
+
+
+        // AFTER 3 MINTUES THE SOCKET NEEDS TO GET REMOVED
+        const now = Math.round(new Date());
+
+
+        // CLOSES SERIAL AFTER 10 MINUTES IF ITS OPENED
+        if (now - serial.opening_date > (60000 * 10)) {
+            serial.port.close();
+            console.log('Serial port closed automatically after 10 minutes.');
+        }
+    }
+    catch(e) { console.log(`Error in interval function. ${e}`) }
+}, 60000);
+
+async function save_data_to_online_db(weight_data) {
+    try {
+
+        if (process.env.NODE_ENV !== 'production') return;
+
+        const response = await axios.post('https://lepefer.cl/romana/upload_romana_weight_data.php', weight_data);
+        
+        if (response.data.error !== undefined) throw response.error;
+        if (!response.data.success) throw 'Success response from server is false.';
+
+    } catch(e) { console.log(e) }
+}
+
+async function update_kilos_web_hosting(data) {
+
+    if (process.env.NODE_ENV !== 'production') return;
+        
+    /****** GET VARIETIES OF EACH DOCUMENT IN WEIGHT AND UPLOAD THE TOTAL AMOUNT OF EACH OF THEM *****/
+    try {
+
+        function get_varieties() {
+            return new Promise((resolve, reject) => {
+                try {
+                    conn.query(`
+                        SELECT body.product_code AS code, products.name, products.type, products.pasas, products.image
+                        FROM documents_body body
+                        INNER JOIN documents_header header ON body.document_id=header.id
+                        INNER JOIN weights ON header.weight_id=weights.id
+                        INNER JOIN products ON body.product_code=products.code
+                        WHERE body.status='T' AND header.status='I' AND header.weight_id=${parseInt(data.weight_id)}
+                        GROUP BY body.product_code
+                        ORDER BY body.product_code ASC;
+                    `, (error, results, fields) => {
+                        if (error) return reject(error);
+                        return resolve(results);
+                    })
+                }
+                catch(e) { return reject(e) }
+            })
+        }
+
+        function get_product_kilos(cut, product_code) {
+            return new Promise((resolve, reject) => {
+                try {
+                    conn.query(`
+                        SELECT SUM(body.kilos) AS kilos
+                        FROM documents_body body
+                        INNER JOIN documents_header header ON body.document_id=header.id
+                        INNER JOIN weights ON header.weight_id=weights.id
+                        WHERE body.status <> 'N' AND header.status='I' AND (weights.status='T' OR weights.status='I')
+                        AND weights.cycle=1 AND (weights.created BETWEEN '${season.start}' AND '${season.end}')
+                        AND (header.created BETWEEN '${season.start}' AND '${season.end}')
+                        AND (header.date BETWEEN '${season.start}' AND '${season.end}') 
+                        AND weights.cycle=1 AND body.cut='${cut}'
+                        AND body.kilos IS NOT NULL AND body.kilos > 0 AND body.product_code='${product_code}';
+                    `, (error, results, fields) => {
+                        if (error) return reject(error);
+                        return resolve(1 * results[0].kilos);
+                    })
+                }
+                catch(e) { return reject(e) }
+            })
+        }
+
+        const season = await get_current_season();
+        const products = await get_varieties();
+
+        let total = 0;
+        for (const product of products) {
+            product.packing = await get_product_kilos('Packing', product.code);
+            product.parron = await get_product_kilos('Parron', product.code);
+            total += product.packing;
+            total += product.parron;
+        }
+
+        if (total === 0) return;
+
+        //SEND DATA TO WEBSERVER -> ADDED RETURN BECAUSE GONNA TRY TO CONNECT DIRECTLY TO SOCKET SERVER
+
+        return;
+        const response = await axios.post('https://lepefer.cl/romana/product_kilos_update.php', products);
+        
         if (response.data.error !== undefined) throw response.error;
         if (!response.data.success) throw 'Success response from server is false.';
 
@@ -319,13 +420,13 @@ const save_weight_data = (weight_data, env_process) => {
 
             //SAVE TO DATA TO TEXT FILE
 
-
             //SAVE DATA TO ONLINE DB
             weight_data.now = now;
             
             if (env_process === 'production') {
+
                 try { save_data_to_online_db(weight_data) }
-                catch(err) { console.log(err) }    
+                catch(err) { console.log(err) }
             }
 
             return resolve(response);
@@ -336,13 +437,11 @@ const save_weight_data = (weight_data, env_process) => {
 
 const process_serial_data = data => {
 
-    const 
-    buffer = Buffer.from(data).toString().trim(),
-    weight = parseInt(buffer.substring(3, 10));
-    console.log(data);
+    const buffer = Buffer.from(data).toString().trim();
+    const weight = parseInt(buffer.substring(3, 10));
+    //console.log(data);
 
     return { weight: parseInt(weight), serial_value: buffer };
-
 }
 
 const get_created_weight = weight_id => {
@@ -360,145 +459,164 @@ const get_created_weight = weight_id => {
     })
 }
 
+serial.port.on('open', () => serial.opening_date = Math.round(new Date()) );
+
+serial.port.on('error', e => console.log(`Error closing serial port. ${e}`));
+
+serial.port.on('close', () => {
+    
+    console.log('Serial Port closed');
+
+    // CLOSES THE TAKE WEIGHT MODAL ON ALL USERS SO IF THE USE WANTS TO TAKE THE WEIGHT IT NEEDS TO OPEN THE PORT AGAIN
+    io.sockets.emit('serial port has been closed');
+
+    // REMOVE ALL USERS FROM SERIAL SOCKETS ARRAY
+    serial.sockets = [];
+    serial.opening_date = null;
+
+    // RESET GLOBAL VARIABLES HERE!!!
+    weight_value = 0;
+    serial_value = null;
+});
+
+serial.port.on('data', async data => {
+
+    if (transmitting_data) return;
+    transmitting_data = true;
+
+    try {
+
+        const process_data = process_serial_data(data);
+        if (process_data.weight === NaN || process_data.serial_value > 100000) {
+            transmitting_data = false;
+            return;
+        }
+
+        weight_value = process_data.weight;
+        serial_value = process_data.serial_value;
+
+        // SEND DATA ONLY TO SOCKETS THAT HAVE THE TAKE WEIGHT MODAL OPEN
+        for (const socket of serial.sockets) {
+            for (const s of io.sockets.sockets) {
+                if (s[0] !== socket.id) continue;
+
+                const targetSocket = s[1];
+                if (!targetSocket.connected) continue;
+
+                try { targetSocket.emit('transmitting serial data', process_data) }
+                catch(e) { console.log(`Error sending data to socket. ${e}`) }
+            }
+        }
+
+        await delay(80);
+    }
+    catch(e) { console.log(`Error sending serial data\n`, e) }
+    finally { transmitting_data = false }
+});
+
 io.on('connection', socket => {
 
     socket.emit('chat-message', 'socket connected');
 
     socket.on('test', msg => { console.log(msg) })
 
-    socket.on('open serial', async weight_data => {
+    socket.on('open serial port', async () => {
 
-        if (process.env.NODE_ENV === 'production') {
-
-		    console.log('Serial Port status is: ' + serial.port.isOpen);
-
-            try {
-			
-                serial.port.on('error', e => {
-                    throw `Error opening serial. ${e}`;
-                });
-                
-                serial.opening_date = new Date();
-                serial.user = weight_data.user_id;
-                serial.opened = new Date();
-
-                //PORT IS ALREADY OPEN AND THE SAME USER THAT OPENED IT TRIES TO ACCESS IT
-                if (serial.port.isOpen) {
-
-                    console.log('Port already open!');
-
-                    serial.port.on('data', async data => {
-                        
-                        const process_data = process_serial_data(data);
-                        weight_data.weight_value = process_data.weight;
-                        weight_value = process_data.weight;
-                        serial_value = process_data.serial_value;
-
-                        if (weight_value !== NaN && weight_value < 100000)
-                            socket.emit('transmitting serial data', weight_data);
-                        await delay(100);
-                    });
-
-                } else {
-                    console.log('Opening Serial Port');
-                    serial.port.open();
-                }
-
-                serial.port.on('open', () => {
-
-                    console.log('Serial Port is now open!');
-                    
-                    serial.port.on('data', async data => {
-                        
-                        const process_data = process_serial_data(data);
-                        weight_data.weight_value = process_data.weight;
-                        weight_value = process_data.weight;
-                        serial_value = process_data.serial_value;
-
-                        if (weight_value !== NaN && weight_value < 100000)
-                            io.sockets.emit('transmitting serial data', weight_data);
-                        await delay(100);
-                    });
-
-                });
-
-            } catch(err) { socket.emit('serial port connection error', err); console.log('Error trying to open serial port') }
-        }
-
-        //DEVELOPMENT
-        else {
-            console.log('opened connection')
+        // FOR DEVELOPMENT ONLY
+        if (process.env.NODE_ENV !== 'production') {
+            
+            console.log('opened connection');
             serial_opened = true;
+
             weight_interval = setInterval(() => {
                 if (serial_opened) {
                     weight_value += (Math.floor(Math.random() * 6) + 1) * 100;
                     socket.emit('new weight dev', weight_value);    
                 }
-            }, 50);        
+            }, 100);
+
+            return;
+        }
+        
+        //PRODUCTION -> OPEN SERIAL PORT ONLY
+        try {
+
+            // TRY AND FIND USER IF IT'S ALREADY IN ARRAY
+            const findSocket = serial.sockets.find(({ id }) => id === socket.id);
+
+            // PUSH USER TO ARRAY OR UPDATE IT
+            if (findSocket) findSocket.created = Math.round(new Date());
+            else serial.sockets.push({ id: socket.id, created: Math.round(new Date()) });
+
+            console.log(serial.sockets);
+
+            // PORT IS ALREADY OPEN 
+            if (serial.port.isOpen) return;
+
+            // OPEN PORT IF IT'S CLOSED
+            serial.port.open();
+            serial.opening_date = Math.round(new Date());
+
+        }
+        catch(err) {
+            socket.emit('serial port connection error', err); 
+            console.log('Error trying to open serial port');
         }
     });
 
-    socket.on('close-serial', async weight_data => {
+    socket.on('accept weight', async weight_data => {
 
-        const response = { success: false }
+        // WHEN USER CLICKS THE ACCEPT BUTTON TO SAVE THE WEIGHT
+        const response = { success: false };
 
         if (process.env.NODE_ENV === 'production') {
-
             try {
-
-                serial.port.close(() => { console.log('Serial Port closed'); });
 
                 weight_data.serial_value = serial_value;
                 weight_data.weight_value = weight_value;
                 console.log(weight_data);
                 response.data = await save_weight_data(weight_data, process.env.NODE_ENV);
 
-                //RESET VALUES
-                weight_value = 0;
-                serial_value = null;
-                response.success = true;
+                if (serial.port.isOpen) serial.port.close();
 
+                response.weight_id = weight_data.id;
+                response.user = weight_data.user;
+                response.success = true;
             }
-            catch(error) { response.error = error; }
-            finally { 
-                socket.emit('new weight updated', response);
-            }
+            catch(error) { response.error = error }
+            finally { io.sockets.emit('new weight updated', response) }
         }
 
         //DEVELOPMENT
         else {
-
             try {
 
                 serial_opened = false;
                 clearInterval(weight_interval);
                 
-                console.log('close connection');
+                console.log('close connection in development mode');
                 weight_data.weight_value = weight_value;
                 weight_value = 0;
                 response.data = await save_weight_data(weight_data, process.env.NODE_ENV);
+
+                response.user = weight_data.user;
                 response.success = true;
 
             }
             catch(error) { response.error = error }
-            finally { socket.emit('new weight updated', response) }
+            finally { io.sockets.emit('new weight updated', response) }
         }
-        
-    })
+    });
 
-    socket.on('cancel-serial', () => {
-
+    socket.on('close serial port', () => {
         if (process.env.NODE_ENV === 'production') {
-            
-	        serial.port.close(() => { console.log('Serial Port closed'); });
-            weight_value = 0;
+            if (serial.port.isOpen) serial.port.close();
         }
-
         else {
             clearInterval(weight_interval);
             weight_value = 0;    
         }
-    })
+    });
 
     //WEIGHT HAS BEEN CREATED BY OTHER USER -> TELL OTHER USERS ABOUT
     socket.on('new weight created by other user', async weight_id => {
@@ -508,41 +626,38 @@ io.on('connection', socket => {
             io.sockets.emit('weight created by another user', weight_data);
 
         } catch(e) { error_handler('Error trying to send weight data through socket to other users.') }
-    })
+    });
 
     //WEIGHT HAS BEEN ANNULED OR FINISHED BY USER -> TELL OTHER USERS OF IT
     socket.on('weight status changed', data => {
         io.sockets.emit('weight status changed by other user', data);
-    })
+    });
 
     //GROSS WEIGHT HAS BEEN UPDATED -> TELL OTHER USERS ABOUT IT
     socket.on('gross weight updated by another user', weight => {
         io.sockets.emit('gross weight updated in one of the weights that are pending', weight);
-    })
+    });
 
     //FIRST DOCUMENT OF PENDING WEIGHT HAS BEEN UPDATED -> TELL OTHER USERS ABOUT IT
     socket.on('weight object first documents client entity has been updated', entity_name => {
         io.sockets.emit('update pending weight entity in pending weights table', entity_name);
-    })
+    });
 
     //GENERATE ELECTRONIC DOCUMENT
     socket.on('generate electronic document', async doc_id => {
-        
-        console.log(doc_id)
-
         try { 
             const doc_data = await generate_electronic_document(doc_id, socket);
             console.log(`electronic document data is:`, doc_data);
             socket.emit('electronic document - finished generating document', doc_data);
         }
-        catch(e) { console.log(e); socket.emit('error generating electronic document', e) }
-
-    })
+        catch(e) {
+            console.log(`Error generating electronic document. ${e}`); 
+            socket.emit('error generating electronic document', e);
+        }
+    });
 
     //UPDATE BANK BALANCE
     socket.on('update bank balance', async company_id => {
-
-        console.log(company_id);
         try {
 
             //TELL ALL CLIENTS TO OPEN THE LOADER FOR THE COMPANY THAT'S GETTING UPDATED
@@ -555,7 +670,6 @@ io.on('connection', socket => {
             io.sockets.emit('bank balance - finished updating balance', balance_data);
 
         } catch(e) { console.log(e); io.sockets.emit('error updating bank balance', { company_id: company_id, error: e}) }
-
     });
 
     //
@@ -604,6 +718,12 @@ io.on('connection', socket => {
         finally { socket.emit('finished checking for errors in servers', response) }
     })
 
+    //SAVE KILOS TO ONLINE DB
+    socket.on('update_kilos_web_hosting', async data => {
+        return;
+        try { update_kilos_web_hosting(data) }
+        catch(err) { console.log(err) }
+    });
 });
 
 socket_server.listen(3100);
@@ -966,10 +1086,9 @@ const wait_time_for_checking_errors = 60 * 30 * 1000;
 
     try {
 
-        const
-        date = new Date(),
-        date_minutes = date.getMinutes(),
-        date_seconds = date.getSeconds();
+        const date = new Date();
+        const date_minutes = date.getMinutes();
+        const date_seconds = date.getSeconds();
 
         const pending_seconds = 60 - date_seconds;
         const pending_minutes = 59 - date_minutes;

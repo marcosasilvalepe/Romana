@@ -6,11 +6,19 @@ const products_create_tr = products => {
             const
             promise_array = [],
             products_array = [];
-        
-            products.forEach(product => {
-                promise_array.push(new Promise(resolve => {
+
+            for (const product of products) {
+                promise_array.push(new Promise(async resolve => {
+
                     const img = new Image();
                     img.onload = () => { resolve() }
+
+                    if (product.image !== null) {
+
+                        const get_image = await fetch(product.image);
+                        if (get_image.status === 404) product.image = './images/grapes/no-image.jpg';
+                    }
+
                     img.src = (product.image === null) ? './images/grapes/no-image.jpg' : product.image;
 
                     const
@@ -26,7 +34,7 @@ const products_create_tr = products => {
                         image: img.src 
                     });
                 }))
-            });
+            }
         
             await Promise.all(promise_array);
 
@@ -54,6 +62,8 @@ const products_create_tr = products => {
                 `;
                 tbody.appendChild(tr);
             })
+
+            console.log('done')
             return resolve();
         } catch(error) { error_handler('No se pudo crear todos los productos.', error); return reject() }
     })
@@ -156,31 +166,25 @@ const create_save_product = async create => {
 
             check_loader();
 
-            console.log(image_name)
+            console.log(image.name);
 
-            const
-            content = e.target.result,
-            chunk_size = 20000,
-            total_chunks = e.target.result.byteLength / chunk_size;
+            const arrayBuffer = e.target.result;
 
-            for (let chunk = 0; chunk < total_chunks + 1; chunk++) {
+            const upload_image = await fetch('/upload_products_image', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/octet-stream'
+                },
+                body: arrayBuffer
+            });
 
-                const this_chunk = content.slice(chunk * chunk_size, (chunk + 1) * chunk_size);
-                
-                const 
-                upload_file = await fetch(`upload_product_image?image_name=${image_name}`, {
-                    method: 'POST',
-                    headers: {
-                        "Content-Type" : "application/octet-stream",
-                        "Content-Length" : this_chunk.length
-                    },
-                    body: this_chunk
-                }),
-                upload_response = await upload_file.json();;
+            const response = await upload_image.json();
 
-                if (upload_response.error !== undefined || !upload_response.success) throw 'Error al subir archivo.'
-               
-            }
+            if (!response.success) throw 'Success response from server was false';
+            if (response.error !== undefined) throw response.error;
+
+            console.log('OK!!!');
+            console.log(response);
 
             const 
             save_product_image = await fetch('/save_product_image', {
@@ -188,9 +192,11 @@ const create_save_product = async create => {
                 headers: {
                     "Content-Type" : "application/json"
                 },
-                body: JSON.stringify({ product_code: data.code, image_name: image_name })
+                body: JSON.stringify({ product_code: data.code, image_name: response.filename })
             }),
             save_image_response = await save_product_image.json();
+
+            console.log(save_image_response);
 
             image_upload = true;
 
@@ -198,7 +204,7 @@ const create_save_product = async create => {
             if (!!table_image) table_image.style.backgroundImage = `url("./images/grapes/${save_image_response.image_name}")`;
 
         } 
-        catch(error) { error_handler('Error al subir imagen de producto.', error) }
+        catch(error) { console.log(error); error_handler('Error al subir imagen de producto.', error) }
         finally { check_loader() }
     }
 
@@ -236,7 +242,9 @@ const create_save_product = async create => {
         if (create) {
             await products_create_tr(response.products);
             document.querySelector(`#products__table .tbody .tr:last-child`).scrollIntoView();
-        } else {
+        }
+        
+        else {
             
             const tr = document.querySelector(`#products__table .tr[data-code="${data.code}"]`);
             tr.querySelector('.type').innerText = data.type;
@@ -375,12 +383,23 @@ document.getElementById('products__create-product-btn').addEventListener('click'
     } catch(error) { error_handler('Error al intentar abrir template para crear producto', error) }
 });
 
+document.getElementById('products__delete-product-btn').addEventListener('click', async () => {
+
+    if (clicked) return;
+
+    const selected_tr = document.querySelector('#products__table .tr.selected');
+    if (!!selected_tr === false) return;
+
+    
+
+});
+
 //SEARCH PRODUCT
 document.getElementById('products__search-product').addEventListener('keydown', async e => {
     
     if (e.code !== 'Tab' && e.key !== 'Enter') return;
 
-    const product = sanitize(e.target.value);
+    const data = sanitize(e.target.value);
 
     try {
 
@@ -390,7 +409,7 @@ document.getElementById('products__search-product').addEventListener('keydown', 
             headers: {
                 "Content-Type" : "application/json"
             },
-            body: JSON.stringify({ product })
+            body: JSON.stringify({ data })
         }),
         response = await search_product.json();
 
@@ -398,7 +417,7 @@ document.getElementById('products__search-product').addEventListener('keydown', 
         if (!response.success) throw 'Success response from server is false.';
 
         document.querySelectorAll('#products__table .tbody .tr').forEach(tr => { tr.remove() });
-        products_create_tr(response.products);
+        products_create_tr(response.data);
 
     } catch(error) { error_handler('Error al buscar producto.', error) }
 })
@@ -456,6 +475,8 @@ function get_all_products() {
         
             if (response.error !== undefined) throw response.error;
             if (!response.success) throw 'Success response from server is false.';
+
+            console.log(response)
         
             await products_create_tr(response.products);
         
@@ -464,3 +485,17 @@ function get_all_products() {
         } catch(error) { error_handler('Error al obtener lista de productos.', error); return reject() }
     })
 }
+
+(async () => {
+
+    try {
+
+        document.querySelectorAll('#products__table .tbody .tr').forEach(tr => { tr.remove() });
+		await get_all_products();
+
+        document.querySelector('#products__type-select').parentElement.classList.add('has-content');
+        document.querySelector('#products__type-select').previousElementSibling.innerText = 'Uva';
+
+    }
+    catch(e) { error_handler('No se pudo cargar productos.', e) }
+})();

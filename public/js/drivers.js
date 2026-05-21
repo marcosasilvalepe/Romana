@@ -220,7 +220,6 @@ function drivers_create_edit_driver(create) {
 
                     try {
 
-
                         if (data.name.length === 0) throw 'Nombre de chofer vacío.';
                         if (data.rut.length === 0) throw 'RUT de chofer vacío.';
                         if (!validate_rut(data.rut)) throw('No se pudo crear el chofer.', 'RUT Inválido.')
@@ -232,6 +231,9 @@ function drivers_create_edit_driver(create) {
                             body: JSON.stringify(data)
                         }),
                         response = await save_data.json();
+
+                        if (response.error !== undefined) throw response.error;
+			            if (!response.success) throw 'Success response from server is false.';
 
                         const tr = document.querySelector(`#drivers-table .table-content .tbody .tr[data-driver-id="${response.driver.id}"]`);
                         tr.querySelector('.name').innerText = sanitize(response.driver.name);

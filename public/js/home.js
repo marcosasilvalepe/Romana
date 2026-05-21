@@ -33,17 +33,11 @@ const product_drag = {
 //GENERAL STUFF
 function update_products_list(data) {
     return new Promise(resolve => {
-
-        let show_percentage = true;
-        for (let i = 0; i < data.products.length; i++) {
-            if (data.products[i].kilos <= 0) {
-                show_percentage = false;
-                break
-            }            
-        }
         
         const table = document.querySelector('#home-products');
-        data.products.forEach(product => {
+
+
+        for (const product of data.products) {
 
             const product_div = document.createElement('div');
             product_div.className = 'product';
@@ -56,12 +50,12 @@ function update_products_list(data) {
                     </div>
                 </div>
                 <h4 class="product-name">${sanitize(product.name.split('-')[0].replace(product.type, '').trim())}</h4>
-                <p class="kilos">${thousand_separator(parseInt(product.kilos))} KG</p>
-                <p>${(show_percentage) ? (Math.floor(((parseInt(product.kilos) / data.total) * 10000)) / 100) + '%' : ''}</p>
+                <p class="kilos">${thousand_separator(product.kilos)} KG</p>
+                <p>${Math.floor(((product.kilos / data.total) * 10000)) / 100 + '%'}</p>
             `;
             table.appendChild(product_div)    
-            
-        });
+
+        }
         
         const 
         parron_percentage = (data.total === 0) ? 0 : Math.floor(((data.parron / data.total) * 10000)) / 100,
@@ -80,7 +74,7 @@ function update_products_list(data) {
             document.querySelector('#home-statistics__date .stats-data p:last-child').innerText = new Date(home_object.date.end).toLocaleString('es-CL').split(' ')[0].replace(/[,]/gm, '');
         }
 
-        setTimeout(resolve, 0);
+        return resolve();
     })
 }
 
@@ -96,9 +90,9 @@ function home_update_products(response) {
         try {
 
             const data = {
-                packing: response.total.packing,
-                parron: response.total.parron,
-                total: response.total.packing + response.total.parron
+                packing: Math.abs(response.total.packing),
+                parron: Math.abs(response.total.parron),
+                total: Math.abs(response.total.packing + response.total.parron)
             },
             promise_array = [],
             products_array = [];
@@ -107,14 +101,32 @@ function home_update_products(response) {
                 while (!products_div.classList.contains('animationend')) { await delay(5) }
     
             response.products.forEach(product => {
-                promise_array.push(new Promise(resolve => {
+                promise_array.push(new Promise(async resolve => {
+
+                    //TRY AND GET IMAGES. IF COULDN'T FIND ONE THEN SET TO NO IMAGE
+                    let response;
+
+                    try {
+
+                        const image_src = (product.image === null) ? './images/grapes/no-image.jpg' : product.image;
+                        response = await fetch(image_src, {
+                            headers: { "Cache-Control" : "max-age=31536000" }
+                        });
+                        if (!response.ok) { throw new Error(`HTTP error! status: ${response.status}`); }
+
+                    } catch(e) {response = await fetch('./images/grapes/no-image.jpg') }
+
+                    const img_blob = await response.blob();
+                    const imgURL = URL.createObjectURL(img_blob);
+
                     const img = new Image();
                     img.onload = () => { resolve() }
-                    img.src = (product.image === null) ? './images/grapes/no-image.jpg' : product.image;
+                    img.src = imgURL;
+
                     products_array.push({ 
                         code: product.code, 
                         name: product.name.trim(), 
-                        kilos: product.total, 
+                        kilos: Math.abs(product.total), 
                         image: img.src,
                         type: product.type
                     });
@@ -129,7 +141,6 @@ function home_update_products(response) {
 
             //WAIT FOR ANIMATION TO FINISH IF IT HASN'T
             if (products_in_grid) {
-                console.log('waiting')
                 while (!products_div.classList.contains('animationend')) { await delay(10) }
                 products_div.classList.remove('animationend');
             }
@@ -559,7 +570,7 @@ document.querySelector('#home-statistics__date .dropdown').addEventListener('cli
 
     }
     
-    // CHANGIN DATE WITH BUTTONS FROM DROPDOWN
+    // CHANGING DATE WITH BUTTONS FROM DROPDOWN
     else {
 
         const 
@@ -609,6 +620,9 @@ document.querySelector('#home-statistics__date .dropdown').addEventListener('cli
             }
         }    
     }
+
+    document.getElementById('home-date__start').value = start_date;
+    document.getElementById('home-date__end').value = end_date;
 
     get_products_by_date(start_date, end_date);
 });
@@ -663,13 +677,22 @@ function get_products_by_date(start_date, end_date) {
     })
 }
 
-function home_products_date() {
+function home_products_date(e) {
+
+    if (e.code !== 'Enter') return;
 
     const
     start_input = document.getElementById('home-date__start'),
     start_date = sanitize(start_input.value),
     end_input = document.getElementById('home-date__end'),
     end_date = sanitize(end_input.value);
+
+    if (!validate_date(start_date) || !validate_date(end_date)) return;
+
+    const start_year = parseInt(start_date.split('-')[0]);
+    const end_year = parseInt(end_date.split('-')[0]);
+
+    if (start_year < 2019 || end_year < 2019) return;
 
     get_products_by_date(start_date, end_date);
 }
@@ -1265,14 +1288,32 @@ function home_get_initial_products() {
             products_array = [];
         
             home_object.products.forEach(product => {
-                promise_array.push(new Promise(resolve => {
+                promise_array.push(new Promise(async resolve => {
+
+                    //TRY AND GET IMAGES. IF COULDN'T FIND ONE THEN SET TO NO IMAGE
+                    let response;
+
+                    try {
+
+                        const image_src = (product.image === null) ? './images/grapes/no-image.jpg' : product.image;
+                        response = await fetch(image_src, {
+                            headers: { "Cache-Control" : "max-age=31536000" }
+                        });
+                        if (!response.ok) { throw new Error(`HTTP error! status: ${response.status}`); }
+
+                    } catch(e) {response = await fetch('./images/grapes/no-image.jpg') }
+
+                    const img_blob = await response.blob();
+                    const imgURL = URL.createObjectURL(img_blob);
+
                     const img = new Image();
                     img.onload = () => { resolve() }
-                    img.src = (product.image === null) ? './images/grapes/no-image.jpg' : product.image;
+
+                    img.src = imgURL;
                     products_array.push({ 
                         code: product.code, 
                         name: product.name.trim(), 
-                        kilos: product.total, 
+                        kilos: Math.abs(product.total), 
                         image: img.src,
                         type: product.type
                     });
@@ -1332,8 +1373,8 @@ function home_get_initial_products() {
         start_date.setAttribute('min', '2019-01-01');
         end_date.className = 'input-effect';
 
-        start_date.addEventListener('input', home_products_date);
-        end_date.addEventListener('input', home_products_date);
+        start_date.addEventListener('keydown', home_products_date);
+        end_date.addEventListener('keydown', home_products_date);
 
         document.querySelector('#home-statistics__date .stats-data').prepend(start_date);
         document.querySelector('#home-statistics__date .stats-data').append(end_date);

@@ -7,9 +7,8 @@ document.querySelector('#analytics__breadcrumb li:first-child').addEventListener
     const analytics_breadcrumb = document.getElementById('analytics__breadcrumb');
     if (analytics_breadcrumb.children.length === 1) return;
 
-    const
-    fade_out_div = document.querySelector('#analytics > .content > .active'),
-    fade_in_div = document.querySelector('#analytics__main-grid');
+    const fade_out_div = document.querySelector('#analytics > .content > .active');
+    const fade_in_div = document.querySelector('#analytics__main-grid');
 
     fade_out_animation(fade_out_div);
 
@@ -33,9 +32,8 @@ document.querySelector('#analytics__products-movements-btn').addEventListener('c
 
     await check_loader();
 
-    const
-    fade_out_div = document.querySelector('#analytics__main-grid'),
-    fade_in_div = document.querySelector('#analytics__products-movements');
+    const fade_out_div = document.querySelector('#analytics__main-grid');
+    const fade_in_div = document.querySelector('#analytics__products-movements');
 
     fade_out_animation(fade_out_div);
 
@@ -78,27 +76,26 @@ document.getElementById('analytics__containers-stock-btn').addEventListener('cli
 
     if (clicked) return;
 
-    const
-    fade_out_div = document.querySelector('#analytics__main-grid'),
-    fade_in_div = document.querySelector('#analytics__containers-stock');
+    const fade_out_div = document.querySelector('#analytics__main-grid');
+    const fade_in_div = document.querySelector('#analytics__containers-stock');
 
     fade_out_animation(fade_out_div);
 
     try {
 
-        const 
-        get_entities_stock = await fetch('/analytics_stock_get_entities', {
+        const get_entities_stock = await fetch('/analytics_stock_get_entities', {
             method: 'GET',
             headers: {
                 "Cache-Control" : "no-cache"
             }
-        }),
-        response = await get_entities_stock.json();
+        });
+        const response = await get_entities_stock.json();
 
         if (response.error !== undefined) throw response.error;
 		if (!response.success) throw 'Success response from server is false.';
 
         response.entities.forEach(entity => {
+
             const tr = document.createElement('div');
             tr.className = 'tr';
             tr.setAttribute('data-entity-id', entity.id);
@@ -131,6 +128,54 @@ document.getElementById('analytics__containers-stock-btn').addEventListener('cli
 		breadcrumbs('add', 'analytics', 'STOCK ENVASES');
 
     } catch(error) { error_handler('Error al intentar abrir stock de envases.', error) }
+});
+
+/*************************** ENTITIES REPORTS *****************************/
+document.querySelector('#analytics__entities_reports').addEventListener('click', async () => {
+
+    if (clicked) return;
+
+    const fade_out_div = document.querySelector('#analytics__main-grid');
+    const fade_in_div = document.querySelector('#analytics__entities_movements');
+
+    fade_out_animation(fade_out_div);
+
+    await load_css('css/companies.css');
+	await load_script('js/companies.js');
+
+    if (document.querySelector('#companies__entities-list__season-select').children.length === 0) await companies_event_listeners();
+    companies_show_entities_movements();
+
+    while (!fade_out_div.classList.contains('animationend') || animating) await delay(10);
+    fade_out_div.classList.remove('animationend', 'active');
+    
+    await fade_in_animation(fade_in_div);
+    fade_in_div.classList.add('active');
+    fade_in_div.classList.remove('hidden');
+
+    breadcrumbs('add', 'analytics', 'CLIENTES / PROVEEDORES');
+});
+
+/*************************** INTERNAL ENTITIES REPORTS *****************************/
+document.querySelector('#analytics__internal-entities-btn').addEventListener('click', async () => {
+
+    if (clicked) return;
+
+    const fade_out_div = document.querySelector('#analytics__main-grid');
+    const fade_in_div = document.querySelector('#analytics__internal-entities');
+
+    fade_out_animation(fade_out_div);
+
+    await load_script('js/analytics_internal_entities.js');
+
+    while (!fade_out_div.classList.contains('animationend') || animating) await delay(10);
+    fade_out_div.classList.remove('animationend', 'active');
+    
+    await fade_in_animation(fade_in_div);
+    fade_in_div.classList.add('active');
+    fade_in_div.classList.remove('hidden');
+
+    breadcrumbs('add', 'analytics', 'ENTIDADES INTERNAS');
 });
 
 /*************************** CLOSE STOCK REPORTS DIV *****************************/
@@ -197,10 +242,9 @@ const analytics_drivers_table_header_sort = async e => {
 
 const analytics_drivers_get_data_from_filters = () => {
 
-    const
-    internal_select = document.querySelector('#analytics__drivers-filters__type'),
-    active_select = document.querySelector('#analytics__drivers-filters__active'),
-    cycle_select = document.querySelector('#analytics__drivers-filters__cycle');
+    const internal_select = document.querySelector('#analytics__drivers-filters__type');
+    const active_select = document.querySelector('#analytics__drivers-filters__active');
+    const cycle_select = document.querySelector('#analytics__drivers-filters__cycle');
 
     return {
         cycle: cycle_select.options[cycle_select.selectedIndex].value,
@@ -211,7 +255,6 @@ const analytics_drivers_get_data_from_filters = () => {
         internal: internal_select.options[internal_select.selectedIndex].value,
         active: active_select.options[active_select.selectedIndex].value
     }
-
 }
 
 const analytics_drivers_filter_select = async e => {
@@ -221,15 +264,14 @@ const analytics_drivers_filter_select = async e => {
 
     try {
 
-        const
-        get_drivers = await fetch('/analytics_get_drivers_kilos', {
+        const get_drivers = await fetch('/analytics_get_drivers_kilos', {
             method:'POST',
             headers: {
                 "Content-Type" : "application/json"
             },
             body: JSON.stringify(data)
-        }),
-        response = await get_drivers.json();
+        });
+        const response = await get_drivers.json();
 
         if (response.error !== undefined) throw response.error;
 		if (!response.success) throw 'Success response from server is false.';
@@ -256,15 +298,14 @@ const analytics_drivers_filter_date_input = async e => {
 
     try {
 
-        const
-        get_drivers = await fetch('/analytics_get_drivers_kilos', {
+        const get_drivers = await fetch('/analytics_get_drivers_kilos', {
             method:'POST',
             headers: {
                 "Content-Type" : "application/json"
             },
             body: JSON.stringify(data)
-        }),
-        response = await get_drivers.json();
+        });
+        const response = await get_drivers.json();
 
         if (response.error !== undefined) throw response.error;
 		if (!response.success) throw 'Success response from server is false.';
@@ -284,7 +325,6 @@ const analytics_drivers_filter_date_input = async e => {
 const analytics_drivers_export_to_excel = async report_type => {
 
     check_loader();
-
     report_type = sanitize(report_type);
 
     try {
@@ -292,17 +332,14 @@ const analytics_drivers_export_to_excel = async report_type => {
         const data = analytics_drivers_get_data_from_filters();
         data.report_type = report_type;
 
-        console.log(data)
-
-        const
-        generate_excel = await fetch('/analytics_drivers_generate_excel', {
+        const generate_excel = await fetch('/analytics_drivers_generate_excel', {
             method: 'POST',
             headers: {
                 "Content-Type" : "application/json"
             },
             body: JSON.stringify(data)
-        }),
-        response = await generate_excel.json();
+        });
+        const response = await generate_excel.json();
 
         if (response.error !== undefined) throw response.error;
 		if (!response.success) throw 'Success response from server is false.';
@@ -379,9 +416,8 @@ document.querySelector('#analytics__drivers-reports-btn').addEventListener('clic
 
     if (clicked) return;
 
-    const
-    fade_in_div = document.querySelector('#analytics__drivers-table'),
-    fade_out_div = document.querySelector('#analytics__main-grid');
+    const fade_in_div = document.querySelector('#analytics__drivers-table');
+    const fade_out_div = document.querySelector('#analytics__main-grid');
 
     try {
 
@@ -543,9 +579,7 @@ document.querySelector('#analytics__drivers-reports-btn').addEventListener('clic
         document.querySelector('#analytics__drivers-filters__cycle').addEventListener('change', analytics_drivers_filter_select);
 
         //START AND END DATE
-        document.querySelectorAll('#analytics__drivers-table__filters input').forEach(input => {
-            input.addEventListener('input', analytics_drivers_filter_date_input);
-        })
+        document.querySelectorAll('#analytics__drivers-table__filters input').forEach(input => input.addEventListener('input', analytics_drivers_filter_date_input));
 
         //SORT RESULTS FROM TABLE HEADER CLICK
         document.querySelector('#analytics__drivers-table__table-container .table-header thead').addEventListener('click', analytics_drivers_table_header_sort);
@@ -554,31 +588,7 @@ document.querySelector('#analytics__drivers-reports-btn').addEventListener('clic
         document.querySelector('#analytics__drivers-table__table-container .table-body tbody').addEventListener('mouseup', analytics_drivers_reports_context_menu);
 
         //CLOSE DRIVERS REPORTS DIV
-        document.querySelector('#analytics__drivers-table__table-container .close-btn-absolute').addEventListener('click', async () => {
-
-            if (animating) return;
-            animating = true;
-
-            try {
-
-                const 
-                fade_in_div = document.querySelector('#analytics__main-grid'),
-                fade_out_div = document.querySelector('#analytics__drivers-table');
-    
-                await fade_out_animation(fade_out_div);
-                fade_out_div.classList.add('hidden');
-    
-                fade_in_animation(fade_in_div);
-                fade_in_div.classList.remove('hidden');
-    
-                await delay(500);
-                fade_out_div.classList.remove('animationend');
-
-                document.querySelector('#analytics__drivers-table').innerHTML = '';
-            } 
-            catch(e) { console.log(e) }
-            finally { animating = false }
-        });
+        document.querySelector('#analytics__drivers-table__table-container .close-btn-absolute').addEventListener('click', async () => document.querySelector('#analytics__breadcrumb > li:first-child').click());
 
         //SET DATE OF CURRENT SEASON
         document.querySelector('#analytics__drivers-filters__start-date').value = response.season.start.split(' ')[0];
@@ -602,9 +612,8 @@ document.querySelector('#analytics__drivers-reports-btn').addEventListener('clic
 
 const entities_stock_close_module = async () => {
 
-    const 
-    fade_in_div = document.querySelector('#analytics__entities-table'),
-    fade_out_div = document.querySelector('#analytics__entities-stock-movements');
+    const fade_in_div = document.querySelector('#analytics__entities-table');
+    const fade_out_div = document.querySelector('#analytics__entities-stock-movements');
 
     await fade_out_animation(fade_out_div);
     fade_out_div.classList.add('hidden');
@@ -617,9 +626,8 @@ const entities_stock_close_module = async () => {
 
 const get_entity_stock_excel_report = async (entity_id, report_type) => {
 
-    const
-    start_date = document.querySelector('#entities-stock__start-date').value,
-    end_date = document.querySelector('#entities-stock__end-date').value;
+    const start_date = document.querySelector('#entities-stock__start-date').value;
+    const end_date = document.querySelector('#entities-stock__end-date').value;
 
     try {
 
@@ -664,8 +672,9 @@ const analytics_show_weight = async weight_id => {
 const entity_stock_context_menu = e => {
 
     let tr;
-    if (e.target.classList.contains('td')) tr = e.target.parentElement;
-    else if (e.target.className.length === 0) tr = e.target.parentElement.parentElement;
+    if (e.target.classList.contains('tr')) tr = e.target;
+    else if (e.target.classList.contains('td')) tr = e.target.parentElement;
+    else if (e.target.className.length === 0 && e.target.matches('div')) tr = e.target.parentElement.parentElement;
     else if (e.target.matches('i') || e.target.matches('p')) tr = e.target.parentElement.parentElement.parentElement;
     else return;
 
@@ -702,7 +711,7 @@ const entity_stock_context_menu = e => {
                         <i class="fal fa-file-edit"></i>
                         <span>EXPORTAR A EXCEL POR DOCUMENTO</span>
                     </div>
-                    <div id="entity_stock__excel-by-weight" class="context-menu__child" data-report-type="by-weight">
+                    <div id="entity_stock__excel-by-weight" class="context-menu__child hidden" data-report-type="by-weight">
                         <i class="fal fa-file-edit"></i>
                         <span>EXPORTAR A EXCEL POR PESAJE</span>
                     </div>
@@ -725,9 +734,8 @@ const entity_stock_context_menu = e => {
                 if (menu_child.id === 'entity_stock__show-weight') analytics_show_weight(weight_id);
                 else {
 
-                    const 
-                    entity_id = parseInt(document.querySelector('#entity-stock__entity-header').getAttribute('data-entity-id')),
-                    report_type = menu_child.getAttribute('data-report-type');
+                    const entity_id = parseInt(document.querySelector('#entity-stock__entity-header').getAttribute('data-entity-id'));
+                    const report_type = menu_child.getAttribute('data-report-type');
 
                     get_entity_stock_excel_report(entity_id, report_type);
                 }
@@ -756,7 +764,6 @@ const entities_stock_create_tr = async documents => {
         for (let i = 0; i < documents.length; i++) {
 
             const doc = documents[i];
-
             let container_amount = (doc.weight.cycle.id === 1) ? -1 * doc.containers : 1 * doc.containers;
 
             const tr = document.createElement('div');
@@ -768,6 +775,7 @@ const entities_stock_create_tr = async documents => {
             tr.innerHTML = `
                 <div class="td line">${i + 1}</div>
                 <div class="td weight-id">${thousand_separator(parseInt(doc.weight.id))}</div>
+                <div class="td plates">${sanitize(doc.plates)}</div>
                 <div class="td cycle" data-cycle-id="${doc.weight.cycle.id}">
                     <div>
                         <i></i>
@@ -794,50 +802,43 @@ const entities_stock_create_tr = async documents => {
 
         //UPDATE TOTAL
         document.querySelector('#analytics__entities-stock-movements .table-totals p:last-child').innerText = thousand_separator(total);
-
         return resolve();
     })
 }
 
 const entities_stock_filter_docs = () => {
 
-    const
-    cycle_select = document.querySelector('#entities-stock__cycle-select'),
-    start_date_input = document.querySelector('#entities-stock__start-date'),
-    end_date_input = document.querySelector('#entities-stock__end-date'),
-    branch_select = document.querySelector('#entities-stock__branch-select');
+    const cycle_select = document.querySelector('#entities-stock__cycle-select');
+    const cycle_id = cycle_select.options[cycle_select.selectedIndex].value;
 
-    const 
-    cycle_id = cycle_select.options[cycle_select.selectedIndex].value,
-    start_date = start_date_input.value,
-    end_date = end_date_input.value,
-    branch_id = branch_select.options[branch_select.selectedIndex].value;
+    const start_date_input = document.querySelector('#entities-stock__start-date');
+    const start_date = Math.round(new Date(start_date_input.value + ' 00:00:00'));
 
-    const docs = analytics.documents
-        .filter(doc => {
-            if (doc.weight.cycle.id === parseInt(cycle_id) || cycle_id === 'All') return doc;
-        })
-        .filter(doc => {
-            if (new Date(doc.date) >= new Date(start_date) && new Date(doc.date) <= new Date(end_date)) return doc;
-        })
-        .filter(doc => {
-            if (doc.client.branch.id === branch_id || branch_id === 'All') return doc
-        })
-    
-    return docs;
+    const end_date_input = document.querySelector('#entities-stock__end-date');
+    const end_date = Math.round(new Date(end_date_input.value + ' 23:59:59'));
+
+    const branch_select = document.querySelector('#entities-stock__branch-select');
+    const branch_id = branch_select.options[branch_select.selectedIndex].value;
+
+    const internal_entity_select = document.querySelector('#entities-stock__entity-select');
+    const internal_entity = internal_entity_select.options[internal_entity_select.selectedIndex].value;
+
+    return analytics.documents
+        .filter(doc => doc.weight.cycle.id === parseInt(cycle_id) || cycle_id === 'All')
+        .filter(doc => new Date(doc.date) >= new Date(start_date) && new Date(doc.date) <= new Date(end_date))
+        .filter(doc => doc.client.branch.id === parseInt(branch_id) || branch_id === 'All')
+        .filter(doc => doc.internal.entity.id === parseInt(internal_entity) || internal_entity === 'All')
 }
 
 const entities_stock_cycle_select = async e => {
 
-    const 
-    documents = entities_stock_filter_docs(),
-    select = e.target,
-    text = select.selectedOptions[0].innerText;
+    const documents = entities_stock_filter_docs();
+    const select = e.target;
+    const text = select.selectedOptions[0].innerText;
 
     document.querySelectorAll('#analytics__entities-stock-movements .table-content .tbody .tr').forEach(div => div.remove());
 
     await entities_stock_create_tr(documents);
-    
     document.querySelector('#entities-stock__cycle-select').previousElementSibling.innerText = text;
 }
 
@@ -878,74 +879,57 @@ const entities_stock_search_doc_number = async e => {
 const entity_stock_search_by_date = async () => {
 
     //GET DOCUMENTS FROM SERVER
-    const 
-    start_date = document.querySelector('#entities-stock__start-date').value,
-    end_date = document.querySelector('#entities-stock__end-date').value,
-    entity_id = parseInt(document.querySelector('#entity-stock__entity-header').getAttribute('data-entity-id'))
+    const start_date = document.querySelector('#entities-stock__start-date').value;
+    const end_date = document.querySelector('#entities-stock__end-date').value;
+    const entity_id = parseInt(document.querySelector('#entity-stock__entity-header').getAttribute('data-entity-id'));
 
     try {
 
         if (!validate_date(start_date)) throw 'Fecha inicial inválida';
         if (!validate_date(end_date)) throw 'Fechan final inválida';
 
-        const
-        get_documents = await fetch('/analytics_entity_movements', {
+        const get_documents = await fetch('/analytics_entity_movements', {
             method: 'POST',
             headers: {
                 "Content-Type" : "application/json"
             },
             body: JSON.stringify({ entity_id, start_date, end_date })
-        }),
-        response = await get_documents.json();
+        });
+        const response = await get_documents.json();
 
         if (response.error !== undefined) throw response.error;
 		if (!response.success) throw 'Success response from server is false.';
 
         analytics.documents = response.documents;
+        documents = entities_stock_filter_docs();
 
         document.querySelectorAll('#analytics__entities-stock-movements .table-content .tbody .tr').forEach(div => div.remove());
 
-        await entities_stock_create_tr(analytics.documents);
+        await entities_stock_create_tr(documents);
     
     } catch(e) { error_handler('Error al buscar documento por fecha,', e) }
 }
 
 const entities_stock_branch_select = async () => {
 
-    const 
-    select = document.querySelector('#entities-stock__branch-select'),
-    branch_id = parseInt(select.options[select.selectedIndex].value);
-
-    const docs = [];
-
-    for (let doc of analytics.documents) {
-        if (doc.client.branch.id !== branch_id) continue;
-        docs.push(doc);
-    }
+    const select = document.querySelector('#entities-stock__branch-select');
+    const documents = entities_stock_filter_docs();
 
     document.querySelectorAll('#analytics__entities-stock-movements .table-content .tbody .tr').forEach(div => div.remove());
-    await entities_stock_create_tr(docs);
+    await entities_stock_create_tr(documents);
 
     select.previousElementSibling.innerText = select.options[select.selectedIndex].innerText;
 }
 
 const entities_stock_internal_entities_select = async e => {
     
-    const
-    select = e.target,
-    option = select.options[select.selectedIndex],
-    entity_id = option.value,
-    entity_docs = (entity_id === 'All') ? analytics.documents : analytics.documents.filter(doc => {
-        return doc.internal.entity.id === parseInt(entity_id);
-    });
+    const select = e.target;
+    const documents = entities_stock_filter_docs();
 
-    document.querySelectorAll('#analytics__entities-stock-movements .analytics__entities-stock-movements .tbody .tr').forEach(tr => {
-        tr.remove();
-    })
+    document.querySelectorAll('#analytics__entities-stock-movements .analytics__entities-stock-movements .tbody .tr').forEach(tr => tr.remove());
 
-    await entities_stock_create_tr(entity_docs);
+    await entities_stock_create_tr(documents);
     select.previousElementSibling.innerText = option.innerText;
-
 }
 
 document.querySelector('#analytics__entities-table .tbody').addEventListener('click', async e => {
@@ -964,22 +948,20 @@ document.querySelector('#analytics__entities-table .tbody').addEventListener('cl
 
     try {
 
-        const
-        get_entity_movements = await fetch('/analytics_entity_movements', {
+        const get_entity_movements = await fetch('/analytics_entity_movements', {
             method: 'POST', 
             headers: {
                 "Content-Type" : "application/json"
             },
             body: JSON.stringify({ entity_id, start_date: '', end_date: '' })
-        }),
-        response = await get_entity_movements.json();
+        });
+        const response = await get_entity_movements.json();
 
         if (response.error !== undefined) throw response.error;
 		if (!response.success) throw 'Success response from server is false.';
 
-        const 
-        template = await (await fetch('./templates/template-entity-stock.html')).text(),
-        stock_details_div = document.querySelector('#analytics__entities-stock-movements');
+        const template = await (await fetch('./templates/template-entity-stock.html')).text();
+        const stock_details_div = document.querySelector('#analytics__entities-stock-movements');
 
         stock_details_div.innerHTML = template;
 
@@ -990,9 +972,26 @@ document.querySelector('#analytics__entities-table .tbody').addEventListener('cl
 
         await entities_stock_create_tr(analytics.documents);
 
-        for (let i = 0; i < documents.length; i++) {
-            let container_amount = (documents[i].weight.cycle.id === 1) ? -1 * documents[i].containers : 1 * documents[i].containers;
-            total_containers += container_amount;
+        for (const doc of documents) {
+
+            const cycle = doc.weight.cycle.id;
+            let multiplier;
+
+            switch (cycle) {
+                case 1:
+                    multiplier = -1;
+                    break;
+
+                case 2:
+                    multiplier = 1;
+                    break;
+
+                case 4:
+                    multiplier = 0;
+                    break;
+            }
+
+            total_containers += multiplier * doc.containers;
         }
 
         for (let entity of response.internal_entities) {

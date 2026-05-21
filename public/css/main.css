@@ -903,14 +903,13 @@ button.svg-wrapper .desc-container p {
 }
 
 
-
 main {
   display: flex;
   flex-direction: row;
   height: 100vh;
-  
+  width: 100vw;
   text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
-  overflow: hidden
+  overflow: hidden;
 }
 
 /********************* LOADER **********************/
@@ -1461,7 +1460,7 @@ div#message-section.centered {
   height: 700px;
   margin: auto auto auto 0;
   overflow: hidden;
-  grid-template-rows: repeat(12, 1fr);
+  grid-template-rows: repeat(10, 1fr);
   gap: 15px;
 }
 
@@ -1779,41 +1778,8 @@ div#message-section.centered {
 /********************* USER PROFILE **********************/
 
 #user-profile {
-  position: fixed;
-  z-index: 100;
-  top: 25px;
-  left: 202px;
+  margin: auto 3px auto auto;
   cursor: pointer;
-  transition: left 300ms 300ms ease;
-}
-
-#left__menu:hover ~ #user-profile {
-  left: 252px;
-  transition: left 300ms 0s ease;
-}
-
-@media only screen and (min-width: 1900px) {
-  #left__menu:hover ~ #user-profile {
-    left: 445px;
-  }
-}
-
-@media only screen and (min-width: 1700px) and (max-width: 1750px) {
-  #user-profile {
-    left: 288px;
-    top: 64px;
-  }
-
-  #left__menu:hover ~ #user-profile {
-    left: 337px;
-  }
-}
-
-@media only screen and (min-width: 1500px) and (max-width: 1530px) {
-  #user-profile {
-    left: 197px;
-    top: 18px;
-  }
 }
 
 #user-profile-container {
@@ -1840,50 +1806,10 @@ div#message-section.centered {
 
 #user-profile-container p {
   margin: auto auto auto 5px;
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 700;
   letter-spacing: .3px;
   text-transform: uppercase;
-}
-
-@media only screen and (min-width: 1900px) {
-
-  #user-profile {
-    top: 130px;
-    left: 394px;
-  }
-
-}
-
-@media only screen and (min-width: 768px) and (max-width: 1280px) {
-
-  #user-profile {
-    left: 124px;
-    top: 50px;
-  }
-
-  #left__menu:hover ~ #user-profile {
-    left: 174px;
-  }
-
-}
-
-@media (max-width: 567px) {
-
-  #user-profile,
-  #left__menu:hover ~ #user-profile {
-    top: 15px;
-    left: 5px;
-  }
-
-  #user-profile-icon i {
-    font-size: 13px;
-  }
-
-  #user-profile-container p {
-    font-size: 13px;
-  }
-
 }
 
 #user-profile-module {
@@ -1893,7 +1819,7 @@ div#message-section.centered {
   bottom: 0;
   left: 50%;
   transform: translateX(-50%);
-  z-index: 9999;
+  z-index: 20000;
   display: flex;
   background-color: rgba(0, 0, 0, .6);
 }
@@ -1941,13 +1867,13 @@ div#message-section.centered {
 
 #user-profile__preferences {
   display: grid;
-  grid-template-rows: repeat(4, 30px);
+  grid-template-rows: repeat(5, 30px);
   row-gap: 5px;
 }
 
 #user-profile__preferences > div {
   align-self: center;
-  padding-left: 90px;
+  padding-left: 60px;
 }
 
 
@@ -2221,7 +2147,11 @@ div#message-section.centered {
 
 /**************** BREADCRUMB START ********************/
 .breadcrumb {
+  display: flex;
+  flex-direction: row;
   margin: 0 auto auto 0;
+  width: 100%;
+  padding: 0 0 10px 0;
 }
 
 @media only screen and (min-width: 768px) and (max-width: 1280px) {
@@ -2239,6 +2169,7 @@ div#message-section.centered {
 .breadcrumb ul {
   display: flex;
   flex-direction: row;
+  margin: auto auto auto 0;
 }
 
 .breadcrumb li {
@@ -2264,7 +2195,7 @@ div#message-section.centered {
 }
 
 .breadcrumb li h4 {
-  font-size: 16px;
+  font-size: 18px;
   text-transform: uppercase;
 }
 
@@ -2339,7 +2270,7 @@ div#message-section.centered {
 /**************** BREADCRUMB END ********************/
 .content-container {
   position: relative;
-  margin: auto auto 0 auto;
+  margin: auto;
   width: 1200px;
   height: 640px;
   display: none;
@@ -2498,7 +2429,7 @@ div#message-section.centered {
 .card.orange { border: 2px solid hsla(29, 74%, 63%, .2) }
 .card.purple { border: 2px solid hsla(245, 57%, 67%, .2) }
 .card.red { border: 2px solid hsla(0, 57%, 67%, .2) }
-.card.test { border: 2px solid hsla(65, 57%, 67%, .2) }
+.card.kindablue { border: 2px solid hsla(193, 81%, 53%, 0.2) }
 
 .card:not(#pending-weights .card):not(#finished-weight__containers > .card):hover {
   transform: scale(1.03);
@@ -2507,8 +2438,8 @@ div#message-section.centered {
 .card.green:hover { border: 2px solid hsla(147, 80%, 47%, .6) }
 .card.purple:hover { border: 2px solid hsla(245, 57%, 67%, .6) }
 .card.red:hover { border: 2px solid hsla(0, 57%, 67%, .6) }
-.card.orange:hover { /*border: 2px solid hsla(29, 74%, 63%, .6) */}
-
+.card.orange:hover { border: 2px solid hsla(29, 74%, 63%, .6) }
+.card.kindablue:hover { border: 2px solid hsla(193, 81%, 53%, 0.6) }
 
 .card.disabled {
   opacity: 0.5;
@@ -2528,7 +2459,9 @@ div#message-section.centered {
   transform: translate(-50%, -50%);
   transition: opacity 200ms 0s linear;
 }
-.card:hover .new-weight-header { opacity: 1 }
+.card:hover .new-weight-header { 
+  opacity: 1;
+}
 
 .new-weight-icon {
   position: absolute;
@@ -2569,6 +2502,12 @@ div#message-section.centered {
   color: hsl(0, 70%, 55%);
   border: 3px solid hsla(0, 70%, 55%, .2);
   background-color: hsla(0, 70%, 55%, .12);
+}
+
+.kindablue .new-weight-icon {
+  color: hsl(193, 81%, 53%);
+  border: 3px solid hsla(193, 81%, 53%, 0.2);
+  background-color: hsla(193, 81%, 53%, 0.12);
 }
 
 .new-weight-icon i {
@@ -2717,12 +2656,12 @@ div#message-section.centered {
 }
 
 #pending-weights-table .weight-id { width: 8% }
-#pending-weights-table .created { width: 14% }
+#pending-weights-table .created { width: 16% }
 #pending-weights-table .cycle { width: 12% }
 #pending-weights-table .gross-brute { width: 9% }
 #pending-weights-table .primary-plates { width: 9% }
 #pending-weights-table .driver { width: 16% }
-#pending-weights-table .client { width: 32% }
+#pending-weights-table .client { width: 30% }
 
 #pending-weights-table .cycle > div {
   display: flex;
@@ -2730,6 +2669,7 @@ div#message-section.centered {
   width: 100%;
   height: 100%;
 }
+
 #pending-weights-table .cycle i {
   font-size: 16px;
   margin: auto 5px auto auto
@@ -2947,6 +2887,7 @@ div#message-section.centered {
 
 .config .table-content {
   overflow-y: scroll;
+  scrollbar-gutter: stable;
   height: calc(100% - 36px);
   border-bottom: 2px solid rgba(255, 255, 255, .3);
 }
@@ -3530,4 +3471,26 @@ div#message-section.centered {
   color: rgba(0, 0, 0, .95);
   text-shadow: none;
   font-size: 13px;
+}
+
+/******************* CHARTS TEST ****************/
+#charts-test .content {
+  width: 100%;
+  height: 100%;
+}
+
+#companies-charts {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(3, 1fr);
+  gap: 20px;
+}
+
+#companies-charts > div {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
 }

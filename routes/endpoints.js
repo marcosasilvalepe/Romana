@@ -6,12 +6,37 @@ const excel = require('exceljs');
 const path = require('path');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs/dist/bcrypt');
+const { print_with_dot_matrix } = require('./okidata_print');
 
 const token_expiration = '5m';
 
 Array.prototype.sortBy = function(p) {
     return this.slice(0).sort(function(a,b) {
         return (a[p] < b[p]) ? 1 : (a[p] > b[p]) ? -1 : 0;
+    });
+}
+
+function sortData(data, sortFields) {
+    // Create a copy of the array before sorting
+    return [...data].sort((a, b) => {
+        for (const field of sortFields) {
+            const { key, direction = 'asc' } = typeof field === 'string' 
+                ? { key: field, direction: 'asc' } 
+                : field;
+            
+            let aVal = a[key];
+            let bVal = b[key];
+            
+            if (aVal == null && bVal == null) continue;
+            if (aVal == null) return 1;
+            if (bVal == null) return -1;
+            
+            if (aVal !== bVal) {
+                const comparison = aVal > bVal ? 1 : -1;
+                return direction === 'asc' ? comparison : -comparison;
+            }
+        }
+        return 0;
     });
 }
 
@@ -29,10 +54,24 @@ const {
     error_handler, 
     jwt_auth_secret, 
     jwt_refresh_secret, 
-    socket_domain 
+    socket_domain,
+    formatMySQLDate,
+    excel_date
 } = require('./routes_functions');
 
-console.log(socket_domain)
+console.log(socket_domain);
+
+function sortByDateAndNumber(arr) {
+  return [...arr].sort((a, b) => {
+    const dateA = new Date(a.date);
+    const dateB = new Date(b.date);
+
+    if (dateA < dateB) return -1;
+    if (dateA > dateB) return 1;
+
+    return a.number - b.number;
+  });
+}
 
 const get_giros = () => {
     return new Promise((resolve, reject) => {
@@ -107,12 +146,11 @@ const get_weight_data = weight_id => {
                         };
 
                         weight_object.final_net_weight = 1 * results[0].final_net_weight;
-                        
                         weight_object.kilos_breakdown = (results[0].kilos_breakdown === 0) ? false : true;
 
                         weight_object.frozen = { 
                             id: weight_id, 
-                            created: new Date(results[0].created).toLocaleString('es-CL'), 
+                            created: formatMySQLDate(results[0].created), 
                             created_by: { id: results[0].user_id, name: results[0].user_name },
                             primary_plates: results[0].primary_plates
                         };
@@ -129,7 +167,7 @@ const get_weight_data = weight_id => {
                             }
                         };
     
-                        weight_object.gross_weight.date = (results[0].gross_date === null) ? null : new Date(results[0].gross_date).toLocaleString('es-CL');
+                        weight_object.gross_weight.date = (results[0].gross_date === null) ? null : formatMySQLDate(results[0].gross_date);
                         weight_object.gross_weight.comments = (results[0].gross_comments === null) ? '' : results[0].gross_comments;
     
                         weight_object.secondary_plates = results[0].secondary_plates,
@@ -147,7 +185,7 @@ const get_weight_data = weight_id => {
                             }
                         };
     
-                        weight_object.tare_weight.date = (results[0].tare_date === null) ? null : new Date(results[0].tare_date).toLocaleString('es-CL');
+                        weight_object.tare_weight.date = (results[0].tare_date === null) ? null : formatMySQLDate(results[0].tare_date);
                         weight_object.tare_weight.comments = (results[0].tare_comments === null) ? '' : results[0].tare_comments;
     
                         weight_object.transport = { 
@@ -284,7 +322,7 @@ const get_weight_documents = weight_id => {
                     electronic: (results[i].electronic === 0) ? false : true,
                     number: results[i].number,
                     frozen: { 
-                        created: new Date(results[i].created).toLocaleString('es-CL'), 
+                        created: formatMySQLDate(results[i].created), 
                         id: results[i].id,
                         user: { 
                             id: results[i].user_id, 
@@ -702,22 +740,24 @@ router.get('/', (req, res) => {
     })
 })
 
-const home_script = (process.env.NODE_ENV === 'development') ? 
-    [
-        {
-            src: socket_domain, attributes: ['defer']
-        }
-    ]
-    :
-    [
-        {
-            src: socket_domain, attributes: ['defer']
-        }, 
-        {
-            src: 'js/prevent_context_menu.js?v=0.1', attributes: ['defer']
-        }
-    ]
-;
+const home_script = host => {
+    return (process.env.NODE_ENV === 'development') ? 
+        [
+            {
+                src: socket_domain, attributes: ['defer']
+            }
+        ]
+        :
+        [
+            {
+                src: 'https://' + host.slice(0, host.length - 4) + '3100/socket.io/socket.io.js', attributes: ['defer']
+            }, 
+            {
+                src: 'js/prevent_context_menu.js?v=0.1', attributes: ['defer']
+            }
+        ]
+    ;
+}
 
 router.get('/app', userMiddleware.isLoggedIn, async (req, res) => {
     res.render('home', { 
@@ -736,7 +776,7 @@ router.get('/app', userMiddleware.isLoggedIn, async (req, res) => {
                 attributes: [{ attr: 'type', value: 'text/css' }]
             } 
         ],
-        script: home_script
+        script: home_script(req.headers.host)
     });
 })
 
@@ -788,11 +828,11 @@ router.post('/login_user', async (req, res) => {
         const get_user_data = () => {
             return new Promise((resolve, reject) => {
                 conn.query(`
-                    SELECT users.*, users_preferences.main_module, users_preferences.weight_view, users_preferences.qz_tray, 
+                    SELECT users.*, users_preferences.main_module, users_preferences.weight_view, users_preferences.qz_tray, users_preferences.local_dotmatrix_printer,
                     users_preferences.tutorial, users_preferences.keep_session_alive, users_preferences.notify_errors
                     FROM users 
                     INNER JOIN users_preferences ON users.id=users_preferences.user
-                    WHERE LOWER(users.name)=LOWER(${conn.escape(user)});
+                    WHERE users.name=LOWER(${conn.escape(user)});
                 `, (error, results, fields) => {
                     if (error || results.length === 0) return reject(error);
                     return resolve({
@@ -804,6 +844,7 @@ router.post('/login_user', async (req, res) => {
                             mainModule: results[0].main_module,
                             profile: results[0].profile,
                             qzTray: (results[0].qz_tray === 0) ? false : true,
+                            localDotmatrixPrinter: (results[0].local_dotmatrix_printer === 0) ? false : true,
                             notifyErrors: (results[0].notify_errors === 0) ? false : true,
                             tutorial: (results[0].tutorial === 0) ? false : true,
                             keepSessionAlive: (results[0].keep_session_alive === 0) ? false : true,
@@ -829,16 +870,17 @@ router.post('/login_user', async (req, res) => {
         const data = await get_user_data();
 
         const validate_password = await bcrypt.compare(password, data.password);
+
         if (validate_password) {
 
-            const 
-            token = jwt.sign({
+            const token = jwt.sign({
                 userName: data.user.username,
                 userId: data.user.id,
                 userProfile: data.user.profile,
                 mainModule: data.user.mainModule,
                 notifyErrors: data.user.notifyErrors,
                 qzTray: data.user.qzTray,
+                localDotmatrixPrinter: data.user.localDotmatrixPrinter,
                 tutorial: data.user.tutorial,
                 keepSessionAlive: data.user.keepSessionAlive,
                 weightView: data.user.weightView
@@ -846,14 +888,16 @@ router.post('/login_user', async (req, res) => {
               jwt_auth_secret, {
                 expiresIn: token_expiration
               }
-            ),
-            refresh_token = jwt.sign({
+            );
+
+            const refresh_token = jwt.sign({
                 userName: data.user.username,
                 userId: data.user.id,
                 userProfile: data.user.profile,
                 mainModule: data.user.mainModule,
                 notifyErrors: data.user.notifyErrors,
                 qzTray: data.user.qzTray,
+                localDotmatrixPrinter: data.user.localDotmatrixPrinter,
                 tutorial: data.user.tutorial,
                 keepSessionAlive: data.user.keepSessionAlive,
                 weightView: data.user.weightView
@@ -866,11 +910,12 @@ router.post('/login_user', async (req, res) => {
             response.refresh_token = refresh_token;
             await update_refresh_token();
 
+
             res.cookie("jwt", refresh_token, {
                 secure: process.env.NODE_ENV !== "development",
                 httpOnly: true,
                 sameSite: 'strict',
-                maxAge: (data.keepSessionAlive) ? 30 * 24 * 60 * 60 * 1000 : 10 * 60 * 1000
+                maxAge: (data.keepSessionAlive) ? 30 * 24 * 60 * 60 * 1000 : 1000 * 60 * 10
             });
         }
 
@@ -940,6 +985,7 @@ router.get('/refresh_token', async (req, res) => {
                     mainModule: decoded_token.mainModule,
                     notifyErrors: decoded_token.notifyErrors,
                     qzTray: decoded_token.qzTray,
+                    localDotmatrixPrinter: decoded_token.localDotmatrixPrinter,
                     tutorial: decoded_token.tutorial,
                     keepSessionAlive: decoded_token.keepSessionAlive,
                     weightView: decoded_token.weightView
@@ -956,6 +1002,7 @@ router.get('/refresh_token', async (req, res) => {
                     mainModule: decoded_token.mainModule,
                     notifyErrors: decoded_token.notifyErrors,
                     qzTray: decoded_token.qzTray,
+                    localDotmatrixPrinter: decoded_token.localDotmatrixPrinter,
                     tutorial: decoded_token.tutorial,
                     keepSessionAlive: decoded_token.keepSessionAlive,
                     weightView: decoded_token.weightView
@@ -990,8 +1037,10 @@ router.get('/refresh_token', async (req, res) => {
 router.post('/save_user_preferences', userMiddleware.isLoggedIn, async (req, res) => {
 
     const 
-    { qz_tray, tutorial, keep_session_alive, notify_errors } = req.body,
-    response = { success: false }
+    { qz_tray, localDotmatrixPrinter, tutorial, keep_session_alive, notify_errors } = req.body,
+    response = { success: false };
+
+    console.log(localDotmatrixPrinter)
 
     try {
 
@@ -1001,6 +1050,7 @@ router.post('/save_user_preferences', userMiddleware.isLoggedIn, async (req, res
                     UPDATE users_preferences
                     SET 
                         qz_tray=${(qz_tray) ? 1 : 0},
+                        local_dotmatrix_printer=${(localDotmatrixPrinter) ? 1 : 0},
                         tutorial=${(tutorial) ? 1 : 0},
                         keep_session_alive=${(keep_session_alive) ? 1 : 0},
                         notify_errors=${(notify_errors) ? 1 : 0}
@@ -1032,6 +1082,7 @@ router.post('/save_user_preferences', userMiddleware.isLoggedIn, async (req, res
             mainModule: req.userData.mainModule,
             notifyErrors: notify_errors,
             qzTray: qz_tray,
+            localDotmatrixPrinter: localDotmatrixPrinter,
             tutorial: tutorial,
             keepSessionAlive: keep_session_alive,
             weightView: req.userData.weightView
@@ -1048,6 +1099,7 @@ router.post('/save_user_preferences', userMiddleware.isLoggedIn, async (req, res
             mainModule: req.userData.mainModule,
             notifyErrors: notify_errors,
             qzTray: qz_tray,
+            localDotmatrixPrinter: localDotmatrixPrinter,
             tutorial: tutorial,
             keepSessionAlive: keep_session_alive,
             weightView: req.userData.weightView
@@ -1171,6 +1223,7 @@ router.post('/save_view_preference', userMiddleware.isLoggedIn, async (req, res)
             mainModule: req.userData.mainModule,
             notifyErrors: req.userData.notifyErrors,
             qzTray: req.userData.qzTray,
+            localDotmatrixPrinter: req.userData.localDotmatrixPrinter,
             tutorial: req.userData.tutorial,
             keepSessionAlive: req.userData.keepSessionAlive,
             weightView: parseInt(view)
@@ -1187,6 +1240,7 @@ router.post('/save_view_preference', userMiddleware.isLoggedIn, async (req, res)
             mainModule: req.userData.mainModule,
             notifyErrors: req.userData.notifyErrors,
             qzTray: req.userData.qzTray,
+            localDotmatrixPrinter: req.userData.localDotmatrixPrinter,
             tutorial: req.userData.tutorial,
             keepSessionAlive: req.userData.keepSessionAlive,
             weightView: parseInt(view)
@@ -1212,6 +1266,26 @@ router.post('/save_view_preference', userMiddleware.isLoggedIn, async (req, res)
         response.error = e;
         console.log(`Error saving view preference. ${e}`);
         error_handler(`Endpoint: /save_view_preference -> User Name: ${req.userData.userName}\r\n${e}`);
+    }
+    finally { res.json(response) }
+})
+
+router.post('/print_weight_in_server_printer', userMiddleware.isLoggedIn, async (req, res) => {
+
+    const { weight_id } = req.body;
+    const response = { success: false };
+
+    try {
+
+        const weight = await get_weight_data(weight_id);
+        await print_with_dot_matrix(weight);
+        response.success = true;
+
+    }
+    catch(e) {
+        response.error = e;
+        console.log(`Error getting data to print document. ${e}`);
+        error_handler(`Endpoint: /print_weight_in_server_printer -> User Name: ${req.userData.userName}\r\n${e}`);
     }
     finally { res.json(response) }
 })
@@ -1345,7 +1419,7 @@ router.post('/print_document', userMiddleware.isLoggedIn, async (req, res) => {
         console.log(`Error getting data to print document. ${e}`);
         error_handler(`Endpoint: /print_document -> User Name: ${req.userData.userName}\r\n${e}`);
     }
-    finally { console.log(response);res.json(response) }
+    finally { res.json(response) }
 })
 
 router.post('/get_file_version', userMiddleware.isLoggedIn, async (req, res) => {
@@ -1418,11 +1492,6 @@ router.get('/download_electronic_document', userMiddleware.isLoggedIn, async (re
         })
 
     } catch(e) { console.log(e) }
-})
-
-router.get('/get_socket_domain', userMiddleware.isLoggedIn, async (req, res) => {
-    const domain = (process.env.NODE_ENV === 'development') ? 'https://localhost' : 'https://192.168.1.90';
-    res.json({ domain })
 })
 
 router.get('/get_containers', userMiddleware.isLoggedIn, async (req, res) => {
@@ -2178,16 +2247,27 @@ router.post('/create_new_weight', userMiddleware.isLoggedIn, async (req, res) =>
                 conn.query(`
                     SELECT vehicles.primary_plates, vehicles.secondary_plates, vehicles.transport_id, entities.rut AS transport_rut, 
                     entities.name AS transport_name, vehicles.driver_id, drivers.name AS driver_name, drivers.rut AS driver_rut,
-                    drivers.internal
+                    drivers.internal, vehicles.status AS vehicle_status, vehicles.internal AS internal_vehicle
                     FROM vehicles 
                     LEFT OUTER JOIN drivers ON vehicles.driver_id=drivers.id 
                     LEFT JOIN entities ON vehicles.transport_id=entities.id 
                     WHERE vehicles.primary_plates=${conn.escape(primary_plates)};
-                `, (error, results, fields) => {
+                `, async (error, results, fields) => {
                     if (error || results.length === 0) return reject(error);
+
+                    if (
+                        results[0].vehicle_status === 1 
+                        && 
+                        results[0].internal_vehicle === 1
+                        &&
+                        parseInt(cycle) === 1
+                    )
+                    {
+                        response.internal_vehicle = true;
+                    }
                     
                     weight_object.frozen = { 
-                        created: new Date(created).toLocaleString('es-CL'),
+                        created: formatMySQLDate(created),
                         primary_plates: results[0].primary_plates
                     };
 
@@ -2245,8 +2325,9 @@ router.post('/create_new_weight', userMiddleware.isLoggedIn, async (req, res) =>
                 conn.query(`
                     SELECT id, tare_date, tare_net 
                     FROM weights 
-                    WHERE primary_plates=${conn.escape(primary_plates)} AND status='T' 
-                    AND tare_brute > 2000 ORDER BY id DESC LIMIT 3;
+                    WHERE primary_plates=${conn.escape(primary_plates)} 
+                    AND status='T' AND tare_brute > 2000 
+                    ORDER BY id DESC LIMIT 3;
                 `, (error, results, fields) => {
                     if (error) return reject(error);
 
@@ -2355,7 +2436,6 @@ router.post('/create_new_weight', userMiddleware.isLoggedIn, async (req, res) =>
         await create_weight_row();
 
         response.weight_object = weight_object;
-
         response.success = true;
 
     }
@@ -2365,7 +2445,91 @@ router.post('/create_new_weight', userMiddleware.isLoggedIn, async (req, res) =>
         error_handler(`Endpoint: /create_new_weight -> User Name: ${req.userData.userName}\r\n${e}`);
     }
     finally { res.json(response) }
-})
+});
+
+router.post('/get_vehicles_last_dispatches', userMiddleware.isLoggedIn, async (req, res) => {
+   
+    const { plates } = req.body;
+    const response = { success: false };
+
+    console.log(req.body)
+
+    try {
+
+        const get_weights = () => {
+            return new Promise((resolve, reject) => {
+                conn.query(`
+                    SELECT 
+                        header.weight_id, drivers.name AS driver_name, internal_entities.short_name, 
+                        header.id AS doc_id, header.number AS doc_number, header.date AS doc_date, 
+                        entities.name AS entity_name, branches.name AS branch_name,
+                        body.container_amount
+                    FROM documents_header header
+                    INNER JOIN weights ON header.weight_id=weights.id
+                    INNER JOIN drivers ON weights.driver_id=drivers.id
+                    INNER JOIN internal_entities ON header.internal_entity=internal_entities.id
+                    INNER JOIN documents_body body ON header.id=body.document_id
+                    INNER JOIN entities ON header.client_entity=entities.id
+                    INNER JOIN entity_branches branches ON header.client_branch=branches.id
+                    WHERE 
+                        weights.cycle=2 AND weights.primary_plates='${plates.replace(/[^a-z0-9]/gmi, '')}'
+                        AND weights.status <> 'N' AND header.status='I' AND (body.status='T' OR body.status='I')
+                        AND body.container_code IS NOT NULL AND body.container_amount IS NOT NULL 
+                    ORDER BY weights.id DESC, header.id DESC, body.id ASC
+                    LIMIT 25;
+                `, (error, results, fields) => {
+                    if (error) return reject(error);
+
+                    const weights = [];
+                    let current_weight;
+
+                    for (const result of results) {
+
+                        if (current_weight === result.weight_id) continue;
+                        current_weight = result.weight_id;
+
+                        const data = results.filter(row => row.weight_id === result.weight_id);
+
+                        let current_doc;
+                        const documents = data.map(row => {
+                            
+                            if (current_doc === row.doc_id) return;
+                            current_doc = row.doc_id;
+
+                            const document_data = data.filter(r => current_doc === r.doc_id);
+
+                            return {
+                                id: current_doc,
+                                number: row.doc_number,
+                                date: row.doc_date,
+                                client: {
+                                    name: row.entity_name,
+                                    branch: row.branch_name
+                                },
+                                internal_entity: row.short_name,
+                                containers: document_data.reduce((accumulator, current_value) => accumulator + current_value.container_amount, 0)
+                            }
+                        });
+
+                        weights.push({
+                            id: data[0].weight_id,
+                            driver: data[0].driver_name,
+                            documents: documents
+                        });
+                    }
+
+                    return resolve(weights.splice(0, 10));
+                })
+            })
+        }
+
+        response.data = await get_weights();
+        response.success = true;
+
+    }
+    catch(e) { response.error = e }
+    finally { res.json(response) }
+});
 
 router.post('/get_pending_weight', userMiddleware.isLoggedIn, async (req, res) => {
 
@@ -3672,11 +3836,10 @@ router.post('/update_driver', userMiddleware.isLoggedIn, async (req,res) => {
 
 router.post('/create_new_document', userMiddleware.isLoggedIn, async (req, res) => {
 
-    const
-    { weight_id } = req.body,
-    user_id  =req.userData.userId,
-    now = format_date(new Date()),
-    document = {
+    const { weight_id } = req.body;
+    const user_id  =req.userData.userId;
+    const now = format_date(new Date());
+    const document = {
         comments: null,
         electronic: false,
         kilos: 0,
@@ -3702,20 +3865,24 @@ router.post('/create_new_document', userMiddleware.isLoggedIn, async (req, res) 
         }],
         total: 0,
         user: user_id
-    },
-    response = { success: false };
+    };
+    const response = { success: false };
 
     try {
 
         const get_cycle = () => {
             return new Promise((resolve, reject ) => {
                 conn.query(`
-                    SELECT cycle, kilos_breakdown FROM weights WHERE id=${parseInt(weight_id)};
+                    SELECT cycle, kilos_breakdown 
+                    FROM weights 
+                    WHERE id=${parseInt(weight_id)};
                 `, async (error, results, fields) => {
                     if (error || results.length === 0) return reject(error);
                     response.cycle = results[0].cycle;
+
                     if (results[0].kilos_breakdown === 0) response.kilos_breakdown = false;
                     else response.kilos_breakdown = true;
+
                     return resolve();
                 })
             })
@@ -3804,7 +3971,9 @@ router.post('/create_new_document', userMiddleware.isLoggedIn, async (req, res) 
         const check_last_recycled_row = () => {
             return new Promise((resolve, reject) => {
                 conn.query(`
-                    SELECT MIN(id) AS id FROM documents_header WHERE status='R';
+                    SELECT MIN(id) AS id 
+                    FROM documents_header 
+                    WHERE status='R';
                 `, (error, results, fields) => {
                     if (error) return reject(error);
                     if (results[0].id !== null) {
@@ -3828,7 +3997,7 @@ router.post('/create_new_document', userMiddleware.isLoggedIn, async (req, res) 
                         status='I',
                         created='${now}', 
                         created_by=${conn.escape(user_id)},
-                        type=1,
+                        type=${(response.cycle === 2) ? 1 : 2},
                         number=${document.number}, 
                         date=${date}, 
                         internal_entity=${document.internal.entity.id}, 
@@ -3838,7 +4007,7 @@ router.post('/create_new_document', userMiddleware.isLoggedIn, async (req, res) 
                     WHERE id=${document.frozen.id};
                 `, (error, results, fields) => {
                     if (error) return reject(error);
-                    document.frozen.created = now;
+                    document.frozen.created = formatMySQLDate(now);
                     return resolve();
                 })
             })
@@ -3879,7 +4048,7 @@ router.post('/create_new_document', userMiddleware.isLoggedIn, async (req, res) 
                 `, (error, results, fields) => {
                     if (error) return reject(error);
                     document.frozen.id = results.insertId;
-                    document.frozen.created = new Date(now).toLocaleString('es-CL');
+                    document.frozen.created = formatMySQLDate(now);
                     return resolve();
                 })
             })
@@ -3907,7 +4076,10 @@ router.post('/create_new_document', userMiddleware.isLoggedIn, async (req, res) 
         const use_last_row = () => {
             return new Promise((resolve, reject) => {
                 conn.query(`
-                    UPDATE documents_body SET status='I', document_id=${document.frozen.id} 
+                    UPDATE documents_body 
+                    SET 
+                        status='I', 
+                        document_id=${document.frozen.id} 
                     WHERE id=${response.empty_row.id};
                 `, (error, results, fields) => {
                     if (error) return reject(error);
@@ -4435,16 +4607,17 @@ router.post('/update_doc_number', userMiddleware.isLoggedIn, async (req, res) =>
 
 router.post('/update_doc_date', userMiddleware.isLoggedIn, async (req, res) => {
 
-    const
-    { doc_id } = req.body,
-    doc_date = (req.body.doc_date === '') ? null : `'${req.body.doc_date}'`,
-    response = { success: false }
+    const { doc_id } = req.body;
+    const doc_date = (req.body.doc_date === '') ? null : `'${req.body.doc_date}'`;
+    const response = { success: false };
     
     try {
         const update_doc_date = () => {
             return new Promise((resolve, reject) => {
                 conn.query(`
-                    UPDATE documents_header SET date=${doc_date} WHERE id=${doc_id};
+                    UPDATE documents_header 
+                    SET date=${doc_date} 
+                    WHERE id=${doc_id};
                 `, (error, results, fields) => {
                     if (error) return reject(error);
                     return resolve();
@@ -4686,7 +4859,8 @@ router.post('/update_client_entity', userMiddleware.isLoggedIn, async (req, res)
                     ORDER BY documents_header.weight_id DESC LIMIT 1;
                 `, (error, results, fields) => {
 
-                    if (error) { return reject(error) }
+                    if (error) return reject(error);
+                    
                     if (results.length > 0) {
                         response.last_record.found = true;
                         response.last_record.weight = results[0].pesaje;
@@ -4708,7 +4882,9 @@ router.post('/update_client_entity', userMiddleware.isLoggedIn, async (req, res)
         await entity_query();
         await update_query();
         await branches_query();
+
         await last_record_query();
+
         response.success = true;
     }
     catch(e) { 
@@ -4764,14 +4940,14 @@ router.post('/document_update_branch', userMiddleware.isLoggedIn, async (req, re
             })
         }
 
-        const check_doc_number = () => {
+        const check_doc_number = (cycle) => {
             return new Promise((resolve, reject) => {
                 conn.query(`
                     SELECT header.id 
                     FROM documents_header header
                     INNER JOIN weights ON header.weight_id=weights.id
                     WHERE header.${field}_entity=${response.entity_id} AND header.number=${doc_number} 
-                    AND header.id <> ${parseInt(document_id)} AND weights.status <> 'N'
+                    AND header.id <> ${parseInt(document_id)} AND weights.status <> 'N' AND weights.cycle=${cycle}
                     AND (header.status='T' OR header.status='I');
                 `, (error, results, fields) => {
                     if (error) return reject(error);
@@ -4841,7 +5017,7 @@ router.post('/document_update_branch', userMiddleware.isLoggedIn, async (req, re
 
         await branch_query();
 
-        if (doc_number !== null) await check_doc_number();
+        if (doc_number !== null) await check_doc_number(cycle);
 
         //if (response.existing_document) await reset_doc_number();
         await update_query();
@@ -5077,7 +5253,6 @@ router.post('/get_document_row_data', userMiddleware.isLoggedIn, async (req, res
 })
 
 router.post('/search_product_by_name', userMiddleware.isLoggedIn, async (req, res) => {
-
 
     const
     product = req.body.data.replace(/[^a-zA-Z]/gm, ''),
@@ -5479,6 +5654,8 @@ router.post('/update_kilos', userMiddleware.isLoggedIn, async (req,res) => {
     kilos = (req.body.kilos === '') ? null : parseFloat(req.body.kilos),
     temp = {},
     response = { success: false, product_total: null, doc_total: 0 }
+
+    console.log(kilos)
 
     try {
 
@@ -6128,6 +6305,7 @@ router.post('/get_weight_totals', userMiddleware.isLoggedIn, async (req, res) =>
                     SELECT gross_containers, gross_net, final_net_weight 
                     FROM weights WHERE id=${parseInt(weight_id)};
                 `, (error, results, fields) => {
+
                     if (error || results.length === 0) return reject(error);
                     response.gross_containers = 1 * results[0].gross_containers;
                     response.gross_net = 1 * results[0].gross_net;
@@ -6954,9 +7132,11 @@ router.post('/fix_weight_check_if_weight_is_saved', userMiddleware.isLoggedIn, a
         const check_row = () => {
             return new Promise((resolve, reject) => {
                 conn.query(`
-                    SELECT * FROM weights_manual_input 
+                    SELECT *
+                    FROM weights_manual_input wmi
                     WHERE weight_id=${parseInt(weight_id)}
-                    AND process='gross';
+                    AND process='gross'
+                    ORDER BY id DESC LIMIT 1;
                 `, (error, results, fields) => {
                     if (error) return reject(error);
                     if (results.length === 0) return resolve(false);
@@ -7135,8 +7315,10 @@ router.post('/fix_weight_undo_brute_weight', userMiddleware.isLoggedIn, async (r
             return new Promise((resolve, reject) => {
 
                 const 
-                final_net_weight = response.weight_value - temp.gross_containers - temp.weight_data.tare_net,
-                final_net_weight_sql = (temp.weight_data.tare_status === 1) ? '' : `, final_net_weight=${parseInt(final_net_weight)}`
+                final_net_weight = response.weight_value - temp.weight_data.gross_containers - temp.weight_data.tare_net,
+                final_net_weight_sql = (temp.weight_data.tare_status === 1) ? '' : `, final_net_weight=${parseInt(final_net_weight)}`;
+
+                response.final_net_weight = final_net_weight;
 
                 conn.query(`
                     UPDATE weights
@@ -7174,6 +7356,7 @@ router.post('/fix_weight_undo_brute_weight', userMiddleware.isLoggedIn, async (r
     }
     finally { res.json(response) }
 })
+
 /****************** FINISHED WEIGHTS *****************/
 router.post('/get_finished_weights', userMiddleware.isLoggedIn, async (req, res) => {
 
@@ -7326,7 +7509,6 @@ router.post('/get_finished_weight_by_id', userMiddleware.isLoggedIn, async (req,
         const get_weight = () => {
             return new Promise((resolve, reject) => {
                 conn.query(`
-
                     SELECT weights.created, weights.id AS weight, weights.cycle, cycles.name, weights.primary_plates AS plates, 
                     drivers.name AS driver, weights.gross_brute AS brute, weights.tare_net AS tare, 
                     weights.final_net_weight AS net
@@ -7336,7 +7518,7 @@ router.post('/get_finished_weight_by_id', userMiddleware.isLoggedIn, async (req,
                     WHERE weights.id=${parseInt(weight_id)}
                     ORDER BY weights.id;
                 `, (error, results, fields) => {
-                    if (error || results.length === 0) return reject(error);
+                    if (error) return reject(error);
                     response.weights = results;
                     return resolve();
                 })
@@ -7423,15 +7605,75 @@ router.post('/get_finished_weights_by_filters', userMiddleware.isLoggedIn, async
 
 router.post('/finished_weights_excel_report_simple', userMiddleware.isLoggedIn, async (req, res) => {
 
-    const 
-    { data } = req.body,
-    response = { success: false }
+    const { weight_data } = req.body;
 
-    console.log(req.body)
+    const weight_status = weight_data.weight_status.replace(/[^TIN]/gm, '');
+    const cycle_sql = (weight_data.cycle === 'All') ? '' : ` AND weights.cycle=${parseInt(weight_data.cycle)}`;
+    const driver_sql = (weight_data.driver.length === 0) ? '' : ` AND drivers.name LIKE '%${weight_data.driver}%'`;
+    const plates_sql = (weight_data.plates.length === 0) ? '' : ` AND weights.primary_plates LIKE '%${weight_data.plates.replace(/[^a-z0-9]/gmi, '')}%'`;
+
+    const start_date = weight_data.start_date;
+    const end_date = weight_data.end_date;
+
+    const min_weight = weight_data.range.min_weight;
+    const max_weight = weight_data.range.max_weight;
+    const min_max_sql = (start_date.length === 0 && end_date.length === 0) ? `AND weights.id BETWEEN ${min_weight} AND ${max_weight}` : '';
+
+    const response = { success: false };
 
     try {
 
-        const generate_excel = () => {
+        const get_data = date_sql => {
+            return new Promise((resolve, reject) => {
+                conn.query(`
+                    SELECT weights.id AS weight_id, cycles.name AS cycle, weights.created, weights.primary_plates AS plates,
+                    drivers.name AS driver, weights.gross_brute AS brute, weights.tare_brute AS tare, weights.final_net_weight AS net,
+                    body.container_amount, header.status as doc_status, body.status AS body_status, body.product_code
+                    FROM weights
+                    INNER JOIN cycles ON weights.cycle=cycles.id
+                    LEFT OUTER JOIN drivers ON weights.driver_id=drivers.id
+                    LEFT OUTER JOIN documents_header header ON header.weight_id=weights.id
+                    LEFT OUTER JOIN documents_body body ON header.id=body.document_id
+                    WHERE weights.status=${conn.escape(weight_status)} AND header.status='I' AND (body.status='T' OR body.status='I')
+                    ${cycle_sql} ${driver_sql} ${plates_sql} ${min_max_sql} ${date_sql}
+                    ORDER BY weights.id ASC;
+                `, (error, results, fields) => {
+                    if (error) return reject(error);
+
+                    const weights = [];
+                    let current_weight_id;
+
+                    for (let i = 0; i < results.length; i++) {
+
+                        if (results[i].weight_id === current_weight_id) continue;
+                        current_weight_id = results[i].weight_id;
+
+                        const weight = {
+                            weight_id: results[i].weight_id,
+                            cycle: results[i].cycle,
+                            created: results[i].created,
+                            plates: results[i].plates,
+                            driver: results[i].driver,
+                            brute: results[i].brute,
+                            tare: results[i].tare,
+                            net: results[i].net,
+                            containers: results
+                                .filter(row => row.weight_id === current_weight_id)
+                                .reduce((accumulator, row) => accumulator += (1 * row.container_amount) , 0),
+                            empty_containers: results
+                                .filter(row => row.weight_id === current_weight_id)
+                                .reduce((accumulator, row) => accumulator += (row.product_code === null) ? row.container_amount : 0, 0)
+                        }
+
+                        weights.push(weight);
+                    }
+
+                    return resolve(weights);
+                })
+            })
+        }
+
+        const generate_excel = (data) => {
             return new Promise(async (resolve, reject) => {
                 try {
 
@@ -7440,7 +7682,14 @@ router.post('/finished_weights_excel_report_simple', userMiddleware.isLoggedIn, 
 
                     const sheet = workbook.addWorksheet('Hoja1', {
                         pageSetup:{
-                            paperSize: 9
+                            paperSize: undefined,
+                            orientation: 'portrait',
+                            horizontalCentered: true,
+                            margins: {
+                                left: 0.3, right: 0.3,
+                                top: 0.5, bottom: 0.5,
+                                header: 0.3, footer: 0.3
+                            }
                         }
                     });
                     
@@ -7451,14 +7700,84 @@ router.post('/finished_weights_excel_report_simple', userMiddleware.isLoggedIn, 
                         { header: 'FECHA', key: 'created' },
                         { header: 'VEHICULO', key: 'plates' },
                         { header: 'CHOFER', key: 'driver' },
+                        { header: 'ENVASES', key: 'container_amount' },
                         { header: 'BRUTO', key: 'brute' },
                         { header: 'TARA', key: 'tare' },
                         { header: 'NETO', key: 'net' }
                     ]
 
+                    let line = 1;
+
+                    for (let i = 0; i < data.length; i++) {
+
+                        const data_row = sheet.getRow(i + 2);
+
+                        data_row.getCell(1).value = parseInt(line);
+                        data_row.getCell(2).value = parseInt(data[i].weight_id);
+                        data_row.getCell(3).value = data[i].cycle;
+                        data_row.getCell(4).value = excel_date(data[i].created).split(' ')[0];
+                        data_row.getCell(5).value = data[i].plates;
+                        data_row.getCell(6).value = data[i].driver;
+                        data_row.getCell(7).value = (data[i].empty_containers === 0) ? parseInt(1 * data[i].containers) : { formula: `${data[i].containers}-${data[i].empty_containers}` };
+                        data_row.getCell(8).value = parseInt(1 * data[i].brute);
+                        data_row.getCell(9).value = parseInt(1 * data[i].tare);
+                        data_row.getCell(10).value = parseInt(1 * data[i].net);
+                        data_row.getCell(11).value = (data[i].empty_containers === 0) ? '' : `${data[i].empty_containers} envases vacíos`;
+
+                        for (let j = 1; j <= 10; j++) {
+                            const active_cell = data_row.getCell(j);
+                            active_cell.border = {
+                                top: { style: 'thin' },
+                                left: { style: 'thin' },
+                                bottom: { style: 'thin' },
+                                right: { style: 'thin' }
+                            }
+                        }
+
+                        line++;
+                    }
+
+                    sheet.getColumn(1).numFmt = '#,##0;[Red]#,##0';
+                    sheet.getColumn(2).numFmt = '#,##0;[Red]#,##0';
+
+                    sheet.getColumn(4).numFmt = 'DD-MM-YYYY';
+                    sheet.getColumn(8).numFmt = '#,##0;[Red]#,##0';
+                    sheet.getColumn(9).numFmt = '#,##0;[Red]#,##0';
+                    sheet.getColumn(10).numFmt = '#,##0;[Red]#,##0';
+
+                    for (let j = 1; j <= 11; j++) {
+
+                        // CENTER ALL COLUMNS
+                        sheet.getColumn(j).alignment = {
+                            vertical: 'middle',
+                            horizontal: 'center'
+                        }
+
+                        sheet.getColumn(j).font = {
+                            size: 11,
+                            name: font
+                        }
+
+                        let dataMax = 0;
+                        for (let i = line - 1; i >= 1; i--) {
+    
+                            const 
+                            this_row = sheet.getRow(i),
+                            this_cell = this_row.getCell(j);
+
+                            if (this_cell.value === null) continue;
+    
+                            let columnLength = this_cell.value.length + 3;	
+                            if (columnLength > dataMax) dataMax = columnLength;
+    
+                        }
+    
+                        sheet.getColumn(j).width = (dataMax < 5) ? 5 : dataMax; 
+                    }
+
                     //FORMAT FIRST ROW
                     const header_row = sheet.getRow(1);
-                    for (let i = 1; i < 10; i++) {
+                    for (let i = 1; i <= 10; i++) {
                         header_row.getCell(i).border = {
                             top: { style: 'thin' },
                             left: { style: 'thin' },
@@ -7475,59 +7794,6 @@ router.post('/finished_weights_excel_report_simple', userMiddleware.isLoggedIn, 
                             bold: true
                         }
                     }
-                    
-                    for (let i = 0; i < data.length; i++) {
-                    
-                        const data_row = sheet.getRow(i + 2);
-
-                        data_row.getCell(1).value = parseInt(data[i].line);
-                        data_row.getCell(2).value = parseInt(data[i].weight_id);
-                        data_row.getCell(3).value = data[i].cycle;
-                        data_row.getCell(4).value = data[i].created;
-                        data_row.getCell(5).value = data[i].plates;
-                        data_row.getCell(6).value = data[i].driver;
-                        data_row.getCell(7).value = parseInt(data[i].brute);
-                        data_row.getCell(8).value = parseInt(data[i].tare);
-                        data_row.getCell(9).value = parseInt(data[i].net);
-
-                        data_row.getCell(1).numFmt = '#,##0;[Red]#,##0';
-                        data_row.getCell(2).numFmt = '#,##0;[Red]#,##0';
-                        data_row.getCell(7).numFmt = '#,##0;[Red]#,##0';
-                        data_row.getCell(8).numFmt = '#,##0;[Red]#,##0';
-                        data_row.getCell(9).numFmt = '#,##0;[Red]#,##0';
-
-
-                        for (let j = 1; j < 10; j++) {
-                            const active_cell = data_row.getCell(j);
-                            active_cell.font = {
-                                size: 11,
-                                name: font
-                            }
-
-                            active_cell.alignment = {
-                                vertical: 'middle',
-                                horizontal: 'center'
-                            }
-
-                            active_cell.border = {
-                                top: { style: 'thin' },
-                                left: { style: 'thin' },
-                                bottom: { style: 'thin' },
-                                right: { style: 'thin' }
-                            }
-                        }
-                    }
-
-                    sheet.columns.forEach(column => {
-                        let dataMax = 0;
-                        column.eachCell({ includeEmpty: false }, cell => {
-                            let columnLength = cell.value.length + 3;	
-                            if (columnLength > dataMax) {
-                                dataMax = columnLength;
-                            }
-                        });
-                        column.width = (dataMax < 5) ? 5 : dataMax;
-                    });
 
                     sheet.removeConditionalFormatting();
 
@@ -7540,84 +7806,120 @@ router.post('/finished_weights_excel_report_simple', userMiddleware.isLoggedIn, 
             })
         }
 
-        //await generate_excel();
-        response.success = true;
+        let new_start_date, new_end_date;
+        if (!validate_date(start_date) && (validate_date(end_date))) new_start_date = new_end_date = end_date;
+        else if (validate_date(start_date) && (!validate_date(end_date))) new_start_date = new_end_date = start_date;
+        else if (!validate_date(start_date) && (!validate_date(end_date))) {
 
+            new_start_date = format_html_date(set_to_monday(new Date()));
+            new_end_date = format_html_date(new Date()); 
+        }
+
+        else {
+            
+            if (start_date > end_date) new_start_date = new_end_date = start_date;
+            else {
+                new_start_date = start_date;
+                new_end_date = end_date;    
+            }
+        }
+
+        const date_sql = (start_date.length === 0 && end_date.length === 0) ? '' : `AND weights.created BETWEEN '${new_start_date} 00:00:00' AND '${new_end_date} 23:59:59'`;
+
+        const data = await get_data(date_sql);
+        await generate_excel(data);
+
+        response.success = true;
     }
     catch(e) {
         response.error = e;
         console.log(`Error creating excel report for finished weights. ${e}`);
-        error_handler(`Endpoint: /finished_weights_excel_report -> User Name: ${req.userData.userName}\r\n${e}`);
+        error_handler(`Endpoint: /finished_weights_excel_report_simple -> User Name: ${req.userData.userName}\r\n${e}`);
     }
     finally { res.json(response) }
 })
 
 router.post('/finished_weights_excel_report_detailed', userMiddleware.isLoggedIn, async (req, res) => {
 
-    const 
-    { weight_status, cycle, driver, plates, start_date, end_date } = req.body,
-    weight_status_sql = (weight_status === 'All') ? '' : `AND weights.status='${weight_status.replace(/[^a-z]/gmi, '')}'`,
-    cycle_sql = (cycle === 'All') ? '' : `AND weights.cycle=${cycle.replace(/\D/gm, '')}`,
-    driver_sql = (driver.length === 0) ? '' : `AND drivers.name LIKE '%${driver.replace(/[^a-z ]/gmi, '')}%'`,
-    plates_sql = (plates.length === 0) ? '' : `AND weights.primary_plates LIKE '%${plates.replace(/[^a-z0-9]/gmi, '')}%'`,
-    temp = {},
-    response = { success: false }
+    const { weight_id, weight_status, cycle, driver, plates, start_date, end_date } = req.body;
+
+    const weight_id_sql = (weight_id.length === 0) ? '' : `AND weights.id = ${parseInt(weight_id)}`;
+    const weight_status_sql = (weight_status === 'All') ? '' : `AND weights.status='${weight_status.replace(/[^a-z]/gmi, '')}'`;
+
+    const cycle_sql = (cycle === 'All') ? '' : `AND weights.cycle=${cycle.replace(/\D/gm, '')}`;
+    const driver_sql = (driver.length === 0) ? '' : `AND drivers.name LIKE '%${driver.replace(/[^a-z ]/gmi, '')}%'`;
+    const plates_sql = (plates.length === 0) ? '' : `AND weights.primary_plates LIKE '%${plates.replace(/[^a-z0-9]/gmi, '')}%'`;
+
+    const min_weight = req.body.range.min_weight;
+    const max_weight = req.body.range.max_weight;
+    const min_max_sql = (start_date.length === 0 && end_date.length === 0) ? `AND weights.id BETWEEN ${min_weight} AND ${max_weight}` : '';
+
+    const response = { success: false };
 
     try {
 
-        const get_weights_no_date = () => {
+        const get_weights = date_sql => {
             return new Promise((resolve, reject) => {
                 conn.query(`
-                    SELECT weights.created, weights.id AS weight, weights.cycle, cycles.name AS cycle_name, weights.primary_plates AS plates, 
-                    drivers.name AS driver, weights.gross_brute AS brute, weights.tare_net AS tare, 
-                    weights.final_net_weight AS net
-                    FROM weights
+                    SELECT weights.created, weights.id AS weight_id, weights.cycle, cycles.name AS cycle_name, weights.primary_plates AS plates, 
+                    drivers.name AS driver, weights.gross_brute AS brute, weights.tare_net AS tare, weights.final_net_weight AS net,
+                    header.id AS doc_id, entities.name AS entity, branches.name AS branch, header.number AS doc_number, header.date AS doc_date,
+                    body.container_amount, containers.name AS container_name, body.product_name, body.cut, body.kilos, body.informed_kilos
+                    FROM documents_header header
+                    INNER JOIN weights ON header.weight_id=weights.id
+                    INNER JOIN documents_body body ON header.id=body.document_id
+                    LEFT OUTER JOIN entities ON header.client_entity=entities.id
+                    LEFT OUTER JOIN entity_branches branches ON header.client_branch=branches.id
+                    LEFT OUTER JOIN containers ON body.container_code=containers.code
                     INNER JOIN cycles ON weights.cycle=cycles.id
                     INNER JOIN drivers ON weights.driver_id=drivers.id
-                    WHERE 1=1 ${weight_status_sql} ${cycle_sql} ${driver_sql} ${plates_sql}
-                    ORDER BY weights.id DESC LIMIT 100;
-                `,async (error, results, fields) => {
+                    WHERE weights.status='T' AND header.status='I' AND (body.status='T' OR body.status='I')
+                    ${weight_id_sql} ${weight_status_sql} ${cycle_sql} ${driver_sql} ${plates_sql} ${min_max_sql} ${date_sql}
+                    ORDER BY weights.id DESC, header.id DESC, body.id DESC;
+                `, async (error, results, fields) => {
                     if (error) return reject(error);
 
-                    temp.weights = results;
+                    results.reverse();
 
-                    for (let i = 0; i < temp.weights.length; i++) {
-                        const docs = await get_weight_documents(temp.weights[i].weight);
-                        temp.weights[i].docs = docs.documents;
+                    const weights = [];
+                    let current_weight;
+
+                    for (const result of results) {
+
+                        if (result.weight_id === current_weight) continue;
+                        current_weight = result.weight_id;
+
+                        const weight_documents = results.filter(row => row.weight_id === current_weight);
+                        let current_doc;
+
+                        weights.push({
+                            id: result.weight_id,
+                            created: result.created,
+                            plates: result.plates,
+                            cycle: result.cycle_name,
+                            driver: result.driver,
+                            documents: weight_documents.map(row => {
+
+                                if (current_doc === row.doc_id) return;
+                                current_doc = row.doc_id;
+
+                                return {
+                                    entity: row.entity,
+                                    branch: row.branch,
+                                    number: row.doc_number,
+                                    date: row.doc_date,
+                                    rows: weight_documents.filter(r => r.doc_id === current_doc)
+                                }
+                            })
+                        });
                     }
 
-                    return resolve();
+                    return resolve(weights);
                 })
             })
         }
 
-        const get_weights = () => {
-            return new Promise((resolve, reject) => {
-                conn.query(`
-                    SELECT weights.created, weights.id AS weight, weights.cycle, cycles.name AS cycle_name, weights.primary_plates AS plates, 
-                    drivers.name AS driver, weights.gross_brute AS brute, weights.tare_net AS tare, 
-                    weights.final_net_weight AS net
-                    FROM weights
-                    INNER JOIN cycles ON weights.cycle=cycles.id
-                    INNER JOIN drivers ON weights.driver_id=drivers.id
-                    WHERE 1=1 ${weight_status_sql} ${cycle_sql} ${driver_sql} ${plates_sql} ${date_sql}
-                    ORDER BY weights.id;
-                `,async (error, results, fields) => {
-                    if (error) return reject(error);
-                    
-                    temp.weights = results;
-
-                    for (let i = 0; i < temp.weights.length; i++) {
-                        const docs = await get_weight_documents(temp.weights[i].weight);
-                        temp.weights[i].docs = docs.documents;
-                    }
-
-                    return resolve();
-                })
-            })
-        }
-
-        const generate_excel = () => {
+        const generate_excel_ = weights => {
             return new Promise(async (resolve, reject) => {
                 try {
 
@@ -7626,18 +7928,36 @@ router.post('/finished_weights_excel_report_detailed', userMiddleware.isLoggedIn
 
                     const sheet = workbook.addWorksheet('Hoja1', {
                         pageSetup:{
-                            paperSize: 9
+                            paperSize: undefined,
+                            orientation: 'landscape',
+                            horizontalCentered: true,
+                            margins: {
+                                left: 0.3, right: 0.3,
+                                top: 0.5, bottom: 0.5,
+                                header: 0.3, footer: 0.3
+                            }
                         }
                     });
 
-                    const weights = temp.weights;
+                    // FORMAT COLUMNS AT THE BEGINNING
+                    for (let j = 1; j <= 15; j++) {
+                        sheet.getColumn(j).alignment = {
+                            vertical: 'middle',
+                            horizontal: 'center'
+                        }
+                        sheet.getColumn(j).font = {
+                            name: font,
+                            size: 11
+                        }
+                    }
 
                     let current_row = 1;
 
-                    for (let i = 0; i < weights.length; i++) {
+                    for (const weight of weights) {
 
-                        if (weights[i].docs.length === 0) continue;
+                        if (weight.documents.length === 0) continue;
 
+                        // CREATE FIRST ROW
                         const header_row = sheet.getRow(current_row);
                         header_row.getCell(1).value = 'PESAJE';
                         header_row.getCell(2).value = 'FECHA PESAJE';
@@ -7648,8 +7968,8 @@ router.post('/finished_weights_excel_report_detailed', userMiddleware.isLoggedIn
                         header_row.getCell(7).value = 'SUCURSAL';
                         header_row.getCell(8).value = 'Nº DOC';
                         header_row.getCell(9).value = 'FECHA DOC.';
-                        header_row.getCell(10).value = 'CANT. ENVASE';
-                        header_row.getCell(11).value = 'ENVASE';
+                        header_row.getCell(10).value = 'ENVASES';
+                        header_row.getCell(11).value = 'NOMBRE ENVASE';
                         header_row.getCell(12).value = 'PRODUCTO';
                         header_row.getCell(13).value = 'DESCARTE';
                         header_row.getCell(14).value = 'KILOS';
@@ -7663,14 +7983,10 @@ router.post('/finished_weights_excel_report_detailed', userMiddleware.isLoggedIn
                                 bottom: { style: 'thin' },
                                 right: { style: 'thin' }
                             }
-                            header_row.getCell(j).alignment = {
-                                vertical: 'middle',
-                                horizontal: 'center'
-                            }
                             header_row.getCell(j).font = {
-                                bold: true,
+                                name: font,
                                 size: 11,
-                                name: font
+                                bold: true
                             }
                         }
 
@@ -7678,52 +7994,51 @@ router.post('/finished_weights_excel_report_detailed', userMiddleware.isLoggedIn
                         
                         let first_row = current_row;
 
-                        weights[i].docs.forEach(doc => {
-                            
-                            doc.rows.forEach(row => {
+                        sheet.getRow(first_row).getCell(1).value = parseInt(weight.id);
+                        sheet.getRow(first_row).getCell(2).value = excel_date(weight.created);
+                        sheet.getRow(first_row).getCell(3).value = weight.plates;
+                        sheet.getRow(first_row).getCell(4).value = weight.cycle;
+                        sheet.getRow(first_row).getCell(5).value = weight.driver;
 
-                                const data_row = sheet.getRow(current_row);
-                                data_row.getCell(1).value = parseInt(weights[i].weight);
-                                data_row.getCell(2).value = weights[i].created;
-                                data_row.getCell(3).value = weights[i].plates;
-                                data_row.getCell(4).value = weights[i].cycle_name;
-                                data_row.getCell(5).value = weights[i].driver;
-                                
-                                data_row.getCell(6).value = doc.client.entity.name;
-                                data_row.getCell(7).value = doc.client.branch.name;
-                                data_row.getCell(8).value = doc.number;
-                                data_row.getCell(9).value = (doc.date === null) ? '' : new Date(doc.date.split(' ')[0]).toLocaleString('es-CL').split(' ')[0];
-                                
-                                data_row.getCell(10).value = (row.container.amount === null) ? 0 : parseInt(row.container.amount);
-                                data_row.getCell(11).value = (row.container.name === null) ? '' : row.container.name.replace(' Con Marcado VL', '');
-                                data_row.getCell(12).value = row.product.name;
-                                data_row.getCell(13).value = row.product.cut;
-                                data_row.getCell(14).value = row.product.kilos;
-                                data_row.getCell(15).value = row.product.informed_kilos;
+                        for (const document of weight.documents) {
 
-                                data_row.getCell(2).numFmt = 'DD/MM/YYYY HH:MM:SS';
-                                data_row.getCell(8).numFmt = '#,##0;[Red]#,##0';
-                                data_row.getCell(14).numFmt = '#,##0;[Red]#,##0';
-                                data_row.getCell(15).numFmt = '#,##0;[Red]#,##0';
+                            if (!document) continue;
 
-                                //FORMAT EACH CELL ROW
+                            let document_first_line = current_row;
+
+                            for (const row of document.rows) {
+
+                                const body_row = sheet.getRow(current_row);
+
+                                body_row.getCell(6).value = document.entity;
+                                body_row.getCell(7).value = document.branch;
+                                body_row.getCell(8).value = document.number;
+                                body_row.getCell(9).value = (document.date === null) ? '' : new Date(Math.round(new Date(document.date)) + (1000 * 60 * 60 * 2));
+
+                                body_row.getCell(10).value = (row.container_amount === null) ? 0 : parseInt(row.container_amount);
+                                body_row.getCell(11).value = (row.container_name === null) ? '' : row.container_name.replace(' Con Marcado VL', '');
+                                body_row.getCell(12).value = row.product_name;
+                                body_row.getCell(13).value = row.cut;
+                                body_row.getCell(14).value = row.kilos;
+                                body_row.getCell(15).value = row.informed_kilos;
+
                                 for (let j = 1; j <= 15; j++) {
-                                    data_row.getCell(j).border = {
+                                    body_row.getCell(j).border = {
                                         top: { style: 'thin' },
                                         left: { style: 'thin' },
                                         bottom: { style: 'thin' },
                                         right: { style: 'thin' }
                                     }
-                                    data_row.getCell(j).alignment = {
-                                        vertical: 'middle',
-                                        horizontal: 'center'
-                                    }
                                 }
 
                                 current_row++;
-                            })
+                            }
 
-                        })
+                            sheet.mergeCells(`F${document_first_line}:F${current_row - 1}`);
+                            sheet.mergeCells(`G${document_first_line}:G${current_row - 1}`);
+                            sheet.mergeCells(`H${document_first_line}:H${current_row - 1}`);
+                            sheet.mergeCells(`I${document_first_line}:I${current_row - 1}`);
+                        }
 
                         //MERGE WEIGHT CELLS
                         sheet.mergeCells(`A${first_row}:A${current_row - 1}`);
@@ -7731,7 +8046,6 @@ router.post('/finished_weights_excel_report_detailed', userMiddleware.isLoggedIn
                         sheet.mergeCells(`C${first_row}:C${current_row - 1}`);
                         sheet.mergeCells(`D${first_row}:D${current_row - 1}`);
                         sheet.mergeCells(`E${first_row}:E${current_row - 1}`);
-                        sheet.mergeCells(`F${first_row}:F${current_row - 1}`);
 
                         sheet.getCell(`J${current_row}`).value = { formula: `SUM(J${first_row}:J${current_row - 1})` }
                         sheet.getCell(`N${current_row}`).value = { formula: `SUM(N${first_row}:N${current_row - 1})` }
@@ -7771,23 +8085,38 @@ router.post('/finished_weights_excel_report_detailed', userMiddleware.isLoggedIn
                         sheet.getCell(`O${current_row}`).numFmt = '#,##0;[Red]#,##0';
 
                         current_row += 2;
-
                     }
 
-                    sheet.columns.forEach(column => {
-                        let dataMax = 0;
-                        column.eachCell({ includeEmpty: false }, cell => {
-                            if (cell.value !== null) {
-                                let columnLength = cell.value.length + 1.5;	
-                                if (columnLength > dataMax) {
-                                    dataMax = columnLength;
-                                }    
-                            }
-                        });
-                        column.width = (dataMax < 3) ? 3 : dataMax;
-                    });
+                    sheet.getColumn(1).numFmt = '#,##0;[Red]#,##0';
+                    sheet.getColumn(2).numFmt = 'DD-MM-YYYY hh:mm:ss';
+                    sheet.getColumn(8).numFmt = '#,##0;[Red]#,##0';
+                    sheet.getColumn(9).numFmt = 'DD-MM-YYYY';
+                    sheet.getColumn(14).numFmt = '#,##0;[Red]#,##0';
+                    sheet.getColumn(15).numFmt = '#,##0;[Red]#,##0';
 
-                    sheet.getColumn(2).width = 21;
+                    //FORMAT COLUMNS
+                    for (let j = 1; j <= 15; j++) {
+
+                        let dataMax = 0;
+                        for (let i = current_row - 1; i >= 1; i--) {
+    
+                            const 
+                            this_row = sheet.getRow(i),
+                            this_cell = this_row.getCell(j);
+
+                            if (this_cell.value === null) continue;
+    
+                            let columnLength = this_cell.value.length + 3;	
+                            if (columnLength > dataMax) dataMax = columnLength;
+    
+                        }
+    
+                        sheet.getColumn(j).width = (dataMax < 5) ? 5 : dataMax; 
+                    }
+
+                    //sheet.getColumn(1).width = 7;
+                    //sheet.getColumn(3).width = 9;
+                    //sheet.getColumn(1).width = 7;
 
                     sheet.removeConditionalFormatting();
 
@@ -7795,7 +8124,8 @@ router.post('/finished_weights_excel_report_detailed', userMiddleware.isLoggedIn
                     await workbook.xlsx.writeFile('./temp/' + file_name + '.xlsx');
                     response.file_name = file_name;
 
-                    return resolve()
+                    return resolve();
+
                 } catch(e) { return reject(e) }
             })
         }
@@ -7809,7 +8139,9 @@ router.post('/finished_weights_excel_report_detailed', userMiddleware.isLoggedIn
             new_end_date = format_html_date(new Date()); 
 
         }
+
         else {
+            
             if (start_date > end_date) new_start_date = new_end_date = start_date;
             else {
                 new_start_date = start_date;
@@ -7817,12 +8149,11 @@ router.post('/finished_weights_excel_report_detailed', userMiddleware.isLoggedIn
             }
         }
 
-        const date_sql = `AND weights.created BETWEEN '${new_start_date} 00:00:00' AND '${new_end_date} 23:59:59'`;
+        const date_sql = (start_date.length === 0 && end_date.length === 0) ? '' : `AND weights.created BETWEEN '${new_start_date} 00:00:00' AND '${new_end_date} 23:59:59'`;
 
-        if (start_date.length === 0 && end_date.length === 0) await get_weights_no_date();
-        else await get_weights();
-        await generate_excel();
-        
+        const weights = await get_weights(date_sql);
+        await generate_excel_(weights);
+
         response.success = true;
 
     }
@@ -7833,6 +8164,114 @@ router.post('/finished_weights_excel_report_detailed', userMiddleware.isLoggedIn
     }
     finally { res.json(response) }
 
+})
+
+router.post('/finished_weights_excel_report_noformat', userMiddleware.isLoggedIn, async (req, res) => {
+
+    const 
+    { weight_status, cycle, driver, plates, start_date, end_date, first_weight, last_weight } = req.body,
+    weight_status_sql = (weight_status === 'All') ? '' : `AND weights.status='${weight_status.replace(/[^a-z]/gmi, '')}'`,
+    cycle_sql = (cycle === 'All') ? '' : `AND weights.cycle=${cycle.replace(/\D/gm, '')}`,
+    driver_sql = (driver.length === 0) ? '' : `AND drivers.name LIKE '%${driver.replace(/[^a-z ]/gmi, '')}%'`,
+    plates_sql = (plates.length === 0) ? '' : `AND weights.primary_plates LIKE '%${plates.replace(/[^a-z0-9]/gmi, '')}%'`,
+    temp = {},
+    response = { success: false };
+
+    console.log(req.body)
+
+    try {
+
+        const get_records = () => {
+            return new Promise((resolve, reject) => {
+                conn.query(`
+                    SELECT weights.created, weights.id AS weight, weights.cycle, cycles.name AS cycle_name, weights.primary_plates AS plates, 
+                    drivers.name AS driver, weights.gross_brute AS brute, weights.tare_net AS tare, 
+                    weights.final_net_weight AS net
+                    FROM weights
+                    INNER JOIN cycles ON weights.cycle=cycles.id
+                    INNER JOIN drivers ON weights.driver_id=drivers.id
+                    WHERE 1=1 ${weight_status_sql} ${cycle_sql} ${driver_sql} ${plates_sql} ${date_sql}
+                    ORDER BY weights.id;
+                `, (error, results, fields) => {
+                    if (error) return reject(error);
+                    return resolve(results);
+                })
+            })
+        }
+
+        const get_records_no_date = () => {
+            return new Promise((resolve, reject) => {
+                conn.query(`
+                    SELECT header_weight_id, weights.created, weights.primary_plates, cycles.name AS cycle_name, drivers.name AS driver,
+                    entities.name AS entity, weights.gross_brute AS brute, weights.tare_net AS tare, 
+                    weights.final_net_weight AS net
+                    FROM weights
+                    INNER JOIN cycles ON weights.cycle=cycles.id
+                    INNER JOIN drivers ON weights.driver_id=drivers.id
+                    INNER JOIN documents_header header ON weights.id=header.weight_id
+                    INNER JOIN documents_body body ON header.id=body.document_id
+                    INNER JOIN entities ON header.client_entity=entities.id
+                    WHERE 1=1 ${weight_status_sql} ${cycle_sql} ${driver_sql} ${plates_sql} ${date_sql}
+                    AND (weights.id BETWEEN ${first_weight} AND ${first_weight})
+                    ORDER BY weights.id ASC, header.number ASC, body.id ASC;
+                `, (error, results, fields) => {
+                    if (error) return reject(error);
+                    return resolve();
+                })
+            })
+        }
+
+        //const records = await get_records();
+
+        console.log(req.body)
+        if (start_date === '' && end_date === '') await get_records_no_date();
+
+
+        response.success = true;
+
+    }
+    catch(e) {
+        response.error = e;
+        console.log(`Error creating excel report for finished weights. ${e}`);
+        error_handler(`Endpoint: /finished_weights_excel_report_noformat -> User Name: ${req.userData.userName}\r\n${e}`);
+    }
+    finally { res.json(response) }
+})
+
+router.post('/get_trucks_tare_weights', userMiddleware.isLoggedIn, async (req, res) => {
+
+    const { plates } = req.body;
+    const response = { success: false };
+
+    try {
+
+        const get_tare_weights = () => {
+            return new Promise((resolve, reject) => {
+                conn.query(`
+                    SELECT id, tare_date AS date, tare_net
+                    FROM weights
+                    WHERE primary_plates=${conn.escape(plates)}
+                    AND tare_net IS NOT NULL AND final_net_weight IS NOT NULL 
+                    AND status='T'
+                    ORDER BY id DESC, tare_net DESC 
+                    LIMIT 50;
+                `, (error, results, fields) => {
+                    if (error) return reject(error);
+                    return resolve(results);
+                })
+            })
+        }
+
+        response.tare_weights = await get_tare_weights();
+        response.success = true;
+
+    }
+    catch(e) {
+        response.error = e;
+        console.log(`Error getting trucks tare weights. ${e}`);
+        error_handler(`Endpoint: /get_trucks_tare_weights -> User Name: ${req.userData.userName}\r\n${e}`);
+    }
+    finally { res.json(response) }
 })
 
 /********************** ANALYTICS CONTAINERS STOCK *********************/
@@ -7878,8 +8317,10 @@ router.get('/analytics_stock_get_entities', userMiddleware.isLoggedIn, async (re
                     FROM weights 
                     INNER JOIN documents_header header ON weights.id=header.weight_id
                     INNER JOIN entities ON header.client_entity=entities.id
-                    WHERE weights.status='T' AND header.status='I' AND header.client_entity<>183 AND 
-                    weights.created > '${temp.season.start}'
+                    WHERE weights.status='T' AND header.status='I' 
+                    AND header.client_entity <> 148 AND header.client_entity <> 149 AND header.client_entity <> 153 
+                    AND header.client_entity <> 183 AND header.client_entity <> 234 AND header.client_entity <> 245
+                    AND weights.created > '${temp.season.start}'
                     GROUP BY header.client_entity
                     ORDER BY entities.type ASC, entities.name ASC;
                 `, async (error, results, fields) => {
@@ -7946,7 +8387,9 @@ router.get('/analytics_stock_get_entities', userMiddleware.isLoggedIn, async (re
                     INNER JOIN entities ON header.client_entity=entities.id
                     INNER JOIN containers ON body.container_code=containers.code
                     WHERE weights.status <> 'N' AND header.status='I' AND body.status <> 'N' 
-                    AND containers.type LIKE '%Bin%' AND entities.id <> 183
+                    AND containers.type LIKE '%Bin%' 
+                    AND header.client_entity <> 148 AND header.client_entity <> 149 AND header.client_entity <> 153 
+                    AND header.client_entity <> 183 AND header.client_entity <> 234 AND header.client_entity <> 245
                     AND (weights.cycle=1 OR weights.cycle=2) AND weights.created > '${temp.season.start}'
                     ORDER BY entities.type ASC, entities.name ASC;
                 `, (error, results, fields) => {
@@ -8006,9 +8449,8 @@ router.get('/analytics_stock_get_entities', userMiddleware.isLoggedIn, async (re
 
 router.post('/analytics_entity_movements', userMiddleware.isLoggedIn, async (req, res) => {
 
-    const
-    { entity_id, start_date, end_date } = req.body,
-    response = { success: false }
+    const { entity_id, start_date, end_date } = req.body;
+    const response = { success: false };
 
     try {
 
@@ -8041,7 +8483,7 @@ router.post('/analytics_entity_movements', userMiddleware.isLoggedIn, async (req
         const get_documents = () => {
             return new Promise((resolve, reject) => {
                 conn.query(`
-                    SELECT header.id, header.status AS doc_status, weights.cycle AS cycle_id, cycles.name AS cycle_name, 
+                    SELECT header.id, header.status AS doc_status, weights.cycle AS cycle_id, cycles.name AS cycle_name, weights.primary_plates AS plates,
                     header.weight_id, header.number, header.date, header.document_total, header.client_branch AS client_branch_id, 
                     branch.name AS client_branch_name, header.internal_entity AS internal_entity_id, 
                     internal_entities.short_name AS internal_entity_name, body.container_amount
@@ -8057,22 +8499,26 @@ router.post('/analytics_entity_movements', userMiddleware.isLoggedIn, async (req
                     WHERE (weights.status='T' OR weights.status='I') AND containers.type like '%BIN%'       
                     AND (header.status='T' OR header.status='I') AND (body.status='T' OR body.status='I') AND header.client_entity=${entity_id}
                     AND (weights.created BETWEEN '${response.season.start}' AND '${response.season.end}')
-                    ORDER BY header.date ASC, header.number ASC;
+                    ORDER BY weights.id ASC, header.date ASC, header.number ASC;
                 `, async (error, results, fields) => {
 
                     if (error) return reject(error);
                     
-                    const documents = [], docs = [];
-                    
-                    for (let row of results) {
+                    const documents = [];
+                    let current_doc;
 
-                        if (docs.includes(row.id)) continue;
-                        docs.push(row.id);
+                    for (const row of results) {
 
-                        const document = {
-                            id: row.id,
+                        if (current_doc === row.id) continue;
+                        current_doc = row.id;
+
+                        const doc_rows = results.filter(result => result.id === current_doc);
+
+                        documents.push({
+                            id: current_doc,
                             number: row.number,
                             date: row.date,
+                            plates: row.plates,
                             total: 1 * row.document_total,
                             client: {
                                 branch: {
@@ -8086,7 +8532,6 @@ router.post('/analytics_entity_movements', userMiddleware.isLoggedIn, async (req
                                     name: row.internal_entity_name
                                 }
                             },
-                            containers: 0,
                             status: (row.doc_status === 'I') ? 'INGRESADO' : 'NULO',
                             weight: {
                                 id: row.weight_id,
@@ -8095,16 +8540,10 @@ router.post('/analytics_entity_movements', userMiddleware.isLoggedIn, async (req
                                     name: row.cycle_name
                                 }
                             },
-                        }
-
-                        for (let doc of results) {
-                            if (doc.id !== row.id) continue;
-                            document.containers += doc.container_amount;
-                        }
-
-                        documents.push(document);
+                            containers: doc_rows.reduce((accumulator, current_row) => accumulator += (1 * current_row.container_amount), 0)
+                        })
                     }
-
+                    
                     return resolve(documents);
                 })
             })
@@ -8124,7 +8563,8 @@ router.post('/analytics_entity_movements', userMiddleware.isLoggedIn, async (req
             }
         }
 
-        console.log(response.season)
+        console.log(response.season);
+
         await get_internal_entities();
         response.branches = await get_entity_branches();
         response.documents = await get_documents();
@@ -8208,7 +8648,7 @@ router.post('/analytics_get_drivers_kilos', userMiddleware.isLoggedIn, async (re
         temp.season = await get_current_season();
 
         response.season.start = (date.start === '') ? temp.season.start : date.start + ' 00:00:00';
-        response.season.end = (date.end === '') ? temp.season.end : date.end + ' 00:00:00';
+        response.season.end = (date.end === '') ? temp.season.end : date.end + ' 23:59:59';
 
         response.drivers = await get_records();
         response.success = true;
@@ -8224,20 +8664,16 @@ router.post('/analytics_get_drivers_kilos', userMiddleware.isLoggedIn, async (re
 
 router.post('/analytics_drivers_generate_excel', userMiddleware.isLoggedIn, async (req, res) => {
 
-    const
-    { cycle, date, internal, active, report_type } = req.body,
-    temp = {},
-    response = { 
+    const { cycle, date, internal, active, report_type } = req.body;
+    const temp = {};
+    const response = { 
         season: {},
         success: false 
     }
 
-    const 
-    cycle_sql = (cycle === 'All') ? '' : `AND weights.cycle=${parseInt(cycle)}`,
-    internal_sql = (internal === 'All') ? '' : `AND drivers.internal=${parseInt(internal)}`,
-    active_sql = (active === 'All') ? '' : `AND drivers.active=${parseInt(active)}`;
-
-    console.log(req.body)
+    const cycle_sql = (cycle === 'All') ? '' : `AND weights.cycle=${parseInt(cycle)}`;
+    const internal_sql = (internal === 'All') ? '' : `AND drivers.internal=${parseInt(internal)}`;
+    const active_sql = (active === 'All') ? '' : `AND drivers.active=${parseInt(active)}`;
 
     try {
 
@@ -8500,7 +8936,14 @@ router.post('/analytics_drivers_generate_excel', userMiddleware.isLoggedIn, asyn
                     const font = 'Calibri';
                     const sheet = workbook.addWorksheet(company.name, {
                         pageSetup:{
-                            paperSize: 9
+                            paperSize: undefined,
+                            orientation: 'landscape',
+                            horizontalCentered: true,
+                            margins: {
+                                left: 0.3, right: 0.3,
+                                top: 0.5, bottom: 0.5,
+                                header: 0.3, footer: 0.3
+                            }
                         }
                     });
 
@@ -8719,7 +9162,14 @@ router.post('/analytics_drivers_generate_excel', userMiddleware.isLoggedIn, asyn
                     const font = 'Calibri';
                     const sheet = workbook.addWorksheet(driver.name, {
                         pageSetup:{
-                            paperSize: 9
+                            paperSize: undefined,
+                            orientation: 'landscape',
+                            horizontalCentered: true,
+                            margins: {
+                                left: 0.3, right: 0.3,
+                                top: 0.5, bottom: 0.5,
+                                header: 0.3, footer: 0.3
+                            }
                         }
                     });
 
@@ -8976,10 +9426,9 @@ router.post('/analytics_drivers_generate_excel', userMiddleware.isLoggedIn, asyn
 
 router.post('/analytics_stock_generate_excel', userMiddleware.isLoggedIn, async (req, res) => {
 
-    const 
-    { entity_id, report_type, start_date, end_date } = req.body,
-    temp = {},
-    response = { success: false }
+    const { entity_id, report_type, start_date, end_date } = req.body;
+    const temp = {};
+    const response = { success: false }
 
     try {
 
@@ -8992,34 +9441,6 @@ router.post('/analytics_stock_generate_excel', userMiddleware.isLoggedIn, async 
                     temp.entity_name = results[0].name;
                     temp.internal_billing = (results[0].billing_type === 1) ? true : false;
                     return resolve();
-                })
-            })
-        }
-
-        const get__detailed_data = cycle => {
-            return new Promise((resolve, reject) => {
-                conn.query(`
-                    SELECT header.id, header.weight_id, header.date, entity_branches.name AS branch, header.number,
-                    weights.primary_plates, drivers.name AS driver_name, cycles.name AS cycle_name, 
-                    containers.name AS container_name, body.container_weight, body.container_amount,
-                    internal_entities.short_name AS internal_entity, documents_comments.comments,
-                    body.product_name, body.cut, body.price, body.kilos, body.informed_kilos
-                    FROM documents_header header
-                    INNER JOIN documents_body body ON header.id=body.document_id
-                    INNER JOIN weights ON header.weight_id=weights.id
-                    LEFT OUTER JOIN containers ON body.container_code=containers.code
-                    LEFT OUTER JOIN entity_branches ON header.client_branch=entity_branches.id
-                    LEFT OUTER JOIN drivers ON weights.driver_id=drivers.id
-                    INNER JOIN cycles ON weights.cycle=cycles.id
-                    INNER JOIN internal_entities ON header.internal_entity=internal_entities.id
-                    LEFT OUTER JOIN documents_comments ON header.id=documents_comments.doc_id
-                    WHERE (weights.status='T' OR weights.status='I') AND header.status='I' AND (body.status='T' OR body.status='I')
-                    AND (weights.created BETWEEN '${temp.season.start}' AND '${temp.season.end}')
-                    AND weights.cycle=${cycle} AND header.client_entity=${parseInt(entity_id)}
-                    ORDER BY entity_branches.name ASC, header.weight_id ASC, header.number ASC;
-                `, (error, results, fields) => {
-                    if (error) return reject(error);
-                    return resolve(results);
                 })
             })
         }
@@ -9041,30 +9462,14 @@ router.post('/analytics_stock_generate_excel', userMiddleware.isLoggedIn, async 
                     LEFT OUTER JOIN entity_branches branches ON header.client_branch=branches.id
                     LEFT OUTER JOIN containers ON body.container_code=containers.code
                     LEFT OUTER JOIN documents_comments ON header.id=documents_comments.doc_id
-                    WHERE weights.status='T' AND header.status='I' AND (body.status='T' OR body.status='I')
+                    WHERE (weights.status='T' OR weights.status='I') AND header.status='I' AND (body.status='T' OR body.status='I')
                     AND weights.cycle=${cycle} AND header.client_entity=${parseInt(entity_id)}
                     AND (weights.created BETWEEN '${temp.season.start}' AND '${temp.season.end}')
-                    ORDER BY branches.name ASC, header.weight_id ASC, header.number ASC;
+                    ORDER BY branches.name ASC, header.date ASC, header.number ASC, body.id ASC;
                 `, (error, results, fields) => {
                     if (error) return reject(error);
-                    console.log(results.length)
                     return resolve(results);
                 })
-            })
-        }
-
-        //USED FOR SIMPLE REPORT
-        const get_containers = doc_id => {
-            return new Promise((resolve, reject) => {
-                conn.query(`
-                    SELECT SUM(body.container_amount) AS containers
-                    FROM documents_body body
-                    LEFT OUTER JOIN containers ON body.container_code=containers.code
-                    WHERE (body.status='T' OR body.status='I') AND containers.type like '%BIN%' AND body.document_id=${doc_id};
-                `, (error, results, fields) => {
-                    if (error || results.length === 0) return reject(error);
-                    return resolve(1 * results[0].containers);
-                })  
             })
         }
 
@@ -9072,22 +9477,43 @@ router.post('/analytics_stock_generate_excel', userMiddleware.isLoggedIn, async 
             return new Promise((resolve, reject) => {
                 conn.query(`
                     SELECT header.id, header.weight_id, header.date, entity_branches.name AS branch, header.number,
-                    weights.primary_plates, drivers.name AS driver_name, cycles.name AS cycle_name
+                    weights.primary_plates, drivers.name AS driver_name, cycles.name AS cycle_name, body.container_amount
                     FROM documents_header header
                     INNER JOIN weights ON header.weight_id=weights.id
+                    INNER JOIN cycles ON weights.cycle=cycles.id
+                    INNER JOIN documents_body body ON header.id=body.document_id
                     LEFT OUTER JOIN entity_branches ON header.client_branch=entity_branches.id
                     LEFT OUTER JOIN drivers ON weights.driver_id=drivers.id
-                    INNER JOIN cycles ON weights.cycle=cycles.id
-                    WHERE (weights.status='T' OR weights.status='I') AND header.status='I'
+                    WHERE (weights.status='T' OR weights.status='I') AND header.status='I' AND (body.status = 'T' OR body.status='I')
+                    AND body.container_code IS NOT NULL
                     AND (weights.created BETWEEN '${temp.season.start}' AND '${temp.season.end}')
                     AND weights.cycle=${cycle} AND header.client_entity=${parseInt(entity_id)}
-                    ORDER BY entity_branches.name ASC, header.number ASC;
+                    ORDER BY entity_branches.name ASC, header.date ASC, header.number ASC;
                 `, async (error, results, fields) => {
                     if (error) return reject(error);
-                    
-                    const documents = results;
-                    for (let i = 0; i < documents.length; i++) {
-                        documents[i].containers = await get_containers(documents[i].id);
+
+                    const documents = [];
+                    let current_doc;
+
+                    for (const result of results) {
+
+                        if (current_doc === result.id) continue;
+                        current_doc = result.id;
+
+                        const document_rows = results.filter(row => row.id === current_doc);
+
+                        documents.push({
+                            id: current_doc,
+                            weight_id: result.weight_id,
+                            date: result.date,
+                            branch: result.branch,
+                            number: result.number,
+                            primary_plates: result.primary_plates,
+                            driver_name: result.driver_name,
+                            cycle_name: result.cycle_name,
+                            containers: document_rows.reduce((accumulator, current_row) => accumulator += (1 * current_row.container_amount), 0)
+                        });
+
                     }
 
                     return resolve(documents);
@@ -9228,51 +9654,353 @@ router.post('/analytics_stock_generate_excel', userMiddleware.isLoggedIn, async 
             return new Promise(async (resolve, reject) => {
                 try {
 
+                    /************** BUILD DOCUMENT OBJECTS ****************/
                     const data = [];
-
                     let current_doc;
-                    for (let i = 0; i < results.length; i++) {
 
-                        if (current_doc === results[i].doc_id) continue;
-                        current_doc = results[i].doc_id;
+                    for (const result of results) {
+
+                        if (current_doc === result.doc_id) continue;
+                        current_doc = result.doc_id;
 
                         const document = {
-                            id: results[i].doc_id,
-                            internal_entity: results[i].internal_entity,
-                            weight_id: results[i].weight_id,
-                            cycle: results[i].cycle,
-                            plates: results[i].primary_plates,
-                            driver: results[i].driver,
-                            date: results[i].doc_date,
-                            branch: results[i].branch_name,
-                            number: results[i].doc_number,
-                            comments: results[i].comments,
-                            rows: []
+                            id: result.doc_id,
+                            internal_entity: result.internal_entity,
+                            weight_id: result.weight_id,
+                            cycle: result.cycle,
+                            plates: result.primary_plates,
+                            driver: result.driver,
+                            date: result.doc_date,
+                            branch: result.branch_name,
+                            number: result.doc_number,
+                            comments: result.comments,
+                            rows: results
+                                .filter(row => row.doc_id === current_doc)
+                                .map(row => {
+                                    return {
+                                        container: {
+                                            name: row.container_name,
+                                            weight: row.container_weight,
+                                            amount: row.container_amount
+                                        },
+                                        product: {
+                                            name: row.product_name,
+                                            cut: row.cut,
+                                            price: row.price,
+                                            kilos: row.kilos,
+                                            informed_kilos: row.informed_kilos
+                                        }
+                                    }
+                                })
                         }
-                        data.push(document);
 
-                        for (let j = i; j < results.length; j++) {
-                            if (document.id !== results[j].doc_id) break;
-                            document.rows.push({
-                                container: {
-                                    name: results[j].container_name,
-                                    weight: results[j].container_weight,
-                                    amount: results[j].container_amount
-                                },
-                                product: {
-                                    name: results[j].product_name,
-                                    cut: results[j].cut,
-                                    price: results[j].price,
-                                    kilos: results[j].kilos,
-                                    informed_kilos: results[j].informed_kilos
-                                }
-                            })
-                        }
+                        data.push(document);
                     }
                     
                     const sheet = workbook.addWorksheet(type, {
                         pageSetup:{
-                            paperSize: 9
+                            paperSize: undefined,
+                            orientation: 'landscape',
+                            horizontalCentered: true,
+                            margins: {
+                                left: 0.3, right: 0.3,
+                                top: 0.5, bottom: 0.5,
+                                header: 0.3, footer: 0.3
+                            }
+                        }
+                    });
+
+                    const create_header_row = row_number => {
+                        const columns = [
+                            { header: 'Nº', key: 'line' },
+                            { header: 'PESAJE', key: 'weight_id' },
+                            { header: 'CICLO', key: 'cycle' },
+                            { header: 'VEHICULO', key: 'plates' },
+                            { header: 'CHOFER', key: 'driver' },
+                            { header: 'ORIGEN', key: 'origin' },
+                            { header: 'FECHA DOC.', key: 'doc_date' },
+                            { header: 'SUCURSAL', key: 'branch' },
+                            { header: 'Nº DOC.', key: 'doc_number' },
+                            { header: 'ENVASE', key: 'container_name' },
+                            { header: 'PESO ENV.', key: 'container_weight' },
+                            { header: 'ENVASES', key: 'container_amount' },
+                            { header: 'PRODUCTO', key: 'product' },
+                            { header: 'DESCARTE', key: 'cut' },
+                            { header: 'PRECIO', key: 'price' },
+                            { header: 'KILOS', key: 'kilos' },
+                            { header: 'KG. INF.', key: 'informed_kilos' },
+                            { header: 'TOTAL', key: 'product_total' },
+                            { header: 'COMENTARIOS', key: 'comments' }
+                        ]
+
+                        const header_row = sheet.getRow(row_number);
+                        for (let j = 0; j < columns.length; j++) {
+                            header_row.getCell(j + 1).value = columns[j].header;
+                            header_row.getCell(j + 1).border = {
+                                top: { style: 'thin' },
+                                left: { style: 'thin' },
+                                bottom: { style: 'thin' },
+                                right: { style: 'thin' }
+                            }
+                            header_row.getCell(j + 1).alignment = {
+                                vertical: 'middle',
+                                horizontal: 'center'
+                            }
+                            header_row.getCell(j + 1).font = {
+                                size: 11,
+                                name: font,
+                                bold: true
+                            }
+                        }
+                    }
+
+                    create_header_row(2);
+
+                    let current_row = 3;
+                    for (let i = 0; i < data.length; i++) {
+
+                        const starting_row = current_row;
+
+                        for (let j = 0; j < data[i].rows.length; j++) {
+                            
+                            const data_row = sheet.getRow(current_row);
+                            data_row.getCell(1).value = i + 1;
+                            data_row.getCell(2).value = parseInt(data[i].weight_id);
+                            data_row.getCell(3).value = data[i].cycle;
+                            data_row.getCell(4).value = data[i].plates;
+                            data_row.getCell(5).value = (data[i].driver === null) ? '-' : data[i].driver;
+                            data_row.getCell(6).value = (data[i].internal_entity === null) ? '-' : data[i].internal_entity;
+                            data_row.getCell(7).value = (data[i].date === null) ? '-' : data[i].date;
+                            data_row.getCell(8).value = (data[i].branch === null) ? '-' : data[i].branch;
+                            data_row.getCell(9).value = (data[i].number === null) ? '-' : data[i].number;
+
+                            //CONTAINER STUFF
+                            data_row.getCell(10).value = (data[i].rows[j].container.name === null) ? '-' : data[i].rows[j].container.name;
+                            data_row.getCell(11).value = (data[i].rows[j].container.name === null) ? '-' : data[i].rows[j].container.weight + ' KG';
+                            data_row.getCell(12).value = (data[i].rows[j].container.amount === null) ? '-' : data[i].rows[j].container.amount;
+
+                            //PRODUCT STUFF
+                            data_row.getCell(13).value = (data[i].rows[j].product.name === null) ? '-' : data[i].rows[j].product.name;
+                            data_row.getCell(14).value = (data[i].rows[j].product.cut === null) ? '-' : data[i].rows[j].product.cut;
+                            data_row.getCell(15).value = (data[i].rows[j].product.price === null) ? '-' : data[i].rows[j].product.price;
+                            data_row.getCell(16).value = (data[i].rows[j].product.kilos === null) ? '-' : data[i].rows[j].product.kilos;
+                            data_row.getCell(17).value = (data[i].rows[j].product.informed_kilos === null) ? '-' : data[i].rows[j].product.informed_kilos;
+
+                            if (temp.internal_billing) data_row.getCell(18).value = (data[i].rows[j].product.kilos === null) ? '-' : { formula: `O${current_row} * P${current_row}` };
+                            else data_row.getCell(18).value = (data[i].rows[j].product.informed_kilos === null) ? '-' : { formula: `O${current_row} * Q${current_row}` };
+
+                            current_row++;
+
+                            //FORMAT EACH CELL ROW
+                            for (let k = 1; k <= 19; k++) {
+                                data_row.getCell(k).border = {
+                                    top: { style: 'thin' },
+                                    left: { style: 'thin' },
+                                    bottom: { style: 'thin' },
+                                    right: { style: 'thin' }
+                                }
+                                data_row.getCell(k).alignment = {
+                                    vertical: 'middle',
+                                    horizontal: 'center'
+                                }
+                            }
+
+                        }
+
+                        //ADD DOCUMENT COMMENTS
+                        sheet.mergeCells(`S${starting_row}:S${current_row - 1}`);
+                        if (data[i].comments !== null) {
+                            const comments_cell = sheet.getRow(current_row - 1).getCell(19);
+                            comments_cell.alignment = { vertical: 'middle', horizontal: 'middle', wrapText: true }
+                            comments_cell.value = data[i].comments;
+                        }
+                        
+                        //MERGE CELLS
+                        sheet.mergeCells(`A${starting_row}:A${current_row - 1}`);
+                        sheet.mergeCells(`B${starting_row}:B${current_row - 1}`);
+                        sheet.mergeCells(`C${starting_row}:C${current_row - 1}`);
+                        sheet.mergeCells(`D${starting_row}:D${current_row - 1}`);
+                        sheet.mergeCells(`E${starting_row}:E${current_row - 1}`);
+                        sheet.mergeCells(`F${starting_row}:F${current_row - 1}`);
+                        sheet.mergeCells(`G${starting_row}:G${current_row - 1}`);
+                        sheet.mergeCells(`H${starting_row}:H${current_row - 1}`);
+                        sheet.mergeCells(`I${starting_row}:I${current_row - 1}`);
+
+                        //SUM DOCUMENT CONTAINERS
+                        const last_doc_row = sheet.getRow(current_row);
+                        last_doc_row.getCell(12).value =  { formula: `SUM(L${starting_row}:L${current_row - 1})` }
+                        last_doc_row.getCell(16).value =  { formula: `SUM(P${starting_row}:P${current_row - 1})` }
+                        last_doc_row.getCell(17).value =  { formula: `SUM(Q${starting_row}:Q${current_row - 1})` }
+                        last_doc_row.getCell(18).value =  { formula: `SUM(R${starting_row}:R${current_row - 1})` }
+
+                        //FORMAT EACH CELL ROW
+                        for (let k = 1; k <= 18; k++) {
+                            last_doc_row.getCell(k).alignment = {
+                                vertical: 'middle',
+                                horizontal: 'center'
+                            }
+                            last_doc_row.font = {
+                                name: font,
+                                size: 11,
+                                bold: true
+                            }
+                        }
+
+                        current_row += 2;
+
+                        if (i < data.length - 1) {
+                            create_header_row(current_row)
+                            current_row++;    
+                        }
+                    }
+
+                    sheet.getColumn(1).numFmt = '#,##0;[Red]#,##0';
+                    sheet.getColumn(2).numFmt = '#,##0;[Red]#,##0';
+                    sheet.getColumn(7).numFmt = 'DD-MM-YYYY';
+                    sheet.getColumn(9).numFmt = '#,##0;[Red]#,##0';
+                    sheet.getColumn(12).numFmt = '#,##0;[Red]#,##0';
+                    sheet.getColumn(15).numFmt = '$#,##0;[Red]-$#,##0';
+                    sheet.getColumn(16).numFmt = '#,##0;[Red]#,##0';
+                    sheet.getColumn(17).numFmt = '#,##0;[Red]#,##0';
+                    sheet.getColumn(18).numFmt = '$#,##0;[Red]-$#,##0';
+
+                    const last_row = sheet.getRow(current_row);
+                    last_row.font = { name: font, bold: true };
+                    last_row.alignment = { vertical: 'middle', horizontal: 'center' };
+                    
+                    last_row.getCell(12).value = { formula: `SUM(L3:L${current_row - 2}) / 2` };
+                    last_row.getCell(16).value = { formula: `SUM(P3:P${current_row - 2}) / 2` };
+                    last_row.getCell(17).value = { formula: `SUM(Q3:Q${current_row - 2}) / 2` };
+                    last_row.getCell(18).value = { formula: `SUM(R3:R${current_row - 2}) / 2` };
+
+
+                    //SET WIDTH FOR EACH COLUMN
+                    for (let j = 1; j <= 18; j++) {
+
+                        let dataMax = 0;
+                        for (let i = current_row - 1; i > 1; i--) {
+    
+                            const 
+                            this_row = sheet.getRow(i),
+                            this_cell = this_row.getCell(j);
+
+                            if (this_cell.value === null) continue;
+    
+                            let columnLength = this_cell.value.length + 3;	
+                            if (columnLength > dataMax) dataMax = columnLength;
+    
+                        }
+    
+                        sheet.getColumn(j).width = (dataMax < 5) ? 5 : dataMax; 
+                    }
+
+                    sheet.getColumn(2).width = 10;
+                    sheet.getColumn(16).width = 14;
+                    sheet.getColumn(17).width = 14;
+                    sheet.getColumn(18).width = 16;
+                    sheet.getColumn(19).width = 40;
+                    
+                    //WRITE FIRST ROW AND MERGE
+                    const first_row = sheet.getRow(1);
+                    first_row.height = 21;
+                    first_row.getCell(1).value = temp.entity_name.toUpperCase();
+                    sheet.mergeCells('A1:S1');
+
+                    for (let j = 1; j <= 19; j++) {
+                        const active_cell = first_row.getCell(j);
+                        active_cell.font = {
+                            size: 18,
+                            name: font,
+                            bold: true
+                        }
+
+                        active_cell.alignment = {
+                            vertical: 'middle',
+                            horizontal: 'center'
+                        }
+                    }
+
+                    sheet.removeConditionalFormatting();
+                    return resolve(sheet);
+
+                } catch(e) { return reject(e) }
+            })
+        }
+
+        const generate_sheet_by_weights = (type, results, workbook) => {
+            return new Promise((resolve, reject) => {
+                try {
+
+                    //CREATE OBJECTS BY WEIGHTS
+                    const data = [];
+                    let current_weight;
+
+                    for (let i = 0; i < results.length; i++) {
+
+                        if (current_weight === results[i].weight_id) continue;
+                        current_weight = results[i].weight_id;
+
+                        const weight_data = results.filter(row => row.weight_id === current_weight);
+
+                        for (const r of results) {
+                            if (r.weight_id === 37846) console.log(r)
+                        }
+
+                        let current_doc;
+
+                        const weight = {
+                            id: results[i].weight_id,
+                            cycle: results[i].cycle,
+                            plates: results[i].primary_plates,
+                            driver: results[i].driver,
+                            documents: weight_data.map(row => {
+
+                                if (current_doc === row.doc_id) return;
+                                current_doc = row.doc_id;
+
+                                return {
+                                    id: row.doc_id,
+                                    internal_entity: row.internal_entity,
+                                    date: row.doc_date,
+                                    branch: row.branch_name,
+                                    number: row.doc_number,
+                                    rows: weight_data
+                                        .filter(record => record.doc_id === current_doc)
+                                        .map(record => {
+                                            return {
+                                                container: {
+                                                    name: record.container_name,
+                                                    weight: record.container_weight,
+                                                    amount: record.container_amount
+                                                },
+                                                product: {
+                                                    name: record.product_name,
+                                                    cut: record.cut,
+                                                    price: record.price,
+                                                    kilos: record.kilos,
+                                                    informed_kilos: record.informed_kilos,
+                                                    price: record.price
+                                                }
+                                            }
+                                        })
+                                }
+                            })
+                        }
+
+                        data.push(weight);
+                    }
+
+                    //CREATE SHEET
+                    const sheet = workbook.addWorksheet(type, {
+                        pageSetup:{
+                            paperSize: undefined,
+                            orientation: 'landscape',
+                            horizontalCentered: true,
+                            margins: {
+                                left: 0.3, right: 0.3,
+                                top: 0.5, bottom: 0.5,
+                                header: 0.3, footer: 0.3
+                            }
                         }
                     });
 
@@ -9319,285 +10047,7 @@ router.post('/analytics_stock_generate_excel', userMiddleware.isLoggedIn, async 
                         }
                     }
 
-                    create_header_row(2)
-
-                    let current_row = 3, total_containers = 0;
-                    for (let i = 0; i < data.length; i++) {
-
-                        const starting_row = current_row;
-
-                        for (let j = 0; j < data[i].rows.length; j++) {
-                            
-                            const data_row = sheet.getRow(current_row);
-                            data_row.getCell(1).value = i + 1;
-                            data_row.getCell(2).value = parseInt(data[i].weight_id);
-                            data_row.getCell(3).value = data[i].cycle;
-                            data_row.getCell(4).value = data[i].plates;
-                            data_row.getCell(5).value = (data[i].driver === null) ? '-' : data[i].driver;
-                            data_row.getCell(6).value = (data[i].internal_entity === null) ? '-' : data[i].internal_entity;
-                            data_row.getCell(7).value = (data[i].date === null) ? '-' : data[i].date;
-                            data_row.getCell(8).value = (data[i].branch === null) ? '-' : data[i].branch;
-                            data_row.getCell(9).value = (data[i].number === null) ? '-' : data[i].number;
-
-                            //CONTAINER STUFF
-                            data_row.getCell(10).value = (data[i].rows[j].container.name === null) ? '-' : data[i].rows[j].container.name;
-                            data_row.getCell(11).value = (data[i].rows[j].container.name === null) ? '-' : data[i].rows[j].container.weight + ' KG';
-                            data_row.getCell(12).value = (data[i].rows[j].container.amount === null) ? '-' : data[i].rows[j].container.amount;
-
-                            //PRODUCT STUFF
-                            data_row.getCell(13).value = (data[i].rows[j].product.name === null) ? '-' : data[i].rows[j].product.name;
-                            data_row.getCell(14).value = (data[i].rows[j].product.cut === null) ? '-' : data[i].rows[j].product.cut;
-                            data_row.getCell(15).value = (data[i].rows[j].product.price === null) ? '-' : data[i].rows[j].product.price;
-                            data_row.getCell(16).value = (data[i].rows[j].product.kilos === null) ? '-' : data[i].rows[j].product.kilos;
-                            data_row.getCell(17).value = (data[i].rows[j].product.informed_kilos === null) ? '-' : data[i].rows[j].product.informed_kilos;
-
-                            if (temp.internal_billing) data_row.getCell(18).value = (data[i].rows[j].product.kilos === null) ? '-' : { formula: `O${current_row} * P${current_row}` };
-                            else data_row.getCell(18).value = (data[i].rows[j].product.informed_kilos === null) ? '-' : { formula: `O${current_row} * Q${current_row}` };
-
-                            data_row.getCell(1).numFmt = '#,##0;[Red]#,##0';
-                            data_row.getCell(2).numFmt = '#,##0;[Red]#,##0';
-                            data_row.getCell(9).numFmt = '#,##0;[Red]#,##0';
-                            data_row.getCell(12).numFmt = '#,##0;[Red]#,##0';
-                            data_row.getCell(15).numFmt = '$#,##0;[Red]-$#,##0';
-                            data_row.getCell(16).numFmt = '#,##0;[Red]#,##0';
-                            data_row.getCell(17).numFmt = '#,##0;[Red]#,##0';
-                            data_row.getCell(18).numFmt = '$#,##0;[Red]-$#,##0';
-
-                            current_row++;
-
-                            //FORMAT EACH CELL ROW
-                            for (let k = 1; k <= 18; k++) {
-                                data_row.getCell(k).border = {
-                                    top: { style: 'thin' },
-                                    left: { style: 'thin' },
-                                    bottom: { style: 'thin' },
-                                    right: { style: 'thin' }
-                                }
-                                data_row.getCell(k).alignment = {
-                                    vertical: 'middle',
-                                    horizontal: 'center'
-                                }
-                            }
-
-                            total_containers += data[i].rows[j].container.amount;
-                        }
-
-                        //MERGE CELLS
-                        sheet.mergeCells(`A${starting_row}:A${current_row - 1}`);
-                        sheet.mergeCells(`B${starting_row}:B${current_row - 1}`);
-                        sheet.mergeCells(`C${starting_row}:C${current_row - 1}`);
-                        sheet.mergeCells(`D${starting_row}:D${current_row - 1}`);
-                        sheet.mergeCells(`E${starting_row}:E${current_row - 1}`);
-                        sheet.mergeCells(`F${starting_row}:F${current_row - 1}`);
-                        sheet.mergeCells(`G${starting_row}:G${current_row - 1}`);
-                        sheet.mergeCells(`H${starting_row}:H${current_row - 1}`);
-                        sheet.mergeCells(`I${starting_row}:I${current_row - 1}`);
-
-                        //SUM DOCUMENT CONTAINERS
-                        const last_doc_row = sheet.getRow(current_row);
-                        last_doc_row.getCell(12).value =  { formula: `SUM(L${starting_row}:L${current_row - 1})` }
-                        last_doc_row.getCell(16).value =  { formula: `SUM(P${starting_row}:P${current_row - 1})` }
-                        last_doc_row.getCell(17).value =  { formula: `SUM(Q${starting_row}:Q${current_row - 1})` }
-                        last_doc_row.getCell(18).value =  { formula: `SUM(R${starting_row}:R${current_row - 1})` }
-
-                        //FORMAT EACH CELL ROW
-                        for (let k = 1; k <= 18; k++) {
-                            last_doc_row.getCell(k).alignment = {
-                                vertical: 'middle',
-                                horizontal: 'center'
-                            }
-                            last_doc_row.font = {
-                                name: font,
-                                size: 11,
-                                bold: true
-                            }
-                        }
-
-                        last_doc_row.getCell(12).numFmt = '#,##0;[Red]#,##0';
-                        last_doc_row.getCell(15).numFmt = '$#,##0;[Red]-$#,##0';
-                        last_doc_row.getCell(16).numFmt = '#,##0;[Red]#,##0';
-                        last_doc_row.getCell(17).numFmt = '#,##0;[Red]#,##0';
-                        last_doc_row.getCell(18).numFmt = '$#,##0;[Red]-$#,##0';
-
-                        //ADD DOCUMENT COMMENTS
-                        if (data[i].comments !== null) {
-
-                            const comments = data[i].comments.split('\n').join(' ');
-
-                            last_doc_row.getCell(2).value = `OBS. DOC. ${data[i].number}: ${comments.toUpperCase()}`;
-                            last_doc_row.getCell(2).font = {
-                                name: font,
-                                bold: true
-                            }
-                            last_doc_row.getCell(2).alignment = {
-                                vertical: 'middle',
-                                horizontal: 'left'
-                            }
-                        }
-
-                        current_row += 2;
-
-                        if (i < data.length - 1) {
-                            create_header_row(current_row)
-                            current_row++;    
-                        }
-                    }
-
-                    const last_cell = sheet.getCell(`A${current_row}`);
-                    last_cell.value = `TOTAL ${type} = ${total_containers}`;
-
-                    last_cell.font = {
-                        size: 15,
-                        name: font,
-                        bold: true
-                    }
-
-                    last_cell.alignment = {
-                        vertical: 'middle',
-                        horizontal: 'center'
-                    }
-                    sheet.mergeCells(`A${current_row}:L${current_row}`);
-                    
-                    //SET WIDTH FOR EACH COLUMN
-                    for (let j = 1; j <= 18; j++) {
-
-                        let dataMax = 0;
-                        for (let i = current_row - 1; i > 1; i--) {
-    
-                            const 
-                            this_row = sheet.getRow(i),
-                            this_cell = this_row.getCell(j);
-
-                            if (this_cell.value === null) continue;
-    
-                            let columnLength = this_cell.value.length + 3;	
-                            if (columnLength > dataMax) dataMax = columnLength;
-    
-                        }
-    
-                        sheet.getColumn(j).width = (dataMax < 5) ? 5 : dataMax; 
-                    }
-
-                    sheet.getColumn(2).width = 10;
-                    
-                    //WRITE FIRST ROW AND MERGE
-                    const first_row = sheet.getRow(1);
-                    first_row.height = 21;
-                    first_row.getCell(1).value = temp.entity_name.toUpperCase();
-                    sheet.mergeCells('A1:R1');
-
-                    for (let j = 1; j <= 18; j++) {
-                        const active_cell = first_row.getCell(j);
-                        active_cell.font = {
-                            size: 18,
-                            name: font,
-                            bold: true
-                        }
-
-                        active_cell.alignment = {
-                            vertical: 'middle',
-                            horizontal: 'center'
-                        }
-                    }
-
-                    sheet.removeConditionalFormatting();
-                    return resolve(sheet);
-
-                } catch(e) { return reject(e) }
-            })
-        }
-
-        const generate_sheet_by_weights = (type, results, workbook) => {
-            return new Promise((resolve, reject) => {
-                try {
-
-                    //CREATE OBJECTS BY WEIGHTS
-                    const data = [], weights_array = [], docs_array = [];
-                    for (let i = 0; i < results.length; i++) {
-
-                        if (weights_array.includes(results[i].weight_id)) continue;
-                        weights_array.push(results[i].weight_id);
-
-                        const weight = {
-                            id: results[i].weight_id,
-                            cycle: results[i].cycle_name,
-                            plates: results[i].primary_plates,
-                            driver: results[i].driver_name,
-                            documents: []
-                        }
-
-                        for (let j = 0; j < results.length; j++) {
-
-                            if (results[j].weight_id !== weight.id || docs_array.includes(results[j].id)) continue;
-                            docs_array.push(results[j].id)
-
-                            const document = {
-                                id: results[j].id,
-                                internal_entity: results[j].internal_entity,
-                                date: results[j].date,
-                                branch: results[j].branch,
-                                number: results[j].number,
-                                rows: []
-                            }
-
-                            for (let k = 0; k < results.length; k++) {
-                                if (results[k].id !== document.id) continue;
-                                document.rows.push({
-                                    container_name: results[k].container_name,
-                                    container_weight: results[k].container_weight,
-                                    container_amount: results[k].container_amount
-                                })
-                            }
-                            weight.documents.push(document);
-                        }
-                        data.push(weight);
-                    }
-
-                    //CREATE SHEET
-                    const sheet = workbook.addWorksheet(type, {
-                        pageSetup:{
-                            paperSize: 9
-                        }
-                    });
-
-                    const create_header_row = row_number => {
-                        const columns = [
-                            { header: 'Nº', key: 'line' },
-                            { header: 'PESAJE', key: 'weight_id' },
-                            { header: 'CICLO', key: 'cycle' },
-                            { header: 'VEHICULO', key: 'plates' },
-                            { header: 'CHOFER', key: 'driver' },
-                            { header: 'ORIGEN', key: 'origin' },
-                            { header: 'FECHA DOC.', key: 'doc_date' },
-                            { header: 'SUCURSAL', key: 'branch' },
-                            { header: 'Nº DOC.', key: 'doc_number' },
-                            { header: 'ENVASE', key: 'container_name' },
-                            { header: 'PESO ENV.', key: 'container_weight' },
-                            { header: 'CANT. ENV.', key: 'container_amount' }
-                        ]
-
-                        const header_row = sheet.getRow(row_number);
-                        for (let j = 0; j < columns.length; j++) {
-                            header_row.getCell(j + 1).value = columns[j].header;
-                            header_row.getCell(j + 1).border = {
-                                top: { style: 'thin' },
-                                left: { style: 'thin' },
-                                bottom: { style: 'thin' },
-                                right: { style: 'thin' }
-                            }
-                            header_row.getCell(j + 1).alignment = {
-                                vertical: 'middle',
-                                horizontal: 'center'
-                            }
-                            header_row.getCell(j + 1).font = {
-                                size: 11,
-                                name: font,
-                                bold: true
-                            }
-                        }
-                    }
-
-                    create_header_row(2)
+                    create_header_row(2);
 
                     let current_row = 3, total_containers = 0;
 
@@ -9605,9 +10055,12 @@ router.post('/analytics_stock_generate_excel', userMiddleware.isLoggedIn, async 
 
                         const starting_row = current_row;
 
-                        for (let document of data[i].documents) {
+                        for (const document of data[i].documents) {
+
+                            if (document === undefined) continue;
 
                             const first_doc_row = current_row;
+
                             for (let row of document.rows) {
         
                                 const data_row = sheet.getRow(current_row);
@@ -9622,17 +10075,30 @@ router.post('/analytics_stock_generate_excel', userMiddleware.isLoggedIn, async 
                                 data_row.getCell(8).value = (document.branch === null) ? '-' : document.branch;
                                 data_row.getCell(9).value = (document.number === null) ? '-' : document.number;
 
-                                data_row.getCell(10).value = (row.container_name === null) ? '-' : row.container_name;
-                                data_row.getCell(11).value = (row.container_name === null) ? '-' : row.container_weight + ' KG';
-                                data_row.getCell(12).value = (row.container_amount === null) ? '-' : row.container_amount;
-                                
+                                data_row.getCell(10).value = (row.container.name === null) ? '-' : row.container.name;
+                                data_row.getCell(11).value = (row.container.name === null) ? '-' : row.container.weight + ' KG';
+                                data_row.getCell(12).value = (row.container.amount === null) ? '-' : row.container.amount;
+
+                                data_row.getCell(13).value = (row.product.name === null) ? '-' : row.product.name;
+                                data_row.getCell(14).value = (row.product.cut === null) ? '-' : row.product.cut;
+                                data_row.getCell(15).value = (row.product.price === null) ? '-' : row.product.price;
+                                data_row.getCell(16).value = (row.product.kilos === null) ? '-' : row.product.kilos;
+                                data_row.getCell(17).value = (row.product.informed_kilos === null) ? '-' : row.product.informed_kilos;
+
+                                data_row.getCell(18).value = (row.product.price && row.product.kilos) ? { formula: `O${current_row}*P${current_row}` } : '-';
+
                                 data_row.getCell(1).numFmt = '#,##0;[Red]#,##0';
                                 data_row.getCell(2).numFmt = '#,##0;[Red]#,##0';
                                 data_row.getCell(9).numFmt = '#,##0;[Red]#,##0';
                                 data_row.getCell(12).numFmt = '#,##0;[Red]#,##0';
 
+                                data_row.getCell(15).numFmt = '$#,##0;[Red]-$#,##0';
+                                data_row.getCell(16).numFmt = '#,##0;[Red]#,##0';
+                                data_row.getCell(17).numFmt = '#,##0;[Red]#,##0';
+                                data_row.getCell(18).numFmt = '$#,##0;[Red]-$#,##0';
+
                                 //FORMAT EACH CELL ROW
-                                for (let k = 1; k <= 12; k++) {
+                                for (let k = 1; k <= 18; k++) {
                                     data_row.getCell(k).border = {
                                         top: { style: 'thin' },
                                         left: { style: 'thin' },
@@ -9645,7 +10111,6 @@ router.post('/analytics_stock_generate_excel', userMiddleware.isLoggedIn, async 
                                     }
                                 }
 
-                                total_containers += row.container_amount;
                                 current_row++;
                             }
 
@@ -9654,6 +10119,7 @@ router.post('/analytics_stock_generate_excel', userMiddleware.isLoggedIn, async 
                             sheet.mergeCells(`G${first_doc_row}:G${current_row - 1}`);
                             sheet.mergeCells(`H${first_doc_row}:H${current_row - 1}`);
                             sheet.mergeCells(`I${first_doc_row}:I${current_row - 1}`);
+
                         }
 
                         //MERGE WEIGHT CELLS
@@ -9665,15 +10131,28 @@ router.post('/analytics_stock_generate_excel', userMiddleware.isLoggedIn, async 
 
                         //SUM DOCUMENT CONTAINERS
                         const last_doc_row = sheet.getRow(current_row);
+                        
                         last_doc_row.getCell(12).value =  { formula: `SUM(L${starting_row}:L${current_row - 1})` }
-                        last_doc_row.getCell(12).font = {
-                            size: 11,
-                            name: font,
-                            bold: true
-                        }
-                        last_doc_row.getCell(12).alignment = {
-                            vertical: 'middle',
-                            horizontal: 'center'
+                        last_doc_row.getCell(12).value =  { formula: `SUM(L${starting_row}:L${current_row - 1})` }
+                        last_doc_row.getCell(16).value =  { formula: `SUM(P${starting_row}:P${current_row - 1})` }
+                        last_doc_row.getCell(17).value =  { formula: `SUM(Q${starting_row}:Q${current_row - 1})` }
+                        last_doc_row.getCell(18).value =  { formula: `SUM(R${starting_row}:R${current_row - 1})` }
+
+                        last_doc_row.getCell(12).numFmt = '#,##0;[Red]#,##0';
+                        last_doc_row.getCell(16).numFmt = '#,##0;[Red]#,##0';
+                        last_doc_row.getCell(17).numFmt = '#,##0;[Red]#,##0';
+                        last_doc_row.getCell(18).numFmt = '$#,##0;[Red]-$#,##0';
+
+                        for (let i = 1; i <= 18; i++) {
+                            last_doc_row.getCell(i).font = {
+                                size: 11,
+                                name: font,
+                                bold: true
+                            }
+                            last_doc_row.getCell(i).alignment = {
+                                vertical: 'middle',
+                                horizontal: 'center'
+                            }
                         }
 
                         current_row += 2;
@@ -9685,7 +10164,7 @@ router.post('/analytics_stock_generate_excel', userMiddleware.isLoggedIn, async 
                     }
 
                     //SET WIDTH FOR EACH COLUMN
-                    for (let j = 1; j <= 12; j++) {
+                    for (let j = 1; j <= 18; j++) {
 
                         let dataMax = 0;
                         for (let i = current_row - 1; i > 1; i--) {
@@ -9698,11 +10177,12 @@ router.post('/analytics_stock_generate_excel', userMiddleware.isLoggedIn, async 
     
                             let columnLength = this_cell.value.length + 3;	
                             if (columnLength > dataMax) dataMax = columnLength;
-    
                         }
     
                         sheet.getColumn(j).width = (dataMax < 5) ? 5 : dataMax; 
                     }
+
+                    sheet.getColumn(18).width = 13;
 
                     const last_cell = sheet.getCell(`A${current_row}`);
                     last_cell.value = `TOTAL ${type} = ${total_containers}`;
@@ -9717,15 +10197,15 @@ router.post('/analytics_stock_generate_excel', userMiddleware.isLoggedIn, async 
                         vertical: 'middle',
                         horizontal: 'center'
                     }
-                    sheet.mergeCells(`A${current_row}:L${current_row}`);
+                    sheet.mergeCells(`A${current_row}:R${current_row}`);
 
                     //WRITE FIRST ROW AND MERGE
                     const first_row = sheet.getRow(1);
                     first_row.height = 21;
-                    first_row.getCell(1).value = temp.entity_name;
-                    sheet.mergeCells('A1:L1');
+                    first_row.getCell(1).value = temp.entity_name.toUpperCase();
+                    sheet.mergeCells('A1:R1');
 
-                    for (let j = 1; j <= 12; j++) {
+                    for (let j = 1; j <= 18; j++) {
                         const active_cell = first_row.getCell(j);
                         active_cell.font = {
                             size: 18,
@@ -9752,74 +10232,107 @@ router.post('/analytics_stock_generate_excel', userMiddleware.isLoggedIn, async 
                     //GENERATE SHEET
                     const sheet = workbook.addWorksheet(type, {
                         pageSetup:{
-                            paperSize: 9
+                            paperSize: undefined,
+                            orientation: 'landscape',
+                            horizontalCentered: true,
+                            margins: {
+                                left: 0.3, right: 0.3,
+                                top: 0.5, bottom: 0.5,
+                                header: 0.3, footer: 0.3
+                            }
                         }
                     });
 
-                    const columns = [
-                        { header: 'Nº', key: 'line' },
-                        { header: 'PESAJE', key: 'weight_id' },
-                        { header: 'CICLO', key: 'cycle' },
-                        { header: 'VEHICULO', key: 'plates' },
-                        { header: 'CHOFER', key: 'driver' },
-                        { header: 'ORIGEN', key: 'origin' },
-                        { header: 'FECHA DOC.', key: 'doc_date' },
-                        { header: 'SUCURSAL', key: 'branch' },
-                        { header: 'Nº DOC.', key: 'doc_number' },
-                        { header: 'ENVASE', key: 'container_name' },
-                        { header: 'PESO ENV.', key: 'container_weight' },
-                        { header: 'CANT. ENV.', key: 'container_amount' }
-                    ]
+                    const create_header_row = row_number => {
+                        const columns = [
+                            { header: 'Nº', key: 'line' },
+                            { header: 'PESAJE', key: 'weight_id' },
+                            { header: 'CICLO', key: 'cycle' },
+                            { header: 'VEHICULO', key: 'plates' },
+                            { header: 'CHOFER', key: 'driver' },
+                            { header: 'ORIGEN', key: 'origin' },
+                            { header: 'FECHA DOC.', key: 'doc_date' },
+                            { header: 'SUCURSAL', key: 'branch' },
+                            { header: 'Nº DOC.', key: 'doc_number' },
+                            { header: 'ENVASE', key: 'container_name' },
+                            { header: 'PESO ENV.', key: 'container_weight' },
+                            { header: 'CANT. ENV.', key: 'container_amount' },
+                            { header: 'PRODUCTO', key: 'product' },
+                            { header: 'DESCARTE', key: 'cut' },
+                            { header: 'PRECIO', key: 'price' },
+                            { header: 'KILOS', key: 'kilos' },
+                            { header: 'KG. INF.', key: 'informed_kilos' },
+                            { header: 'TOTAL', key: 'product_total' }
+                        ]
 
-                    //FORMAT FIRST ROW
-                    const header_row = sheet.getRow(2);
-                    for (let j = 0; j < columns.length; j++) {
-                        header_row.getCell(j + 1).value = columns[j].header;
-                        header_row.getCell(j + 1).border = {
-                            top: { style: 'thin' },
-                            left: { style: 'thin' },
-                            bottom: { style: 'thin' },
-                            right: { style: 'thin' }
-                        }
-                        header_row.getCell(j + 1).alignment = {
-                            vertical: 'middle',
-                            horizontal: 'center'
-                        }
-                        header_row.getCell(j + 1).font = {
-                            size: 11,
-                            name: font,
-                            bold: true
+                        const header_row = sheet.getRow(row_number);
+                        for (let j = 0; j < columns.length; j++) {
+                            header_row.getCell(j + 1).value = columns[j].header;
+                            header_row.getCell(j + 1).border = {
+                                top: { style: 'thin' },
+                                left: { style: 'thin' },
+                                bottom: { style: 'thin' },
+                                right: { style: 'thin' }
+                            }
+                            header_row.getCell(j + 1).alignment = {
+                                vertical: 'middle',
+                                horizontal: 'center'
+                            }
+                            header_row.getCell(j + 1).font = {
+                                size: 11,
+                                name: font,
+                                bold: true
+                            }
                         }
                     }
 
-                    let current_row = 3;
+                    //FORMAT FIRST ROW
+                    create_header_row(1);
+
+                    let current_row = 2;
 
                     for (let i = 0; i < data.length; i++) {
                         
                         const data_row = sheet.getRow(current_row);
+
                         data_row.getCell(1).value = i + 1;
                         data_row.getCell(2).value = parseInt(data[i].weight_id);
-                        data_row.getCell(3).value = data[i].cycle_name;
+                        data_row.getCell(3).value = data[i].cycle;
                         data_row.getCell(4).value = data[i].primary_plates;
-                        data_row.getCell(5).value = (data[i].driver_name === null) ? '-' : data[i].driver_name;
+                        data_row.getCell(5).value = (data[i].driver_name === null) ? '-' : data[i].driver;
 
                         data_row.getCell(6).value = (data[i].internal_entity === null) ? '-' : data[i].internal_entity;
-                        data_row.getCell(7).value = (data[i].date === null) ? '-' : data[i].date;
-                        data_row.getCell(8).value = (data[i].branch === null) ? '-' : data[i].branch;
-                        data_row.getCell(9).value = (data[i].number === null) ? '-' : data[i].number;
+                        data_row.getCell(7).value = (data[i].doc_date === null) ? '-' : data[i].doc_date;
+                        data_row.getCell(8).value = (data[i].branch_name === null) ? '-' : data[i].branch_name;
+                        data_row.getCell(9).value = (data[i].doc_number === null) ? '-' : data[i].doc_number;
+
                         data_row.getCell(10).value = (data[i].container_name === null) ? '-' : data[i].container_name;
                         data_row.getCell(11).value = (data[i].container_name === null) ? '-' : data[i].container_weight + ' KG';
                         data_row.getCell(12).value = (data[i].container_amount === null) ? '-' : data[i].container_amount;
+
+                        data_row.getCell(13).value = (data[i].product_name === null) ? '-' : data[i].product_name;
+                        data_row.getCell(14).value = (data[i].cut === null) ? '-' : data[i].cut;
+                        data_row.getCell(15).value = (data[i].price === null) ? '-' : data[i].price;
+                        data_row.getCell(16).value = (data[i].kilos === null) ? '-' : data[i].kilos;
+                        data_row.getCell(17).value = (data[i].informed_kilos === null) ? '-' : data[i].informed_kilos;
+
+                        data_row.getCell(18).value = (data[i].price && data[i].kilos) ? { formula: `O${current_row}*P${current_row}` } : '-';
 
                         data_row.getCell(1).numFmt = '#,##0;[Red]#,##0';
                         data_row.getCell(2).numFmt = '#,##0;[Red]#,##0';
                         data_row.getCell(9).numFmt = '#,##0;[Red]#,##0';
                         data_row.getCell(12).numFmt = '#,##0;[Red]#,##0';
 
+                        data_row.getCell(15).numFmt = '$#,##0;[Red]-$#,##0';
+                        data_row.getCell(16).numFmt = '#,##0;[Red]#,##0';
+                        data_row.getCell(17).numFmt = '#,##0;[Red]#,##0';
+
+                        data_row.getCell(18).numFmt = '$#,##0;[Red]-$#,##0';
+
                         current_row++;
 
                         //FORMAT EACH CELL ROW
-                        for (let k = 1; k <= 12; k++) {
+                        for (let k = 1; k <= 18; k++) {
                             data_row.getCell(k).border = {
                                 top: { style: 'thin' },
                                 left: { style: 'thin' },
@@ -9835,10 +10348,10 @@ router.post('/analytics_stock_generate_excel', userMiddleware.isLoggedIn, async 
                     }
 
                     //SET WIDTH FOR EACH COLUMN
-                    for (let j = 1; j <= 12; j++) {
+                    for (let j = 1; j <= 18; j++) {
 
                         let dataMax = 0;
-                        for (let i = current_row - 1; i > 1; i--) {
+                        for (let i = current_row - 1; i >= 1; i--) {
     
                             const 
                             this_row = sheet.getRow(i),
@@ -9854,40 +10367,32 @@ router.post('/analytics_stock_generate_excel', userMiddleware.isLoggedIn, async 
                         sheet.getColumn(j).width = (dataMax < 5) ? 5 : dataMax; 
                     }
 
+                    sheet.getColumn(18).width = 14;
+
                     //SUM CONTAINERS COLUMN
                     const last_row = sheet.getRow(current_row);
-                    last_row.getCell(12).value =  { formula: `SUM(L3:L${current_row - 1})` }
-                    last_row.getCell(12).font = {
-                        size: 11,
-                        name: font,
-                        bold: true
-                    }
-                    last_row.getCell(12).alignment = {
-                        vertical: 'middle',
-                        horizontal: 'center'
-                    }
 
-                    last_row.getCell(12).numFmt = '#,##0;[Red]#,##0';
-                    
-                    //WRITE FIRST ROW AND MERGE
-                    const first_row = sheet.getRow(1);
-                    first_row.getCell(1).value = temp.entity_name;
-                    sheet.mergeCells('A1:L1');
-                    first_row.height = 21;
+                    last_row.getCell(12).value =  { formula: `SUM(L1:L${current_row - 1})` }
+                    last_row.getCell(16).value =  { formula: `SUM(P1:P${current_row - 1})` }
+                    last_row.getCell(17).value =  { formula: `SUM(Q1:Q${current_row - 1})` }
+                    last_row.getCell(18).value =  { formula: `SUM(R1:R${current_row - 1})` }
 
-                    for (let j = 1; j <= 12; j++) {
-                        const active_cell = first_row.getCell(j);
-                        active_cell.font = {
-                            size: 18,
+                    for (let i = 1; i <= 18; i++) {
+                        last_row.getCell(i).font = {
+                            size: 11,
                             name: font,
                             bold: true
                         }
-
-                        active_cell.alignment = {
+                        last_row.getCell(i).alignment = {
                             vertical: 'middle',
                             horizontal: 'center'
                         }
                     }
+
+                    last_row.getCell(12).numFmt = '#,##0;[Red]#,##0';
+                    last_row.getCell(16).numFmt = '#,##0;[Red]#,##0';
+                    last_row.getCell(17).numFmt = '#,##0;[Red]#,##0';
+                    last_row.getCell(18).numFmt = '$#,##0;[Red]-$#,##0';
 
                     sheet.removeConditionalFormatting();
 
@@ -9897,10 +10402,8 @@ router.post('/analytics_stock_generate_excel', userMiddleware.isLoggedIn, async 
             })
         }
 
-
         if (!validate_date(start_date)) throw 'Fecha de inicio inválida';
         if (!validate_date(end_date)) throw 'Fecha de término inválida';
-
 
         temp.season = {
             start: start_date + ' 00:00:00',
@@ -9943,8 +10446,8 @@ router.post('/analytics_stock_generate_excel', userMiddleware.isLoggedIn, async 
 
         const file_name = new Date().getTime();
         await workbook.xlsx.writeFile('./temp/' + file_name + '.xlsx');
+        
         response.file_name = file_name;    
-
         response.success = true;
 
     }
@@ -9952,6 +10455,219 @@ router.post('/analytics_stock_generate_excel', userMiddleware.isLoggedIn, async 
         response.error = e;
         console.log(`Error generating excel in entities analytics stock. ${e}`);
         error_handler(`Endpoint: /analytics_stock_generate_excel -> User Name: ${req.userData.userName}\r\n${e}`);
+    }
+    finally { res.json(response) }
+})
+
+router.get('/analytics_internal_entities', userMiddleware.isLoggedIn, async (req,res) => {
+
+    const temp = {};
+    const response = { success: false };
+
+    try {
+
+        function getMonthsBetween(startDateString, endDateString) {
+            // Parse the date strings to avoid timezone issues
+            const [startYear, startMonth] = startDateString.split('-').map(Number);
+            const [endYear, endMonth] = endDateString.split('-').map(Number);
+            
+            // Create date objects using local timezone
+            const startDate = new Date(startYear, startMonth - 1, 1); // month is 0-indexed
+            const endDate = new Date(endYear, endMonth - 1, 1);
+            
+            const months = [];
+            const currentDate = new Date(startDate);
+            
+            // Loop through each month until we reach the end date
+            while (currentDate <= endDate) {
+                const year = currentDate.getFullYear();
+                const month = String(currentDate.getMonth() + 1).padStart(2, '0'); // Convert back to 1-indexed and pad with zero
+                
+                months.push({
+                    date: `${month}-${year}`,
+                    receptions: {
+                        kilos: 0,
+                        total: 0
+                    },
+                    dispatches: {
+                        kilos: 0,
+                        total: 0
+                    }
+                });
+                
+                // Move to next month
+                currentDate.setMonth(currentDate.getMonth() + 1);
+            }
+            
+            return months;
+        }
+
+        const get_entities = (results) => {
+            return new Promise((resolve, reject) => {
+                try {
+
+                    const entities = [];
+                    let current_entity;
+
+                    // LOOP EACH ENTITY
+                    for (let i = 0; i < results.length; i++) {
+
+                        if (current_entity === results[i].id || results[i].date.getFullYear() !== parseInt(temp.end_date.slice(0, 4))) continue;
+                        current_entity = results[i].id;
+
+                        const entity = {
+                            id: results[i].id,
+                            name: results[i].short_name,
+                            months: getMonthsBetween(temp.start_date, temp.end_date)
+                        };
+
+                        for (let j = 0; j < entity.months.length; j++) {
+
+                            const [month] = entity.months[j].date.split('-');
+
+                            for (let k = i; k < results.length; k++) {
+
+                                const row_month = results[k].date.getMonth() + 1;
+                                if (parseInt(month) !== row_month || entity.id !== results[k].id) continue;
+
+                                const cycle = (results[k].cycle === 1) ? 'receptions' : 'dispatches';
+                                const kilos = results[k].kilos;
+
+                                entity.months[j][cycle].kilos += kilos;
+                                entity.months[j][cycle].total += kilos * results[k].price;
+
+                                response.data[cycle].kilos += kilos;
+                                response.data[cycle].total += kilos * results[k].price;
+
+                                if (results[k].pasas === null) results[k].pasas = 'null';
+                            }
+                        }
+
+                        entities.push(entity);
+                    }
+
+                    return resolve(entities);
+                }
+                catch(e) { return reject(e) }
+            })
+        }
+
+        const get_raisins = results => {
+            return new Promise((resolve, reject) => {
+                try {
+
+                    const data = sortData(results, ['pasas', 'date']);
+
+                    const products = [];
+                    let current_product;
+
+                    for (let i = 0; i < data.length; i++) {
+
+                        if (current_product === data[i].pasas || data[i].type !== 'Uva') continue;
+                        current_product = data[i].pasas;
+
+                        const raisin = {
+                            variety: (data[i].pasas === null) ? 'null' : current_product,
+                            years: []
+                        };
+
+                        let current_year;
+                        for (let j = i; j < data.length; j++) {
+
+                            // GET OUT IF YEAR DOESN'T MATCH
+                            if (raisin.variety !== data[j].pasas) break;
+
+                            if (current_year === data[j].date.getFullYear() || data[j].type !== 'Uva') continue;
+                            current_year = data[j].date.getFullYear();
+
+                            const year = {
+                                number: current_year,
+                                receptions: {
+                                    kilos: 0
+                                },
+                                dispatches: {
+                                    kilos: 0
+                                }
+                            };
+
+                            for (let k = j; k < data.length; k++) {
+                                
+                                if (raisin.variety !== data[k].pasas || year.number !== data[k].date.getFullYear()) break;
+
+                                const cycle = (data[k].cycle === 1) ? 'receptions' : 'dispatches';
+                                year[cycle].kilos += data[k].kilos;
+                                
+                            }
+
+                            raisin.years.push(year);
+                        }
+
+                        products.push(raisin);
+                    }
+
+                    return resolve(products);
+                }
+                catch(e) { return reject(e) }
+            })
+        }
+
+        const get_records = () => {
+            return new Promise((resolve, reject) => {
+                conn.query(`
+                    SELECT body.kilos, body.informed_kilos, body.price, products.name, products.pasas, products.type,
+                    weights.created AS date, entities.billing_type, internal_entities.id, internal_entities.short_name, weights.cycle
+                    FROM documents_header header
+                    INNER JOIN documents_body body ON header.id=body.document_id
+                    INNER JOIN weights ON header.weight_id=weights.id
+                    INNER JOIN internal_entities ON header.internal_entity=internal_entities.id
+                    INNER JOIN products ON body.product_code=products.code
+                    INNER JOIN entities ON header.client_entity=entities.id
+                    WHERE (weights.status='T' OR (weights.status='I' AND weights.kilos_breakdown=1))
+                    AND (
+                        weights.created BETWEEN 
+                        '${temp.start_date} 00:00:00' 
+                        AND '${temp.end_date} 23:59:59'
+                    )
+                    AND header.status='I' AND header.type=2 AND weights.cycle <= 2
+                    AND header.client_entity <> 148 AND header.client_entity <> 149 AND header.client_entity <> 153 
+                    AND header.client_entity <> 183 AND header.client_entity <> 234 AND header.client_entity <> 245
+                    AND body.status='T' AND body.product_code IS NOT NULL AND body.kilos IS NOT NULL 
+                    ORDER BY internal_entities.id ASC, header.date ASC, products.pasas ASC, products.name ASC;
+                `, (error, results, fields) => {
+                    if (error) return reject(error);
+                    return resolve(results);
+                })
+            })
+        }
+
+        const currentSeason = await get_current_season();
+        temp.start_date = currentSeason.start.split(' ')[0];
+        temp.end_date = currentSeason.end.split(' ')[0];
+
+
+        const records = await get_records();
+
+        response.data = {
+            dispatches: {
+                kilos: 0,
+                total: 0
+            },
+            receptions: {
+                kilos: 0,
+                total: 0
+            }
+        };
+
+        response.entities = await get_entities(records);
+        response.products = await get_raisins(records);
+
+        response.success = true;
+
+    }
+    catch(e) {
+        response.error = e;
+        console.log(`Error get interal entities data. ${e}`);
+        error_handler(`Endpoint: /analytics_internal_entities -> User Name: ${req.userData.userName}\r\n${e}`);
     }
     finally { res.json(response) }
 })
@@ -9969,6 +10685,30 @@ router.get('/companies_get_internal_entities', userMiddleware.isLoggedIn, async 
     }
 
     try {
+
+        const get_payment_seasons = () => {
+            return new Promise((resolve, reject) => {
+                conn.query(`
+                    SELECT * FROM seasons
+                    ORDER BY id DESC;
+                `, (error, results, fields) => {
+                    if (error) return reject(error);
+                    return resolve(results);
+                })
+            })
+        }
+
+        const get_entity_types = () => {
+            return new Promise((resolve, reject) => {
+                conn.query(`
+                    SELECT * FROM entities_types
+                    ORDER BY id ASC;
+                `, (error, results, fields) => {
+                    if (error) return reject(error);
+                    return resolve(results);
+                })
+            })
+        }
 
         const get_companies = () => {
             return new Promise((resolve, reject) => {
@@ -10040,7 +10780,11 @@ router.get('/companies_get_internal_entities', userMiddleware.isLoggedIn, async 
             })
         }
 
+
         response.season = await get_current_season();
+        response.seasons = await get_payment_seasons();
+
+        response.entity_types = await get_entity_types();
 
         response.total = {
             received: 0,
@@ -10048,8 +10792,6 @@ router.get('/companies_get_internal_entities', userMiddleware.isLoggedIn, async 
         };
         
         response.companies = await get_companies();
-
-        console.log(response.companies)
 
         for (let company of response.companies) {
 
@@ -10079,36 +10821,25 @@ router.get('/companies_get_internal_entities', userMiddleware.isLoggedIn, async 
     finally { res.json(response) }
 })
 
-router.get('/companies_get_clients_list', userMiddleware.isLoggedIn, async (req, res) => {
+router.post('/companies_get_clients_list', userMiddleware.isLoggedIn, async (req, res) => {
 
-    const 
-    temp = {},
-    response = { success: false }
+    const { target_season } = req.body;
+    const temp = {};
+    const response = { success: false }
 
     try {
 
-        const get_entities = () => {
+        const get_target_season = () => {
             return new Promise((resolve, reject) => {
                 conn.query(`
-                    SELECT entities.id, entities.billing_type, entities_types.name AS type, entities.rut, entities.name
-                    FROM documents_header header
-                    INNER JOIN weights ON header.weight_id=weights.id
-                    RIGHT OUTER JOIN entities ON header.client_entity=entities.id
-                    INNER JOIN entities_types ON entities.type=entities_types.code
-                    WHERE (
-                        weights.status='T' AND header.status='I' AND
-                        entities.id <> 183 AND entities.id <> 149 AND entities.id <> 234 
-                        AND (weights.created BETWEEN '${temp.season.start}' AND '${temp.season.end}')
-                        AND (header.date BETWEEN '${temp.season.start}' AND '${temp.season.end}')    
-                    )
-                    OR (
-                        entities.status=1
-                    )
-                    GROUP BY entities.name
-                    ORDER BY entities.name ASC;
+                    SELECT * FROM seasons WHERE id=${parseInt(target_season)};
                 `, (error, results, fields) => {
                     if (error) return reject(error);
-                    return resolve(results);
+                    return resolve({
+                        id: results[0].id,
+                        start: format_date(new Date(results[0].beginning)),
+                        end: (results[0].ending === null) ? todays_date() : format_date(new Date(results[0].ending))
+                    });
                 })
             })
         }
@@ -10127,50 +10858,87 @@ router.get('/companies_get_clients_list', userMiddleware.isLoggedIn, async (req,
             })
         }
 
-        const get_client_credits = client_id => {
+        const get_records = () => {
             return new Promise((resolve, reject) => {
                 conn.query(`
-                   SELECT SUM(header.document_total) AS credit
-                   FROM documents_header header
-                   INNER JOIN weights ON header.weight_id=weights.id
-                   WHERE header.status='I' AND (weights.created BETWEEN '${temp.season.start}' AND '${temp.season.end}')
-                   AND weights.status <> 'N' AND header.type=2 AND header.client_entity=${client_id};
+                    SELECT weights.cycle, entities.type, entities.id, entities.billing_type, entities_types.name AS type_name, entities.rut, entities.name,
+                    body.price, body.kilos, body.informed_kilos
+                    FROM documents_header header
+                    INNER JOIN weights ON header.weight_id=weights.id
+                    INNER JOIN documents_body body ON header.id=body.document_id
+                    RIGHT OUTER JOIN entities ON header.client_entity=entities.id
+                    INNER JOIN entities_types ON entities.type=entities_types.code
+                    WHERE weights.status <> 'N' AND header.status='I' AND weights.cycle < 3
+                    AND header.client_entity <> 148 AND header.client_entity <> 149 AND header.client_entity <> 153 
+                    AND header.client_entity <> 183 AND header.client_entity <> 234 AND header.client_entity <> 245
+                    AND (weights.created BETWEEN '${temp.season.start}' AND '${temp.season.end}')
+                    AND (header.date BETWEEN '${temp.season.start}' AND '${temp.season.end}')
+                    AND (body.status='T' OR body.status='I') AND body.kilos IS NOT NULL
+                    ORDER BY entities.type DESC, entities.name ASC, header.number ASC;
                 `, (error, results, fields) => {
                     if (error) return reject(error);
-                    return resolve(1.19 * results[0].credit);
+
+                    const companies = [];
+                    let current_company;
+
+                    for (let i = 0; i < results.length; i++) {
+
+                        if (current_company === results[i].id) continue;
+                        current_company = results[i].id;
+
+                        const data = results.filter(row => row.id === current_company);
+
+                        let kilos = 0, informed_kilos = 0, credits = 0, debits = 0;
+
+                        for (const row of data) {
+                            if (row.cycle === 1) {
+
+                                // SUM KILOS OF RECEPTION ONLY IF IT'S A PROVIDER. DISPATCHES SHOULDN'T COUND IN A PROVIDER
+                                if (row.type === 'P') {
+                                    kilos += 1 * row.kilos;
+                                    informed_kilos += 1 * row.informed_kilos;
+                                }
+                                credits += (row.billing_type === 0) ? row.price * row.informed_kilos : row.price * row.kilos;
+                            }
+                            else {
+
+                                // SUM KILOS OF DISPATCHES ONLY IF ENTITY IS A CLIENT. IF IT'S A PROVIDER IT SHOULDN'T BE COUNTED
+                                if (row.type === 'C') {
+                                    kilos += 1 * row.kilos;
+                                    informed_kilos += 1 * row.informed_kilos;
+                                }
+                                debits += row.price * row.informed_kilos;
+                            }
+                        }
+
+                        const company = {
+                            id: results[i].id,
+                            name: results[i].name,
+                            rut: results[i].rut,
+                            type: results[i].type_name,
+                            billing_type: results[i].billing_type,
+                            kilos: kilos,
+                            informed_kilos: informed_kilos,
+                            credits: Math.round(1.19 * credits),
+                            debits: Math.round(1.19 * debits)
+                        };
+
+                        companies.push(company);
+                    }
+
+                    return resolve(companies);
                 })
             })
         }
 
-        const get_client_credits_internal_billing = client_id => {
-            return new Promise((resolve, reject) => {
-                conn.query(`
-                   SELECT SUM(body.kilos * body.price) AS credit
-                   FROM documents_header header
-                   INNER JOIN documents_body body ON header.id=body.document_id
-                   INNER JOIN weights ON header.weight_id=weights.id
-                   WHERE weights.status <> 'N' AND header.status='I' AND (body.status='T' OR body.status='I')
-                   AND (weights.created BETWEEN '${temp.season.start}' AND '${temp.season.end}')
-                   AND header.type=2 AND header.client_entity=${client_id};
-                `, (error, results, fields) => {
-                    if (error) return reject(error);
-                    return resolve(1.19 * results[0].credit);
-                })
-            })
-        }
+        temp.season = (target_season === undefined) ? await get_current_season() : await get_target_season();
 
-        temp.season = await get_current_season();
-
-        const companies = await get_entities();
+        const companies = await get_records();
 
         for (let company of companies) {
 
-            company.debits = await get_client_debits(company.id);
-
-            if (company.billing_type === 0) company.credits = await get_client_credits(company.id);
-            else company.credits = await get_client_credits_internal_billing(company.id);
-            company.balance = company.debits - company.credits;
-
+            company.debits += await get_client_debits(company.id);
+            company.balance = company.credits - company.debits;
         }
 
         response.companies = companies;
@@ -10187,12 +10955,9 @@ router.get('/companies_get_clients_list', userMiddleware.isLoggedIn, async (req,
 
 router.post('/companies_get_entity_movements', userMiddleware.isLoggedIn, async (req, res) => {
 
-    const 
-    { company_id } = req.body,
-    temp = { 
-        records: [] 
-    },
-    response = { success: false }
+    const { company_id, season } = req.body;
+    const temp = { records: [] };
+    const response = { success: false };
 
     try {
 
@@ -10212,98 +10977,75 @@ router.post('/companies_get_entity_movements', userMiddleware.isLoggedIn, async 
             })
         }
 
-        const get_company_docs = () => {
+        const get_season_data = () => {
             return new Promise((resolve, reject) => {
                 conn.query(`
-                    SELECT header.id AS header_id, header.weight_id, internal_entities.id AS entity_id, 
-                    internal_entities.short_name, header.date AS doc_date, branches.name AS branch_name, 
-                    header.number AS doc_number, header.document_total
-                    FROM documents_header header 
-                    INNER JOIN weights ON header.weight_id=weights.id
-                    INNER JOIN internal_entities ON header.internal_entity=internal_entities.id
-                    INNER JOIN entity_branches branches ON header.client_branch=branches.id
-                    WHERE header.status='I' AND weights.status <> 'N' AND header.type=2
-                    AND (weights.created BETWEEN '${temp.season.start}' AND '${temp.season.end}')
-                    AND (header.date BETWEEN '${temp.season.start}' AND '${temp.season.end}')
-                    AND weights.cycle=${temp.entity_data.type === 'P' ? 1 : 2} AND header.client_entity=${parseInt(company_id)}
-                    ORDER BY header.id ASC;
+                    SELECT * FROM seasons WHERE id=${parseInt(season)};
                 `, (error, results, fields) => {
-                    if (error) return reject(error);
-
-                    for (let row of results) {
-                        temp.records.push({
-                            id: row.header_id,
-                            entity: {
-                                id: row.entity_id,
-                                name: row.short_name
-                            },
-                            doc_number: row.doc_number,
-                            date: row.doc_date,
-                            branch: row.branch_name,
-                            total: 1.19 * row.document_total,
-                            weight_id: row.weight_id
-                        });
-                    }
-
-                    return resolve();
+                    if (error || results.length === 0) return reject(error);
+                    return resolve({ 
+                        id: results[0].id,
+                        start: results[0].beginning.toISOString().split('T')[0] + ' 00:00:00',
+                        end: (results[0].ending === null) ? todays_date() : format_html_date(new Date(results[0].ending))
+                    });
                 })
             })
         }
 
-        const get_company_docs_internal_billing = () => {
+        const get_company_docs = billing_type => {
             return new Promise((resolve, reject) => {
                 conn.query(`
-                    SELECT header.id AS header_id, header.weight_id, internal_entities.id AS entity_id, 
-                    internal_entities.short_name, header.date AS doc_date, branches.name AS branch_name, 
-                    header.number AS doc_number, body.price, body.kilos
+                    SELECT weights.cycle, header.id AS header_id, header.weight_id, internal_entities.id AS entity_id, 
+                    internal_entities.short_name, header.date AS doc_date, branches.name AS branch_name, header.number AS doc_number, 
+                    body.price, body.kilos, body.informed_kilos
                     FROM documents_header header 
-                    INNER JOIN documents_body body ON header.id=body.document_id
                     INNER JOIN weights ON header.weight_id=weights.id
-                    INNER JOIN internal_entities ON header.internal_entity=internal_entities.id
-                    INNER JOIN entity_branches branches ON header.client_branch=branches.id
-                    WHERE header.status='I' AND weights.status <> 'N' AND header.type=2 AND (body.status='T' OR body.status='I')
-                    AND (weights.created BETWEEN '${temp.season.start}' AND '${temp.season.end}')
-                    AND (header.date BETWEEN '${temp.season.start}' AND '${temp.season.end}')
-                    AND weights.cycle=${temp.entity_data.type === 'P' ? 1 : 2} AND header.client_entity=${parseInt(company_id)}
+                    INNER JOIN documents_body body ON header.id=body.document_id
+                    LEFT OUTER JOIN internal_entities ON header.internal_entity=internal_entities.id
+                    LEFT OUTER JOIN entity_branches branches ON header.client_branch=branches.id
+                    WHERE 
+                        header.status='I' AND weights.status <> 'N' AND (body.status='T' OR body.status='I') AND header.type=2
+                        AND (weights.created BETWEEN '${temp.season.start}' AND '${temp.season.end}')
+                        AND (header.created BETWEEN '${temp.season.start}' AND '${temp.season.end}')
+                        AND (header.date BETWEEN '${temp.season.start}' AND '${temp.season.end}')
+                        AND body.product_code IS NOT NULL AND body.kilos IS NOT NULL
+                        AND weights.cycle < 3 AND header.client_entity=${parseInt(company_id)}
                     ORDER BY header.id ASC;
                 `, (error, results, fields) => {
                     if (error) return reject(error);
 
-                    console.log(results.length)
+                    const documents = [];
+                    let current_doc;
 
-                    let doc_id;
-                    for (let i = 0; i < results.length; i++) {
+                    for (const result of results) {
 
-                        if (results[i].header_id === doc_id) continue;
-                        doc_id = results[i].header_id;
+                        if (current_doc === result.header_id) continue;
+                        current_doc = result.header_id;
 
-                        const doc = {
-                            id: results[i].header_id,
+                        const document_rows = results.filter(row => row.header_id === current_doc);
+
+                        let doc_total = 0;
+                        for (const row of document_rows) {
+                            if (row.cycle === 1) doc_total += (billing_type === 0) ? row.price * row.informed_kilos : row.price * row.kilos;
+                            else doc_total += row.price * row.informed_kilos;
+                        }
+
+                        documents.push({
+                            id: result.header_id,
+                            cycle: result.cycle,
                             entity: {
-                                id: results[i].entity_id,
-                                name: results[i].short_name
+                                id: result.entity_id,
+                                name: result.short_name
                             },
-                            doc_number: results[i].doc_number,
-                            date: results[i].doc_date,
-                            branch: results[i].branch_name,
-                            total: 0,
-                            weight_id: results[i].weight_id
-                        }
-
-                        //SUM KILOS * PRICE FOR EACH ROW OF DOCUMENT
-                        for (let j = i; j < results.length; j++) {
-
-                            if (doc.id !== results[j].header_id) break;
-
-                            //SUM KILOS * PRICE AND ADD IVA
-                            doc.total += (results[j].price * results[j].kilos * 1.19);
-
-                        }
-
-                        temp.records.push(doc);
+                            number: result.doc_number,
+                            date: result.doc_date,
+                            branch: result.branch_name,
+                            total: doc_total,
+                            weight_id: result.weight_id
+                        });
                     }
 
-                    return resolve();
+                    return resolve(documents);
                 })
             })
         }
@@ -10317,11 +11059,13 @@ router.post('/companies_get_entity_movements', userMiddleware.isLoggedIn, async 
                     FROM entities_payments payments
                     INNER JOIN internal_entities ON payments.internal_entity=internal_entities.id
                     INNER JOIN payment_types ON payments.code=payment_types.code
-                    WHERE payments.status <> 'N' AND payments.client_entity=${parseInt(company_id)};
+                    WHERE payments.status <> 'N' AND payments.client_entity=${parseInt(company_id)}
+                    AND payments.season_id=${temp.season.id}
+                    ORDER BY payments.date ASC;
                 `, (error, results, fields) => {
                     if (error) return reject(error);
 
-                    for (let row of results) {
+                    return resolve(results.map(row => {
 
                         let payment_status;
                         if (row.payment_status === 'I') payment_status = 'PENDIENTE';
@@ -10329,7 +11073,7 @@ router.post('/companies_get_entity_movements', userMiddleware.isLoggedIn, async 
                         else if (row.payment_status === 'N') payment_status = 'NULO';
                         else payment_status = '???';
 
-                        temp.records.push({
+                        return {
                             id: row.payment_id,
                             entity: {
                                 id: row.entity_id,
@@ -10341,29 +11085,25 @@ router.post('/companies_get_entity_movements', userMiddleware.isLoggedIn, async 
                                 name: row.payment_name,
                                 status: payment_status
                             },
-                            doc_number: row.doc_number,
+                            number: row.doc_number,
                             total: row.amount,
                             comments: row.comments,
                             invoice: row.invoice
-                        });
-                    }
-
-                    return resolve();
+                        }
+                    }));
                 })
             })
         }
 
-        temp.season = await get_current_season();
-        temp.entity_data = await get_company_data();
+        temp.season = await get_season_data();
 
-        if (temp.entity_data.internal_billing) await get_company_docs_internal_billing();
-        else await get_company_docs();
-        
-        await get_company_payments();
+        const entity_data = await get_company_data();
+
+        const documents = await get_company_docs(entity_data.billing_type);
+        const payments = await get_company_payments();
 
         //SORT ARRAY BY DATE HERE !!!!!
-
-        response.records = temp.records;
+        response.records = sortByDateAndNumber([...documents, ...payments]);
         response.success = true;
 
     }
@@ -10399,8 +11139,7 @@ router.get('/companies_get_bank_balance_image', userMiddleware.isLoggedIn, (req,
 
 router.get('/new_payment_get_data', userMiddleware.isLoggedIn, async (req, res) => {
 
-    const
-    response = { success: false }
+    const response = { success: false }
 
     try {
 
@@ -10457,19 +11196,19 @@ router.get('/new_payment_get_data', userMiddleware.isLoggedIn, async (req, res) 
 
 router.post('/create_new_payment', userMiddleware.isLoggedIn, async (req, res) => {
 
-    const 
-    { company_id, payment_date, season, payment_type, internal_entity, amount, doc_number, comments } = req.body,
-    temp = {
+    const { company_id, payment_date, season, payment_type, internal_entity, amount, doc_number, comments } = req.body;
+    const temp = {
         records: []
-    },
-    response = { success: false }
+    };
+    const response = { success: false }
 
     try {
 
         const create_payment = () => {
             return new Promise((resolve, reject) => {
                 conn.query(`
-                    INSERT INTO entities_payments (created, created_by, date, season_id, internal_entity, client_entity, status, code, amount, doc_number, comments)
+                    INSERT INTO entities_payments 
+                    (created, created_by, date, season_id, internal_entity, client_entity, status, code, amount, doc_number, comments)
                     VALUES (
                         NOW(),
                         ${req.userData.userId},
@@ -10485,50 +11224,12 @@ router.post('/create_new_payment', userMiddleware.isLoggedIn, async (req, res) =
                     );
                 `, (error, results, fields) => {
                     if (error) return reject(error);
-                    return resolve();
+                    return resolve(results.insertId);
                 })
             })
         }
 
-        const get_company_docs = () => {
-            return new Promise((resolve, reject) => {
-                conn.query(`
-                    SELECT header.id AS header_id, header.weight_id, internal_entities.id AS entity_id, 
-                    internal_entities.short_name, header.date AS doc_date, branches.name AS branch_name, 
-                    header.number AS doc_number, header.document_total
-                    FROM documents_header header 
-                    INNER JOIN weights ON header.weight_id=weights.id
-                    INNER JOIN internal_entities ON header.internal_entity=internal_entities.id
-                    INNER JOIN entity_branches branches ON header.client_branch=branches.id
-                    WHERE header.status='I' AND weights.status <> 'N' AND header.type=2
-                    AND (weights.created BETWEEN '${temp.season.start}' AND '${temp.season.end}')
-                    AND (header.date BETWEEN '${temp.season.start}' AND '${temp.season.end}')
-                    AND weights.cycle=1 AND header.client_entity=${parseInt(company_id)}
-                    ORDER BY header.id ASC;
-                `, (error, results, fields) => {
-                    if (error) return reject(error);
-
-                    for (let row of results) {
-                        temp.records.push({
-                            id: row.header_id,
-                            entity: {
-                                id: row.entity_id,
-                                name: row.short_name
-                            },
-                            doc_number: row.doc_number,
-                            date: row.doc_date,
-                            branch: row.branch_name,
-                            total: 1.19 * row.document_total,
-                            weight_id: row.weight_id
-                        });
-                    }
-
-                    return resolve();
-                })
-            })
-        }
-
-        const get_company_payments = () => {
+        const get_payment_data = insertId => {
             return new Promise((resolve, reject) => {
                 conn.query(`
                     SELECT payments.id AS payment_id, internal_entities.id AS entity_id, internal_entities.short_name,
@@ -10537,18 +11238,18 @@ router.post('/create_new_payment', userMiddleware.isLoggedIn, async (req, res) =
                     FROM entities_payments payments
                     INNER JOIN internal_entities ON payments.internal_entity=internal_entities.id
                     INNER JOIN payment_types ON payments.code=payment_types.code
-                    WHERE payments.status <> 'N' AND payments.client_entity=${parseInt(company_id)};
+                    WHERE payments.id=${insertId};
                 `, (error, results, fields) => {
-                    if (error) return reject(error);
+                    if (error || results.length === 0) return reject(error);
 
-                    for (let row of results) {
+                    const row = results[0];
 
-                        let payment_status;
-                        if (row.payment_status === 'I') payment_status = 'PENDIENTE';
-                        else if (row.payment_status === 'C') payment_status = 'PAGADO';
-                        else payment_status = '???';
+                    let payment_status;
+                    if (row.payment_status === 'I') payment_status = 'PENDIENTE';
+                    else if (row.payment_status === 'C') payment_status = 'PAGADO';
+                    else payment_status = '???';
 
-                        temp.records.push({
+                    return resolve({
                             id: row.payment_id,
                             entity: {
                                 id: row.entity_id,
@@ -10560,14 +11261,12 @@ router.post('/create_new_payment', userMiddleware.isLoggedIn, async (req, res) =
                                 name: row.payment_name,
                                 status: payment_status
                             },
-                            doc_number: row.doc_number,
+                            number: row.doc_number,
                             total: row.amount,
                             comments: row.comments,
                             invoice: row.invoice
-                        });
-                    }
-
-                    return resolve();
+                        }
+                    );
                 })
             })
         }
@@ -10575,16 +11274,17 @@ router.post('/create_new_payment', userMiddleware.isLoggedIn, async (req, res) =
         if (!validate_date(payment_date)) throw 'Fecha del pago inválida.'
         if (amount.length === 0 || parseInt(amount) === NaN) throw 'El monto a pagar no es válido.';
 
-        await create_payment();
+        const insertId = await create_payment();
+        console.log('insert id: ', insertId);
+        response.payment_data = await get_payment_data(insertId);
 
-        temp.season = await get_current_season();
+        //temp.season = await get_current_season();
 
-        await get_company_docs();
-        await get_company_payments();
+        //await get_company_docs();
+        //await get_company_payments();
 
         //SORT ARRAY BY DATE HERE !!!!!
-
-        response.records = temp.records;
+        //response.records = temp.records;
         response.success = true;
 
     }
@@ -10598,12 +11298,9 @@ router.post('/create_new_payment', userMiddleware.isLoggedIn, async (req, res) =
 
 router.post('/companies_generate_excel', userMiddleware.isLoggedIn, async (req, res) => {
 
-    const
-    { type, company_id, season_id } = req.body,
-    temp = {
-        records: []
-    },
-    response = { success: false }
+    const { type, company_id, season_id } = req.body;
+    const temp = { records: [] };
+    const response = { success: false };
 
     try {
 
@@ -10616,7 +11313,7 @@ router.post('/companies_generate_excel', userMiddleware.isLoggedIn, async (req, 
                     return resolve({ 
                         id: results[0].id,
                         start: results[0].beginning.toISOString().split('T')[0] + ' 00:00:00',
-                        end: (results[0].ending === null) ? todays_date() : results[0].ending.toLocaleString('es-CL').split(' ')[0]
+                        end: (results[0].ending === null) ? todays_date() : format_html_date(results[0].ending)
                     });
                 })
             })
@@ -10774,7 +11471,10 @@ router.post('/companies_generate_excel', userMiddleware.isLoggedIn, async (req, 
                         data_row.getCell(1).value = i - 2;
                         data_row.getCell(2).value = row.entity.name;
                         data_row.getCell(3).value = (row.doc_number === null) ? '-' : parseInt(row.doc_number);
-                        data_row.getCell(4).value = (row.date === null) ? '-' : row.date;
+
+                        //ADD 2 HOURS TO DATE
+                        data_row.getCell(4).value = (row.date === null) ? '-' : new Date(Math.round(row.date) + (1000 * 60 * 60 * 2));
+
                         data_row.getCell(5).value = (row.payment === undefined) ? '-' : row.payment.status;
                         data_row.getCell(6).value = (row.payment === undefined) ? 'CARGO' : 'ABONO';
                         data_row.getCell(7).value = (row.payment === undefined) ? 'GUIA DE COMPRA' : row.payment.name.toUpperCase();
@@ -10870,96 +11570,84 @@ router.post('/companies_generate_excel', userMiddleware.isLoggedIn, async (req, 
             })
         }
 
-        const get_detailed_records = () => {
+        const get_records_by_company = () => {
             return new Promise((resolve, reject) => {
                 conn.query(`
-                    SELECT header.id, header.weight_id, header.date, internal_entities.name AS internal_entity_name, 
+                    SELECT header.id, header.weight_id, CONVERT_TZ(header.date, @@session.time_zone, '-08:00') AS date, internal_entities.short_name AS internal_entity_name, 
                     header.number AS doc_number, entities.name AS entity_name, branches.name AS branch_name, 
                     body.product_name, body.cut, body.product_code, body.price, body.corrected_price, body.kilos, 
                     body.informed_kilos, body.container_code, body.container_amount, documents_comments.comments
                     FROM documents_header header
                     INNER JOIN documents_body body ON header.id=body.document_id
-                    INNER JOIN internal_entities ON header.internal_entity=internal_entities.id
-                    INNER JOIN entities ON header.client_entity=entities.id
-                    INNER JOIN entity_branches branches ON header.client_branch=branches.id
                     INNER JOIN weights ON header.weight_id=weights.id
+                    LEFT OUTER JOIN internal_entities ON header.internal_entity=internal_entities.id
+                    LEFT OUTER JOIN entities ON header.client_entity=entities.id
+                    LEFT OUTER JOIN entity_branches branches ON header.client_branch=branches.id
                     LEFT OUTER JOIN documents_comments ON header.id=documents_comments.doc_id
                     WHERE weights.status <> 'N' AND header.status='I' AND header.type=2 AND
                     (weights.created BETWEEN '${temp.season.start}' AND '${temp.season.end}') AND
                     (header.created BETWEEN '${temp.season.start}' AND '${temp.season.end}') AND 
                     (body.status='T' OR body.status='I') AND header.client_entity=${parseInt(company_id)}
-                    ORDER BY header.id ASC, body.id ASC;
+                    ORDER BY doc_number ASC, body.id ASC;
                 `, (error, results, fields) => {
                     if (error) return reject(error);
 
-                    const documents = [];
+                    // FUNCTION RETURN RESOLVES THIS ARRAY
+                    const entities_data = [];
 
-                    //BUILD OBJECTS
-                    let current_id;
+                    /***************** BUILD ARRAY WITH INTERNAL ENTITIES *****************/
+                    const internal_entities = [];
 
-                    for (let i = 0; i < results.length; i++) {
-
-                        if (current_id === results[i].id) continue;
-                        current_id = results[i].id;
-
-                        const document = {
-                            id: results[i].id,
-                            entity: {
-                                name: results[i].internal_entity_name
-                            },
-                            doc_number: results[i].doc_number,
-                            date: results[i].date,
-                            branch: results[i].branch_name,
-                            total: 0,
-                            weight_id: results[i].weight_id,
-                            products: [],
-                            comments: (results[i].comments === null) ? '' : results[i].comments.split('\n').join(' - ')
-                        }
-
-                        //DO PRODUCTS FOR EACH ROW
-                        for (let j = i; j < results.length; j++) {
-
-                            //GET OUT IF ID DOESNT MATCH
-                            if (current_id !== results[j].id) break;
-
-                            let product_in_array = false, index;
-
-                            const row = results[j];
-
-                            let k = 0;
-                            for (let product of document.products) {
-                                if (row.product_code === product.code && row.cut === product.cut && row.price === product.price) {
-                                    product_in_array = true;
-                                    index = k;
-                                }
-                                k++;
-                            }
-
-                            //PRODUCT WASN'T FOUND IN ARRAY SO IT GETS PUSHED
-                            if (!product_in_array) {
-                                index = document.products.length;
-                                document.products.push({
-                                    code: row.product_code,
-                                    containers: 0,
-                                    cut: row.cut,
-                                    informed_kilos: 0,
-                                    kilos: 0,
-                                    name: row.product_name,
-                                    price: row.price,
-                                    corrected_price: row.corrected_price
-                                });
-                            }
-                            
-                            const product = document.products[index];
-                            product.kilos += row.kilos;
-                            product.informed_kilos += row.informed_kilos;
-                            product.containers += row.container_amount;
-                        }
-
-                        documents.push(document)
+                    for (const row of results) {
+                        if (internal_entities.includes(row.internal_entity_name)) continue;
+                        internal_entities.push(row.internal_entity_name)
                     }
 
-                    return resolve(documents);
+                    for (const entity of internal_entities) {
+
+                        const entityRecords = results.filter(row => row.internal_entity_name === entity);
+                        const documents = [];
+
+                        let current_doc;
+
+                        for (let i = 0; i < entityRecords.length; i++) {
+                            
+                            if (current_doc === entityRecords[i].id) continue;
+                            current_doc = entityRecords[i].id;
+
+                            const row = entityRecords[i];
+                            const document = {
+                                id: row.id,
+                                weight_id: row.weight_id,
+                                entity: {
+                                    name: row.internal_entity_name
+                                },
+                                date: row.date,
+                                branch: row.branch_name,
+                                doc_number: row.doc_number,
+                                comments: (row.comments === null) ? '' : row.comments,
+                                products: entityRecords
+                                    .filter(record => record.id === current_doc)
+                                    .map(record => {
+                                        return {
+                                            code: record.product_code,
+                                            containers: (record.container_amount === null) ? '-' : record.container_amount,
+                                            cut: record.cut,
+                                            informed_kilos: (record.informed_kilos === null) ? '' : record.informed_kilos,
+                                            kilos: (record.kilos === null) ? '' : record.kilos,
+                                            name: record.product_name,
+                                            price: record.price,
+                                            corrected_price: record.corrected_price
+                                        }
+                                    })
+                            };
+                            documents.push(document);
+                        }
+
+                        entities_data.push({ name: entity, documents });
+                    }
+
+                    return resolve(entities_data);
                 })
             })
         }
@@ -10983,222 +11671,21 @@ router.post('/companies_generate_excel', userMiddleware.isLoggedIn, async (req, 
             })
         }
 
-        const generate_excel_detailed_charges = (documents, workbook) => {
-            return new Promise((resolve, reject) => {
-                try {
-
-                    const font = 'Calibri';
-                    const sheet = workbook.addWorksheet('CARGOS', {
-                        pageSetup:{
-                            paperSize: 9
-                        }
-                    });
-
-                    const create_header_row = row_number => {
-                        const columns = [
-                            { header: 'Nº', key: 'line' },
-                            { header: 'EMPRESA', key: 'internal_entity' },
-                            { header: 'Nº PESAJE', key: 'weight_id' },
-                            { header: 'Nº DOC.', key: 'doc_number' },
-                            { header: 'FECHA', key: 'date' },
-                            { header: 'ENVASES', key: 'containers' },
-                            { header: 'PRODUCTO', key: 'product' },
-                            { header: 'DESCARTE', key: 'cut' },
-                            { header: 'PRECIO', key: 'price' },
-                            { header: 'KILOS', key: 'kilos' },
-                            { header: 'KG. INF.', key: 'informed_kilos' },
-                            { header: 'NETO', key: 'net' },
-                            { header: 'IVA', key: 'iva' },
-                            { header: 'TOTAL', key: 'total' },
-                            { header: 'OBSERVACIONES', key: 'comments' }
-                        ]
-
-                        const header_row = sheet.getRow(row_number);
-                        for (let j = 0; j < columns.length; j++) {
-                            header_row.getCell(j + 1).value = columns[j].header;
-                            header_row.getCell(j + 1).border = {
-                                top: { style: 'thin' },
-                                left: { style: 'thin' },
-                                bottom: { style: 'thin' },
-                                right: { style: 'thin' }
-                            }
-                            header_row.getCell(j + 1).alignment = {
-                                vertical: 'middle',
-                                horizontal: 'center'
-                            }
-                            header_row.getCell(j + 1).font = {
-                                size: 11,
-                                name: font,
-                                bold: true
-                            }
-                        }
-                    }
-
-                    let current_row = 2, line_number = 1, initial_row;
-                    for (let document of documents) {
-
-                        //DO FIRST ROW WITH HEADERS
-                        create_header_row(current_row);
-                        current_row++;
-
-                        initial_row = current_row;
-                        //DO PRODUCTS INSIDE DOCUMENT
-                        for (let product of document.products) {
-
-                            const data_row = sheet.getRow(current_row);
-                            
-                            data_row.getCell(1).value = line_number;
-                            data_row.getCell(2).value = document.entity.name;
-                            data_row.getCell(3).value = document.weight_id;
-                            data_row.getCell(4).value = (document.doc_number === null) ? '-' : parseInt(document.doc_number);
-                            data_row.getCell(5).value = (document.date === null) ? '-' : document.date;
-
-                            data_row.getCell(6).value = product.containers;
-                            data_row.getCell(7).value = product.name;
-                            data_row.getCell(8).value = product.cut;
-                            data_row.getCell(9).value = (product.corrected_price === null) ? product.price : product.corrected_price; //K
-                            data_row.getCell(10).value = product.kilos; //L
-                            data_row.getCell(11).value = product.informed_kilos; //M
-
-                            if (temp.entity.internal_billing) data_row.getCell(12).value = { formula: `I${current_row}*J${current_row}` }; //N
-                            else data_row.getCell(12).value = { formula: `I${current_row}*K${current_row}` }; //N
-
-                            data_row.getCell(13).value = { formula: `L${current_row}*0.19` }; //O
-                            data_row.getCell(14).value = { formula: `L${current_row}+M${current_row}` }; //P
-                            data_row.getCell(15).value = document.comments;
-
-                            data_row.getCell(1).numFmt = '#,##0;[Red]#,##0';
-                            data_row.getCell(3).numFmt = '#,##0;[Red]#,##0';     
-                            data_row.getCell(4).numFmt = '#,##0;[Red]#,##0';     
-                            
-                            data_row.getCell(6).numFmt = '#,##0;[Red]#,##0';
-                            data_row.getCell(9).numFmt = '#,##0;[Red]#,##0';
-                            data_row.getCell(10).numFmt = '#,##0;[Red]#,##0';
-                            data_row.getCell(11).numFmt = '#,##0;[Red]#,##0';
-
-                            data_row.getCell(12).numFmt = '$#,##0;[Red]-$#,##0';
-                            data_row.getCell(13).numFmt = '$#,##0;[Red]-$#,##0';
-                            data_row.getCell(14).numFmt = '$#,##0;[Red]-$#,##0';
-
-                            //FORMAT EACH CELL ROW
-                            for (let j = 1; j <= 14; j++) {
-                                data_row.getCell(j).border = {
-                                    top: { style: 'thin' },
-                                    left: { style: 'thin' },
-                                    bottom: { style: 'thin' },
-                                    right: { style: 'thin' }
-                                }
-                                data_row.getCell(j).alignment = {
-                                    vertical: 'middle',
-                                    horizontal: 'center'
-                                }
-                                data_row.getCell(j).font = { name: font }
-                            }
-
-                            data_row.getCell(15).alignment = { vertical: 'middle', horizontal: 'center', wrapText: true }
-                            data_row.getCell(15).border = {
-                                top: { style: 'thin' },
-                                left: { style: 'thin' },
-                                bottom: { style: 'thin' },
-                                right: { style: 'thin' }
-                            }
-                            current_row++;
-                        }
-
-                        //BOTTOM ROW WITH SUM OF TOTALS
-                        const last_row = sheet.getRow(current_row);
-                        last_row.getCell(6).value = { formula: `=SUM(F${initial_row}:F${current_row - 1})` }
-                        last_row.getCell(10).value = { formula: `=SUM(J${initial_row}:J${current_row - 1})` }
-                        last_row.getCell(11).value = { formula: `=SUM(K${initial_row}:K${current_row - 1})` }
-                        last_row.getCell(12).value = { formula: `=SUM(L${initial_row}:L${current_row - 1})` }
-                        last_row.getCell(13).value = { formula: `=SUM(M${initial_row}:M${current_row - 1})` }
-                        last_row.getCell(14).value = { formula: `=SUM(N${initial_row}:N${current_row - 1})` }
-
-                        last_row.getCell(6).numFmt = '#,##0;[Red]#,##0';
-                        last_row.getCell(10).numFmt = '#,##0;[Red]#,##0';
-                        last_row.getCell(11).numFmt = '#,##0;[Red]#,##0';
-                        last_row.getCell(12).numFmt = '$#,##0;[Red]-$#,##0';
-                        last_row.getCell(13).numFmt = '$#,##0;[Red]-$#,##0';
-                        last_row.getCell(14).numFmt = '$#,##0;[Red]-$#,##0';
-
-                        //FORMAT EACH CELL ROW
-                        for (let j = 1; j <= 15; j++) {
-                            last_row.getCell(j).alignment = {
-                                vertical: 'middle',
-                                horizontal: 'center'
-                            }
-                            last_row.getCell(j).font = { 
-                                name: font,
-                                bold: true
-                            }
-                        }
-                        
-                        //MERGE CELLS
-                        sheet.mergeCells(`A${initial_row}:A${current_row - 1}`);
-                        sheet.mergeCells(`B${initial_row}:B${current_row - 1}`);
-                        sheet.mergeCells(`C${initial_row}:C${current_row - 1}`);
-                        sheet.mergeCells(`D${initial_row}:D${current_row - 1}`);
-                        sheet.mergeCells(`E${initial_row}:E${current_row - 1}`);
-                        sheet.mergeCells(`O${initial_row}:O${current_row - 1}`);
-
-                        current_row += 2;
-                        line_number++;
-                    }
-
-                    //SET WIDTH FOR EACH COLUMN
-                    for (let j = 1; j <= 15; j++) {
-
-                        let dataMax = 0;
-                        for (let i = current_row - 1; i > 1; i--) {
-    
-                            const 
-                            this_row = sheet.getRow(i),
-                            this_cell = this_row.getCell(j);
-
-                            if (this_cell.value === null) continue;
-    
-                            let columnLength = this_cell.value.length + 4;	
-                            if (columnLength > dataMax) dataMax = columnLength;
-    
-                        }
-    
-                        sheet.getColumn(j).width = (dataMax < 5) ? 5 : dataMax; 
-                    }
-
-                    sheet.getColumn(5).width = 10;
-                    sheet.getColumn(12).width = 13;
-                    sheet.getColumn(13).width = 13;
-                    sheet.getColumn(14).width = 13;
-                    sheet.getColumn(15).width = 24;
-
-                    sheet.getCell('A1').value = temp.entity.name.toUpperCase();
-                    sheet.mergeCells(`A1:O1`);
-
-                    sheet.getCell('A1').font = {
-                        bold: true,
-                        size: 18,
-                        name: font
-                    }
-                    sheet.getCell('A1').alignment = {
-                        vertical: 'middle',
-                        horizontal: 'center'
-                    }
-                    sheet.getRow(1).height = 25;
-
-                    return resolve();
-
-                } catch(e) { return reject(e) }
-            })
-        }
-
         const generate_excel_detailed_payments = (payments, workbook) => {
             return new Promise((resolve, reject) => {
                 try {
 
                     const font = 'Calibri';
-                    const sheet = workbook.addWorksheet('ABONOS', {
+                    const sheet = workbook.addWorksheet('Abonos', {
                         pageSetup:{
-                            paperSize: 9
+                            paperSize: undefined,
+                            orientation: 'landscape',
+                            horizontalCentered: true,
+                            margins: {
+                                left: 0.3, right: 0.3,
+                                top: 0.5, bottom: 0.5,
+                                header: 0.3, footer: 0.3
+                            }
                         }
                     });
 
@@ -11240,14 +11727,18 @@ router.post('/companies_generate_excel', userMiddleware.isLoggedIn, async (req, 
                             
                         data_row.getCell(1).value = current_row - 2;
                         data_row.getCell(2).value = row.internal_entity;
-                        data_row.getCell(3).value = row.date;
-                        data_row.getCell(4).value = row.season;
+
+                        // ADD 2 HOURS TO DATE
+                        data_row.getCell(3).value = (row.date === null) ? '-' : new Date(Math.round(row.date) + (1000 * 60 * 60 * 2));
+
+                        data_row.getCell(4).value = row.season.replace(/\D/gm, '');
                         data_row.getCell(5).value = row.payment_name;
                         data_row.getCell(6).value = row.doc_number;
                         data_row.getCell(7).value = row.amount;
                         data_row.getCell(8).value = row.comments
 
                         data_row.getCell(1).numFmt = '#,##0;[Red]#,##0';
+                        data_row.getCell(3).numFmt = 'DD-MM-YYYY'
                         data_row.getCell(7).numFmt = '$#,##0;[Red]-$#,##0';
 
                         //FORMAT EACH CELL ROW
@@ -11328,6 +11819,224 @@ router.post('/companies_generate_excel', userMiddleware.isLoggedIn, async (req, 
             })
         }
 
+        const generate_excel_by_company = (entity, workbook) => {
+            return new Promise((resolve, reject) => {
+                try {
+
+                    const font = 'Calibri';
+                    const sheet = workbook.addWorksheet(entity.name, {
+                        pageSetup:{
+                            paperSize: undefined,
+                            orientation: 'landscape',
+                            horizontalCentered: true,
+                            margins: {
+                                left: 0.3, right: 0.3,
+                                top: 0.5, bottom: 0.5,
+                                header: 0.3, footer: 0.3
+                            }
+                        }
+                    });
+
+                    const create_header_row = row_number => {
+                        const columns = [
+                            { header: 'Nº', key: 'line' },
+                            { header: 'PESAJE', key: 'weight_id' },
+                            { header: 'Nº DOC.', key: 'doc_number' },
+                            { header: 'FECHA', key: 'date' },
+                            { header: 'ENVASES', key: 'containers' },
+                            { header: 'PRODUCTO', key: 'product' },
+                            { header: 'DESCARTE', key: 'cut' },
+                            { header: 'PRECIO', key: 'price' },
+                            { header: 'KILOS', key: 'kilos' },
+                            { header: 'KG. INF.', key: 'informed_kilos' },
+                            { header: 'NETO', key: 'net' },
+                            { header: 'IVA', key: 'iva' },
+                            { header: 'TOTAL', key: 'total' },
+                            { header: 'OBSERVACIONES', key: 'comments' }
+                        ]
+
+                        const header_row = sheet.getRow(row_number);
+                        for (let j = 0; j < columns.length; j++) {
+                            header_row.getCell(j + 1).value = columns[j].header;
+                            header_row.getCell(j + 1).border = {
+                                top: { style: 'thin' },
+                                left: { style: 'thin' },
+                                bottom: { style: 'thin' },
+                                right: { style: 'thin' }
+                            }
+                            header_row.getCell(j + 1).alignment = {
+                                vertical: 'middle',
+                                horizontal: 'center'
+                            }
+                            header_row.getCell(j + 1).font = {
+                                size: 11,
+                                name: font,
+                                bold: true
+                            }
+                        }
+                    }
+
+                    let current_row = 2, line_number = 1, initial_row;
+                    for (let document of entity.documents) {
+
+                        //DO FIRST ROW WITH HEADERS
+                        create_header_row(current_row);
+                        current_row++;
+
+                        initial_row = current_row;
+                        //DO PRODUCTS INSIDE DOCUMENT
+                        for (let product of document.products) {
+
+                            const data_row = sheet.getRow(current_row);
+                            
+                            data_row.getCell(1).value = line_number;
+                            data_row.getCell(2).value = document.weight_id;
+                            data_row.getCell(3).value = (document.doc_number === null) ? '-' : parseInt(document.doc_number);
+
+                            // ADD 2 HOURS TO DATE
+                            data_row.getCell(4).value = (document.date === null) ? '-' : new Date(Math.round(document.date) + (1000 * 60 * 60 * 2));
+
+                            data_row.getCell(5).value = product.containers;
+                            data_row.getCell(6).value = product.name;
+                            data_row.getCell(7).value = product.cut;
+                            data_row.getCell(8).value = (product.corrected_price === null) ? product.price : product.corrected_price;
+                            data_row.getCell(9).value = product.kilos;
+                            data_row.getCell(10).value = product.informed_kilos;
+
+                            if (temp.entity.internal_billing) data_row.getCell(11).value = (product.kilos === '') ? '' : { formula: `H${current_row}*I${current_row}` };
+                            else data_row.getCell(11).value = (product.kilos === '') ? '' : { formula: `H${current_row}*J${current_row}` };
+
+                            data_row.getCell(12).value = (product.kilos === '') ? '' : { formula: `K${current_row}*0.19` }; //O
+                            data_row.getCell(13).value = (product.kilos === '') ? '' : { formula: `K${current_row}+L${current_row}` }; //P
+                            data_row.getCell(14).value = document.comments;
+
+                            //FORMAT EACH CELL ROW
+                            for (let j = 1; j <= 13; j++) {
+                                data_row.getCell(j).border = {
+                                    top: { style: 'thin' },
+                                    left: { style: 'thin' },
+                                    bottom: { style: 'thin' },
+                                    right: { style: 'thin' }
+                                }
+                                data_row.getCell(j).alignment = {
+                                    vertical: 'middle',
+                                    horizontal: 'center'
+                                }
+                                data_row.getCell(j).font = { name: font }
+                            }
+
+                            data_row.getCell(14).alignment = { vertical: 'middle', horizontal: 'center', wrapText: true }
+                            data_row.getCell(14).border = {
+                                top: { style: 'thin' },
+                                left: { style: 'thin' },
+                                bottom: { style: 'thin' },
+                                right: { style: 'thin' }
+                            }
+
+                            current_row++;
+                        }
+
+                        //BOTTOM ROW WITH SUM OF TOTALS
+                        const last_row = sheet.getRow(current_row);
+                        last_row.getCell(5).value = { formula: `=SUM(E${initial_row}:E${current_row - 1})` }
+                        last_row.getCell(9).value = { formula: `=SUM(I${initial_row}:I${current_row - 1})` }
+                        last_row.getCell(10).value = { formula: `=SUM(J${initial_row}:J${current_row - 1})` }
+                        last_row.getCell(11).value = { formula: `=SUM(K${initial_row}:K${current_row - 1})` }
+                        last_row.getCell(12).value = { formula: `=SUM(L${initial_row}:L${current_row - 1})` }
+                        last_row.getCell(13).value = { formula: `=SUM(M${initial_row}:M${current_row - 1})` }
+
+                        //FORMAT EACH CELL ROW
+                        for (let j = 1; j <= 14; j++) {
+                            last_row.getCell(j).alignment = {
+                                vertical: 'middle',
+                                horizontal: 'center'
+                            }
+                            last_row.getCell(j).font = { 
+                                name: font,
+                                bold: true
+                            }
+                        }
+                        
+                        //MERGE CELLS
+                        sheet.mergeCells(`A${initial_row}:A${current_row - 1}`);
+                        sheet.mergeCells(`B${initial_row}:B${current_row - 1}`);
+                        sheet.mergeCells(`C${initial_row}:C${current_row - 1}`);
+                        sheet.mergeCells(`D${initial_row}:D${current_row - 1}`);
+                        sheet.mergeCells(`N${initial_row}:N${current_row - 1}`);
+
+                        current_row += 2;
+                        line_number++;
+                    }
+
+                    // SUM CONTAINERS, KILOS, INFORMED KILOS, NET, IVA, TOTAL
+                    current_row++;
+                    const totals_row = sheet.getRow(current_row);
+                    totals_row.font = { name: font, bold: true };
+
+                    totals_row.getCell(5).value = { formula: `SUM(E2:E${current_row - 3}) / 2` };
+                    totals_row.getCell(9).value = { formula: `SUM(I2:I${current_row - 3}) / 2` };
+                    totals_row.getCell(10).value = { formula: `SUM(J2:J${current_row - 3}) / 2` };
+                    totals_row.getCell(11).value = { formula: `SUM(K2:K${current_row - 3}) / 2` };
+                    totals_row.getCell(12).value = { formula: `SUM(L2:L${current_row - 3}) / 2` };
+                    totals_row.getCell(13).value = { formula: `SUM(M2:M${current_row - 3}) / 2` };
+
+                    //SET WIDTH FOR EACH COLUMN
+                    for (let j = 1; j <= 14; j++) {
+
+                        let dataMax = 0;
+                        for (let i = current_row + 1; i > 1; i--) {
+    
+                            const this_row = sheet.getRow(i);
+                            const this_cell = this_row.getCell(j);
+
+                            if (this_cell.value === null) continue;
+    
+                            let columnLength = this_cell.value.length + 4;	
+                            if (columnLength > dataMax) dataMax = columnLength;
+                        }
+    
+                        sheet.getColumn(j).width = (dataMax < 5) ? 5 : dataMax;
+                        sheet.getColumn(j).alignment = { vertical: 'middle', horizontal: 'center' };
+                    }
+
+                    sheet.getColumn(1).numFmt = '#,##0;[Red]#,##0';
+                    sheet.getColumn(2).numFmt = '#,##0;[Red]#,##0';
+                    sheet.getColumn(3).numFmt = '#,##0;[Red]#,##0';
+                    sheet.getColumn(4).numFmt = 'DD-MM-YYYY';
+                    sheet.getColumn(5).numFmt = '#,##0;[Red]#,##0';
+                    sheet.getColumn(8).numFmt = '#,##0;[Red]#,##0';
+                    sheet.getColumn(9).numFmt = '#,##0;[Red]#,##0';
+                    sheet.getColumn(10).numFmt = '#,##0;[Red]#,##0';
+                    sheet.getColumn(11).numFmt = '$#,##0;[Red]-$#,##0';
+                    sheet.getColumn(12).numFmt = '$#,##0;[Red]-$#,##0';
+                    sheet.getColumn(13).numFmt = '$#,##0;[Red]-$#,##0';
+
+                    sheet.getColumn(4).width = 14;
+                    sheet.getColumn(11).width = 15;
+                    sheet.getColumn(12).width = 15;
+                    sheet.getColumn(13).width = 15;
+                    sheet.getColumn(14).width = 25;
+
+                    sheet.getCell('A1').value = temp.entity.name.toUpperCase();
+                    sheet.mergeCells(`A1:N1`);
+
+                    sheet.getCell('A1').font = {
+                        bold: true,
+                        size: 18,
+                        name: font
+                    }
+                    sheet.getCell('A1').alignment = {
+                        vertical: 'middle',
+                        horizontal: 'center'
+                    }
+                    sheet.getRow(1).height = 25;
+
+                    return resolve();
+                }
+                catch(e) { return reject(e) }
+            })
+        }
+
         temp.season = await get_season();
         temp.entity = await get_entity_data();
 
@@ -11340,16 +12049,20 @@ router.post('/companies_generate_excel', userMiddleware.isLoggedIn, async (req, 
             temp.records.reverse();
     
             await generate_excel_simple();
-
         }
 
         else {
 
             const workbook = new excel.Workbook();
-            const documents = await get_detailed_records();
             const payments = await get_detailed_payments();
 
-            await generate_excel_detailed_charges(documents, workbook);
+            //const documents = await get_detailed_records();
+            //await generate_excel_detailed_charges(documents, workbook);
+
+            const entities = await get_records_by_company();
+            for (const entity of entities) {
+                await generate_excel_by_company(entity, workbook);
+            }
             if (payments.length > 0) await generate_excel_detailed_payments(payments, workbook);
 
             const file_name = new Date().getTime();

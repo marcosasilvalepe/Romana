@@ -61,21 +61,47 @@ function proper_case(str) {
 
 function format_print_weight_date(date) {
 
-    if (date.length === 0) return '';
-
-    const
-    date_split = date.split(' '),
-    new_date = date_split[0],
-    hour = date_split[1].substring(0, date_split[1].length - 3);
-
-    const 
-    date_array = new_date.split('-'),
-    day = date_array[0],
-    month = date_array[1],
-    year = date_array[2].substring(2, 4);
-
-    return `${day}/${month}/${year} ${hour}`;
+  // Get day, month, year
+  const day = String(date.getDate()).padStart(2, '0');
+  const month = String(date.getMonth() + 1).padStart(2, '0'); // Months are 0-indexed
+  const year = String(date.getFullYear()).slice(-2);
+  
+  // Get hours and minutes
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  
+  // Construct formatted string
+  return `${day}/${month}/${year} ${hours}:${minutes}`;
 }
+
+function convertDateFormat(dateString) {
+    // Check if input is valid
+    if (!dateString || typeof dateString !== 'string') {
+      throw new Error('Input must be a non-empty string');
+    }
+    
+    // Try to parse the input string
+    try {
+      // Split the date and time parts
+      const [datePart, timePart] = dateString.split(' ');
+      
+      // Split the date components
+      const [day, month, fullYear] = datePart.split('-');
+      
+      // Extract just the hours and minutes from time part
+      const timeComponents = timePart.split(':');
+      const hours = timeComponents[0];
+      const minutes = timeComponents[1];
+      
+      // Get the short year (last 2 digits)
+      const shortYear = fullYear.slice(-2);
+      
+      // Format the result
+      return `${day}/${month}/${shortYear} ${hours}:${minutes}`;
+    } catch (error) {
+      throw new Error('Failed to parse date string. Format should be DD-MM-YYYY HH:MM:SS');
+    }
+  }
 
 function print_header_weight_line(truck_weight, containers_weight, net_weight) {
 
@@ -162,46 +188,47 @@ function print_with_dot_matrix(config, weight) {
     return new Promise((resolve, reject) => {
 
         try {
-            console.log(weight_object)
+
+            console.log(weight_object);
+
             const 
-            line_jump = '\x0A',
-            now = new Date().toLocaleString('es-CL'),
-            secondary_plates = (weight.secondary_plates === null) ? '' : weight.secondary_plates,
-            transport = (weight.transport.name === null) ? 'EXTERNO' : weight.transport.name,
-            spaces_to_secondary_plates = print_spaces(` Transportista  `, transport, 61);
+                line_jump = '\x0A',
+                secondary_plates = (weight.secondary_plates === null) ? '' : weight.secondary_plates,
+                transport = (weight.transport.name === null) ? 'EXTERNO' : weight.transport.name,
+                spaces_to_secondary_plates = print_spaces(` Transportista  `, transport, 61);
     
             let cycle;
-            if (weight.cycle.id === 1) cycle = 'Recepci¢n';
-            else if (weight.cycle.id === 2) cycle = 'Despacho';
-            else if (weight.cycle.id === 3) cycle = 'Interno';
-            else cycle = 'Servicio';
+                if (weight.cycle.id === 1) cycle = 'Recepci¢n';
+                else if (weight.cycle.id === 2) cycle = 'Despacho';
+                else if (weight.cycle.id === 3) cycle = 'Interno';
+                else cycle = 'Servicio';
     
             const
-            gross = weight.gross_weight,
-            tare = weight.tare_weight,
-            tare_date = (tare.date === null) ? format_print_weight_date('') : format_print_weight_date(tare.date),
-            spaces_to_gross_date = print_spaces(' Fecha - Hora  ', tare_date, 48),
-            gross_date = (gross.date === null) ? format_print_weight_date('') : format_print_weight_date(gross.date),
-            tare_user = (tare.user.id === null) ? '' : replace_spanish_chars(tare.user.name.toUpperCase()),
-            gross_user = (gross.user.id === null) ? '' : replace_spanish_chars(gross.user.name.toUpperCase()),
-            spaces_to_gross_user = print_spaces(' Operador      ', tare_user, 48),
-            driver = (weight.driver.name === null) ? '' : replace_spanish_chars(weight.driver.name.toUpperCase()),
-            spaces_to_gross_driver = print_spaces(' Chofer        ', driver, 48);
+                gross = weight.gross_weight,
+                tare = weight.tare_weight,
+                tare_date = (tare.date === null) ? '' : convertDateFormat(tare.date),
+                spaces_to_gross_date = print_spaces(' Fecha - Hora  ', tare_date, 48),
+                gross_date = (gross.date === null) ? '' : convertDateFormat(gross.date),
+                tare_user = (tare.user.id === null) ? '' : replace_spanish_chars(tare.user.name.toUpperCase()),
+                gross_user = (gross.user.id === null) ? '' : replace_spanish_chars(gross.user.name.toUpperCase()),
+                spaces_to_gross_user = print_spaces(' Operador      ', tare_user, 48),
+                driver = (weight.driver.name === null) ? '' : replace_spanish_chars(weight.driver.name.toUpperCase()),
+                spaces_to_gross_driver = print_spaces(' Chofer        ', driver, 48);
 
             const 
-            gross_weight_line = print_header_weight_line(gross.brute, gross.containers_weight, gross.net),
-            tare_weight_line = print_header_weight_line(tare.brute, tare.containers_weight, tare.net),
-            net_weight_line = print_header_weight_line(gross.brute - tare.brute, ' Neto S/Envases', gross.net - tare.net);
+                gross_weight_line = print_header_weight_line(gross.brute, gross.containers_weight, gross.net),
+                tare_weight_line = print_header_weight_line(tare.brute, tare.containers_weight, tare.net),
+                net_weight_line = print_header_weight_line(gross.brute - tare.brute, ' Neto S/Envases', gross.net - tare.net);
 
             let 
-            corrected_net = 'Neto Corregido ', 
-            informed_net = 'Neto Informado ', 
-            difference = 'Diferencia     ';
+                corrected_net = 'Neto Corregido ', 
+                informed_net = 'Neto Informado ', 
+                difference = 'Diferencia     ';
     
             let
-            corrected_net_value = thousand_separator(parseInt(weight.final_net_weight)),
-            informed_net_value = thousand_separator(parseInt(weight.kilos.informed)),
-            difference_value = thousand_separator(parseInt(weight.final_net_weight - weight.kilos.informed));
+                corrected_net_value = thousand_separator(parseInt(weight.final_net_weight)),
+                informed_net_value = thousand_separator(parseInt(weight.kilos.informed)),
+                difference_value = thousand_separator(parseInt(weight.final_net_weight - weight.kilos.informed));
             
             //PRINT SPACES
             while (corrected_net_value.length < 6) { corrected_net_value = ' ' + corrected_net_value }
@@ -212,9 +239,9 @@ function print_with_dot_matrix(config, weight) {
             informed_net = informed_net + informed_net_value;
             difference = difference + difference_value;
 
-            data = [
+            let data = [
                 `                         Ticket de Pesaje Nø${weight.frozen.id}` + '\r\n',
-                `                            Impreso ${format_print_weight_date(now)}` + '\r\n',
+                `                            Impreso ${format_print_weight_date(new Date())}` + '\r\n',
                 line_jump,
                 ` Patente        ${replace_spanish_chars(weight.frozen.primary_plates)}` + '\r\n',
                 ` Ciclo          ${cycle}` + '\r\n',
@@ -278,8 +305,6 @@ function print_with_browser(weight) {
 			
 			console.log(weight);
             
-            const now = new Date().toLocaleString('es-CL');
-
             let cycle;
             if (weight.cycle.id === 1) cycle = 'Recepción';
             else if (weight.cycle.id === 2) cycle = 'Despacho';
@@ -287,7 +312,7 @@ function print_with_browser(weight) {
             else cycle = 'Servicio';
 
             document.getElementById('ticket-number').innerText = `Ticket de Pesaje Nº ${weight.frozen.id}`;
-            document.getElementById('printed-date').innerText = `Impreso ${format_print_weight_date(now)}`;
+            document.getElementById('printed-date').innerText = `Impreso ${format_print_weight_date(new Date())}`;
 
             document.getElementById('primary-plates').innerText = weight.frozen.primary_plates;
             document.getElementById('cycle').innerText = cycle;
@@ -297,10 +322,10 @@ function print_with_browser(weight) {
             gross = weight.gross_weight,
             tare = weight.tare_weight;
 
-            document.getElementById('tare-weight-date').innerText = (tare.date === null) ? '' : format_print_weight_date(tare.date);
+            document.getElementById('tare-weight-date').innerText = (tare.date === null) ? '' : convertDateFormat(tare.date);
             document.getElementById('tare-weight-user').innerText = (tare.user.id === null) ? '' : tare.user.name.toUpperCase();
 
-            document.getElementById('gross-weight-date').innerText = (gross.date === null) ? '' : format_print_weight_date(gross.date);
+            document.getElementById('gross-weight-date').innerText = (gross.date === null) ? '' : convertDateFormat(gross.date);
             document.getElementById('gross-weight-user').innerText = (gross.user.id === null) ? '' : gross.user.name.toUpperCase();
 
             document.querySelectorAll('.weight-driver').forEach(div => {
@@ -319,8 +344,8 @@ function print_with_browser(weight) {
             document.getElementById('tare-net').nextElementSibling.innerText = thousand_separator(gross.net - tare.net);
 
             document.querySelector('#final-net-weight').innerText = (weight.final_net_weight === null) ? 0 : thousand_separator(weight.final_net_weight);
-            document.querySelector('#informed-net').innerText = (weight.kilos.informed === null) ? 0 : thousand_separator(weight.kilos.informed);
-            document.querySelector('#net-difference').innerText = thousand_separator(weight.final_net_weight - weight.kilos.informed);
+            document.querySelector('#informed-net').innerText = (weight.kilos.informed === null) ? 0 : thousand_separator(parseInt(weight.kilos.informed));
+            document.querySelector('#net-difference').innerText = thousand_separator(parseInt(weight.final_net_weight - weight.kilos.informed));
 
             if (weight.documents.length === 0) {
                 document.getElementById('documents__detail-line').remove();
@@ -490,9 +515,9 @@ function print_with_browser(weight) {
                             <div class="price">${(product.price === null) ? '-' : `$${thousand_separator(product.price)}`}</div>
                             <div class="containers">${thousand_separator(product.containers)}</div>
                             <div class="kilos">${(product.kilos === 0) ? '-' : thousand_separator(product.kilos) + ' KG'}</div>
-                            <div class="informed-kilos">${(product.informed_kilos === 0) ? '-' : thousand_separator(product.informed_kilos) + ' KG'}</div>
-                            <div class="average">${(product.informed_kilos === 0) ? '-' : Math.floor((product.informed_kilos / product.containers) * 10) / 10}</div>
-                            <div class="total">${(product.informed_kilos === 0) ? '-' : '$' + thousand_separator(product.informed_kilos * product.price)}</div>
+                            <div class="informed-kilos">${(product.informed_kilos === 0) ? '-' : thousand_formatter(product.informed_kilos) + ' KG'}</div>
+                            <div class="average">${(product.informed_kilos === 0) ? '-' : thousand_formatter(Math.floor((product.informed_kilos / product.containers) * 10) / 10)}</div>
+                            <div class="total">${(product.informed_kilos === 0) ? '-' : '$' + thousand_formatter(product.informed_kilos * product.price)}</div>
                         `;
 
                         //SUM TOTALS
@@ -518,18 +543,17 @@ function print_with_browser(weight) {
                         <div class="price">TOTALES</div>
                         <div class="containers">${thousand_separator(total_doc_containers)}</div>
                         <div class="kilos">${thousand_separator(total_doc_kilos)} KG</div>
-                        <div class="informed-kilos">${thousand_separator(total_informed_kilos)} KG</div>
-                        <div class="average">${Math.floor((total_average / line_counter)* 10) / 10}</div>
-                        <div class="total">$${thousand_separator(doc_total)}</div>
+                        <div class="informed-kilos">${thousand_formatter(total_informed_kilos)} KG</div>
+                        <div class="average">${(total_average === 0 || line_counter === 0) ? '0 KG' : thousand_formatter(Math.floor((total_average / line_counter)* 10) / 10)}</div>
+                        <div class="total">$${thousand_formatter(doc_total)}</div>
                     `;
 
                     doc_container.querySelector('.alternate-view__body').append(hr, totals_row_div);
                 }
-
             }
             
 			return resolve();
-		} catch(error) { console.log(`Error. ${error}`); reject() }
+		} catch(error) { console.log(`Error. ${error}`); return reject() }
   	});
 }
 
@@ -556,12 +580,10 @@ function print_with_browser(weight) {
             await window.load_css('css/print.css');
             await window.print_with_browser(response.weight_object);
     
-            //window.document.close(); // necessary for IE >= 10
+            window.document.close(); // necessary for IE >= 10
             window.focus(); // necessary for IE >= 10*/
             window.print();
             window.close();    
         })
-
     }
-
 })();

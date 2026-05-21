@@ -1,8 +1,6 @@
 "use strict"; 
 
-const global = {
-	errors: []
-}
+const global = { errors: [] };
 
 const screen_width = window.screen.width;
 async function valid_session() {
@@ -34,6 +32,18 @@ async function valid_session() {
 
 setInterval(valid_session, 60000); //CHECK VALID SESSION EVERY MINUTE
 
+function formatMySQLDate(mysqlDateString) {
+	const date = new Date(mysqlDateString);
+  
+	const day = String(date.getDate()).padStart(2, '0');
+	const month = String(date.getMonth() + 1).padStart(2, '0'); // Months are 0-based
+	const year = date.getFullYear();
+	const hours = String(date.getHours()).padStart(2, '0');
+	const minutes = String(date.getMinutes()).padStart(2, '0');
+	const seconds = String(date.getSeconds()).padStart(2, '0');
+  
+	return `${day}-${month}-${year} ${hours}:${minutes}:${seconds}`;
+}
 
 //WEIGHT AND DOCUMENT OBJECTS STUFF
 let weight_object, document_object, watch_document;
@@ -46,9 +56,10 @@ const remove_weight_from_weights_array = () => {
 			if (weight_object.frozen.id === weight_objects_array[i].frozen.id) {
 				const index = weight_objects_array.indexOf(weight_objects_array[i]);
 				weight_objects_array.splice(index, 1);
+				break;
 			}
 		}
-		return resolve()	
+		return resolve();
 	})
 }
 
@@ -83,46 +94,48 @@ class create_weight_object {
 	print_weight() {
 		return new Promise(async (resolve, reject) => {
 			try {
-				
-				const 
-				weight_id = this.frozen.id,
-				get_weight = await fetch('/get_finished_weight', {
-					method: 'POST', 
-					headers: { 
-						"Content-Type" : "application/json"
-					}, 
-					body: JSON.stringify({ weight_id })
-				}),
-				response = await get_weight.json();
-			
-				if (response.error !== undefined) throw response.error;
-				if (!response.success) throw 'Success response from server is false.';
 
-				await load_script('js/qz-tray.js');
-				await load_script('js/print.js');
+				const weight_id = this.frozen.id;
 
-				//PRINT WITH DOT MATRIX
-				if (jwt_decode(token.value).qzTray) {
-					try {
-					
-						if (!await qz.websocket.isActive()) await qz.websocket.connect();
-						console.log("connected to printer socket");
-				
-						const printer = await qz.printers.find("OKI");
-						console.log(`Printer ${printer} found!`);
-	
-						const config = qz.configs.create(printer);
-						console.log('ok')
-	
-						await print_with_dot_matrix(config, response.weight_object);
-						return resolve();
-				
-					} catch(print_error) { console.log(`Couldn't connect to printer. ${print_error}`) }
+				// PRINT WEIGHT WITH BROWSER SO IT CAN GET PRINTED USING A LASER OR INK PRINTER
+				if (!jwt_decode(token.value).qzTray) {
+					window.open(`${domain}:3000/print?weight_id=${weight_id}`, 'PRINT');
+					return resolve();
 				}
 
-				//CREATE WINDOW AND PRINT WITH BROWSER
-				window.open(`${domain}:3000/print?weight_id=${weight_id}`, 'PRINT');
+				//PRINT WEIGHT WITH DOT MATRIX PRINTER CONNECTED TO THE SERVER
+				if (jwt_decode(token.value).qzTray && !jwt_decode(token.value).localDotmatrixPrinter) {
+
+					const 
+					get_weight = await fetch('/print_weight_in_server_printer', {
+						method: 'POST', 
+						headers: { 
+							"Content-Type" : "application/json"
+						}, 
+						body: JSON.stringify({ weight_id })
+					}),
+					response = await get_weight.json();
 				
+					if (response.error !== undefined) throw response.error;
+					if (!response.success) throw 'Success response from server is false.';
+
+					return resolve();
+				}
+
+				//PRINT WITH DOT MATRIX PRINTER CONNECTED TO CURRENT COMPUTER
+				await load_script('js/qz-tray.js');
+				await load_script('js/print.js');
+			
+				if (!await qz.websocket.isActive()) await qz.websocket.connect();
+				console.log("connected to printer socket");
+		
+				const printer = await qz.printers.find("OKI");
+				console.log(`Printer ${printer} found!`);
+
+				const config = qz.configs.create(printer);
+				console.log('ok')
+
+				await print_with_dot_matrix(config, this);
 				return resolve();
 
 			} catch(error) { error_handler('Error al intentar imprimir pesaje', error); return reject(error) }
@@ -130,8 +143,11 @@ class create_weight_object {
 	}
 
 	update_driver(driver_id, set_driver_as_default) {
+		
 		if (!this.active.edit) return;
+
 		return new Promise(async (resolve, reject) => {
+		
 			driver_id = sanitize(driver_id);
 			const weight_id = sanitize(this.frozen.id);
 			try {
@@ -150,6 +166,7 @@ class create_weight_object {
 				this.driver.id = response.driver.id;
 				this.driver.name = response.driver.name;
 				this.driver.rut = response.driver.rut;
+
 				return resolve();
 			} catch(error) { error_handler('Error al actualizar chofer en pesaje en /update_driver', error); return reject(error) }
 		})
@@ -181,6 +198,7 @@ class create_weight_object {
 				for (let i = 0; i < docs.length; i++) {
 					if (docs[i].frozen.id === parseInt(doc_id)) {
 						weight_object.documents.splice(i, 1);
+						break;
 					}
 				}
 
@@ -244,13 +262,12 @@ class create_document_object {
 		const watch = {
 			containers: this.containers,
 			containers_weight: this.containers_weight,
-			kilos: this.kilos,
-			total: this.total
+			kilos: this.kilos
 		}
 
 		watch_document = setInterval(async () => {
 
-			if (!weight_object.kilos_breakdown || weight_object === null) {
+			if (weight_object === null || (weight_object !== null && !weight_object.kilos_breakdown)) {
 				clearInterval(watch_document);
 				return;
 			}
@@ -546,11 +563,17 @@ class create_document_object {
 				this.client.entity.name = response.entity.name;
 
 				if (response.last_record.found) {
+
+					// UNCOMMENT TO FILL LAST ENTITY
 					this.internal.entity.id = response.last_record.entity.id;
-					this.internal.entity.name = response.last_record.entity.name;
+					this.internal.entity.name = response.last_record.entity.name;	
+
 					this.internal.branch.id = response.last_record.branch.id;
 					this.internal.branch.name = response.last_record.branch.name;
-				} else {
+
+				}
+				
+				else {
 					this.internal.entity.id = null;
 					this.internal.entity.name = null;
 					this.internal.branch.id = null;
@@ -844,6 +867,7 @@ class document_row {
 
 				document_object.kilos = response.doc_kilos;
 				document_object.total = response.doc_total;
+				
 				return resolve();
 			}
 			catch (error) { error_handler('Error al actualizar kilos en /update_kilos', error); return reject(error) }
@@ -981,7 +1005,13 @@ const main_content = document.getElementById('main__content');
 
 function main_content_animation() {
 	return new Promise(resolve => {
+
 		if (!animating) {
+
+			const user_profile = document.querySelector('#user-profile');
+			const target_div = document.querySelector('#main__content > .active');
+			target_div.querySelector('nav.breadcrumb > ul').after(user_profile);
+
 			main_content.classList.remove('hidden');
 			main_content.classList.add('fadeout-scaled-down');
 			main_content.addEventListener('animationend', () => {
@@ -995,7 +1025,8 @@ function main_content_animation() {
 			main_content.classList.add('hidden');
 			main_content.classList.remove('fadeout-scaled-up');
 			animating = false;	
-		}, { once: true });	
+		}, { once: true });
+
 		return resolve();
 	})
 }
@@ -1278,7 +1309,6 @@ const create_vehicle_finalize = async function() {
 const edit_vehicle_finalize = async function() {
 
 	if (clicked) return;
-	
 
 	const 
 	modal = document.getElementById('vehicles__vehicle-template'),
@@ -1539,6 +1569,30 @@ const create_vehicle_choose_driver = async () => {
 	} catch(error) { error_handler('Error en patente del vehículo.', error) }
 }
 
+document.querySelector('#left__menu').addEventListener('mouseover', () => {
+
+	const profile = document.querySelector('#user-profile');
+	if (profile.classList.contains('active')) return;
+
+	profile.classList.add('active');
+
+	const left = parseFloat(profile.style.left.replace('px', ''));
+	profile.style.left = `${left + 50}px`;
+
+});
+
+document.querySelector('#left__menu').addEventListener('mouseleave', () => {
+
+	const profile = document.querySelector('#user-profile');
+	if (!profile.classList.contains('active')) return;
+
+	const left = parseFloat(profile.style.left.replace('px', ''));
+	profile.style.left = `${left - 50}px`;
+
+	profile.classList.remove('active');
+
+});
+
 document.getElementById('user-profile').addEventListener('click', function() {
 	if (btn_double_clicked(this)) return;
 	document.getElementById('menu-user').click();
@@ -1569,6 +1623,11 @@ document.getElementById('menu-user').addEventListener('click', () => {
 						
 						<div id="user-profile__preferences-container">
 							<div id="user-profile__preferences">
+								<div id="user-profile__local_dotmatrix_printer" onclick="(this.querySelector('input').checked) ? this.querySelector('input').checked = false : this.querySelector('input').checked = true;">
+									<input class="create-vehicle__active-cbx" type="checkbox"  value="">
+									<label class="cbx"></label>
+									<label class="lbl">IMPRESORA A PUNTO LOCAL</label>
+								</div>
 								<div id="user-profile__qz-tray" onclick="(this.querySelector('input').checked) ? this.querySelector('input').checked = false : this.querySelector('input').checked = true;">
 									<input class="create-vehicle__active-cbx" type="checkbox"  value="">
 									<label class="cbx"></label>
@@ -1694,6 +1753,7 @@ document.getElementById('menu-user').addEventListener('click', () => {
 	`;
 
 	if (jwt_decode(token.value).qzTray) container.querySelector('#user-profile__qz-tray input').checked = true;
+	if (jwt_decode(token.value).localDotmatrixPrinter) container.querySelector('#user-profile__local_dotmatrix_printer input').checked = true;
 	if (jwt_decode(token.value).tutorial) container.querySelector('#user-profile__tutorial input').checked = true;
 	if (jwt_decode(token.value).keepSessionAlive) container.querySelector('#user-profile__session-alive input').checked = true;
 	if (jwt_decode(token.value).notifyErrors) container.querySelector('#user-profile__notify_errors input').checked = true;
@@ -1828,7 +1888,8 @@ document.getElementById('menu-user').addEventListener('click', () => {
 			if (response.error !== undefined) throw response.error;
 			if (!response.success) throw 'Success response from server is false.';
 
-			alert('success')
+			console.log('success');
+			document.querySelector('#user-profile__accept-btn').click();
 
 		} catch(e) { error_handler('No se puede guardar nueva contraseña.', e) }
 	})
@@ -1871,6 +1932,7 @@ document.getElementById('menu-user').addEventListener('click', () => {
 
 		const data = {
 			qz_tray: container.querySelector('#user-profile__qz-tray input').checked,
+			localDotmatrixPrinter: container.querySelector('#user-profile__local_dotmatrix_printer input').checked,
 			tutorial: container.querySelector('#user-profile__tutorial input').checked,
 			keep_session_alive: container.querySelector('#user-profile__session-alive input').checked,
 			notify_errors: container.querySelector('#user-profile__notify_errors input').checked
@@ -2044,7 +2106,7 @@ document.getElementById('menu-weights').addEventListener('click', async function
 	if (!!active_container && active_container.id === 'weight') {
 
 		if (!!document.querySelector('#create-weight-step-2')) 
-		document.querySelector('#create-weight-step-2 > .close-btn-absolute').click();
+			document.querySelector('#create-weight-step-2 > .close-btn-absolute').click();
 	
 		//CREATE WEIGHT FIRST STEP IS OPEN SO IT CLOSES IT
 		else if (document.querySelector('#create-weight-step-1').classList.contains('active')) 
@@ -2239,12 +2301,11 @@ document.getElementById('menu-analytics').addEventListener('click', async functi
 			document.querySelector('.menu-item.active').classList.remove('active');
 			active_container.classList.remove('active');
 
+			document.getElementById('menu-analytics').classList.add('active');
+			document.getElementById('analytics').classList.add('active');
+
 			main_content_animation();
-
 		}
-
-		document.getElementById('menu-analytics').classList.add('active');
-		document.getElementById('analytics').classList.add('active');
 
 		document.querySelector('#analytics').classList.remove('hidden');
 
@@ -2257,7 +2318,7 @@ document.getElementById('menu-analytics').addEventListener('click', async functi
 document.getElementById('menu-clients').addEventListener('click', async function() {
 
 	const btn = this;
-	if (btn_double_clicked(btn) || animating) return;
+	if (btn_double_clicked(btn) || animating || btn.classList.contains('active')) return;
 	
 	const active_container = document.querySelector('#main__content > .active');
 	animating = true;
@@ -2338,9 +2399,6 @@ document.getElementById('menu-products').addEventListener('click', async functio
 
 		while (animating) { await delay(10) }
 
-		document.querySelectorAll('#products__table .tbody .tr').forEach(tr => { tr.remove() });
-		await get_all_products();
-
 		document.querySelector('.menu-item.active').classList.remove('active');
 		btn.classList.add('active');
 
@@ -2356,7 +2414,7 @@ document.getElementById('menu-products').addEventListener('click', async functio
 document.getElementById('menu-vehicles').addEventListener('click', async function() {
 
 	const btn = this;
-	if (btn_double_clicked(btn) || animating) return;
+	if (btn_double_clicked(btn) || animating || btn.classList.contains('active')) return;
 
 	const active_container = document.querySelector('#main__content > .active');
 	animating = true;
@@ -2394,53 +2452,30 @@ document.getElementById('menu-vehicles').addEventListener('click', async functio
 	catch(error) { error_handler('Error al intentar abrir vehiculos.', error); animating = false }
 });
 
-/*********** COMPANIES ***********/
-document.getElementById('menu-companies').addEventListener('click', async function() {
-
-	const btn = this;
-	if (btn_double_clicked(btn) || animating) return;
-
-	animating = true;
-
-	const active_container = document.querySelector('#main__content > .active');
-	if (!!active_container) main_content_animation();
-	
-	await load_css('css/companies.css');
-	await load_script('js/companies.js');
-
-	if (!!active_container) {
-		while (animating) await delay(10);
-		document.querySelector('.menu-item.active').classList.remove('active');
-		active_container.classList.remove('active');
-	}
-
-	btn.classList.add('active');
-	document.getElementById('companies').classList.add('active');
-
-	if (!!active_container) main_content_animation();
-	animating = false;
-});
-
 /*********** DRIVERS ***********/
 document.getElementById('menu-drivers').addEventListener('click', async function() {
 
 	const btn = this;
-	if (btn_double_clicked(btn) || animating) return;
+	if (btn_double_clicked(btn) || animating || btn.classList.contains('active')) return;
 
 	animating = true;
 
 	const active_container = document.querySelector('#main__content > .active');
 	if (!!active_container) main_content_animation();
 
-	const template = await (await fetch('../templates/template-drivers.html', {
-		method: 'GET',
-		headers: { "Cache-Control" : "no-cache" }
-	})).text();
+	if (!!document.querySelector('#drivers__table-grid') === false) {
+		const template = await (await fetch('../templates/template-drivers.html', {
+			method: 'GET',
+			headers: { "Cache-Control" : "no-cache" }
+		})).text();
 
-	document.querySelector('#drivers > .content').innerHTML = template;
+		document.querySelector('#drivers > .content').innerHTML = template;
+	}
 
 	await load_css('css/config.css');
 	await load_script('js/drivers.js');
+
+	await get_drivers();
 
 	if (!!active_container) {
 		while (animating) await delay(10);
@@ -2461,10 +2496,11 @@ document.getElementById('menu-containers').addEventListener('click', async funct
 	try {
 
 		const btn = this;
-		if (btn_double_clicked(btn) || animating) return;
+		if (btn_double_clicked(btn) || animating || btn.classList.contains('active')) return;
+
+		animating = true;
 
 		const active_container = document.querySelector('#main__content > .active');
-		animating = true;
 		if (!!active_container) main_content_animation()
 		
 		await load_css('css/config.css');
@@ -2490,7 +2526,7 @@ document.getElementById('menu-containers').addEventListener('click', async funct
 document.getElementById('menu-errors').addEventListener('click', async function() {
 
 	const btn = this;
-	if (btn_double_clicked(btn) || animating) return;
+	if (btn_double_clicked(btn) || animating || btn.classList.contains('active')) return;
 
 	if (document.querySelector('#errors').classList.contains('visible')) {
 		document.querySelector('#errors .close-btn-absolute').click();
@@ -2498,11 +2534,40 @@ document.getElementById('menu-errors').addEventListener('click', async function(
 	}
 
 	check_loader();
-
 	socket.emit('get errors from server');
 
 	//REST OF THE FUNCTION CONTINUES IN SOCKET SCRIPT
+});
 
+document.getElementById('menu-config').addEventListener('click', async function() {
+
+	try {
+
+		const btn = this;
+		if (btn_double_clicked(btn) || animating || btn.classList.contains('active')) return;
+
+		animating = true;
+
+		const active_container = document.querySelector('#main__content > .active');
+		if (!!active_container) main_content_animation();
+		
+		await load_css('css/config.css');
+		//await load_script('js/containers.js');
+
+		if (!!active_container) {
+			while (animating) await delay(10);
+			document.querySelector('.menu-item.active').classList.remove('active');
+			active_container.classList.remove('active');
+		}
+
+		btn.classList.add('active');
+		document.getElementById('config').classList.add('active');
+
+		if (!!active_container) main_content_animation();
+
+	}
+	catch(e) { error_handler('No se pudo cargar el módulo.', e) }
+	finally { animating = false }
 });
 
 if (screen_width < 768) {

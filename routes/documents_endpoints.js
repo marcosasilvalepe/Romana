@@ -20,7 +20,7 @@ documents_router.get('/documents_get_docs', userMiddleware.isLoggedIn, async (re
                     header.number, header.status AS doc_status, entities.name AS entity, header.date
                     FROM documents_header header
                     INNER JOIN weights ON header.weight_id=weights.id
-                    INNER JOIN entities ON header.client_entity=entities.id
+                    LEFT OUTER JOIN entities ON header.client_entity=entities.id
                     INNER JOIN cycles ON weights.cycle=cycles.id
                     WHERE weights.status='T' AND header.status='I'
                     ORDER BY weights.id DESC, header.id ASC LIMIT 100;
@@ -135,7 +135,7 @@ documents_router.post('/documents_get_docs_from_filters', userMiddleware.isLogge
             new_end_date = format_html_date(new Date());
         }
 
-        const date_sql = `AND (header.date BETWEEN '${new_start_date} 00:00:00' AND '${new_end_date} 00:00:00')`;
+        const date_sql = `AND (header.date BETWEEN '${new_start_date} 00:00:00' AND '${new_end_date} 23:59:59')`;
 
         await get_documents();
         response.date = {
@@ -155,36 +155,73 @@ documents_router.post('/documents_get_docs_from_filters', userMiddleware.isLogge
 
 documents_router.post('/documents_generate_excel', userMiddleware.isLoggedIn, async (req, res) => {
 
-    const 
-    { weight_status, doc_status, cycle, doc_number, entity, start_date, end_date, type, min_weight, max_weight } = req.body,
-    weight_status_sql = (weight_status === 'All') ? '' : `AND weights.status='${weight_status}'`,
-    doc_status_sql = (doc_status === 'All') ? '' : `AND header.status='${doc_status}'`,
-    cycle_sql = (cycle === 'All') ? '' : `AND weights.cycle=${parseInt(cycle)}`,
-    entity_sql = (entity.length === 0) ? '' : `AND entities.name LIKE '%${entity}%'`,
-    doc_number_sql = (doc_number.length === 0 || doc_number === null) ? '' : `AND header.number=${parseInt(doc_number)}`,
-    temp = {},
-    response = { success: false };
+    const { weight_status, doc_status, cycle, doc_number, entity, start_date, end_date, type, min_weight, max_weight } = req.body;
+    const weight_status_sql = (weight_status === 'All') ? '' : `AND weights.status='${weight_status}'`;
+    const doc_status_sql = (doc_status === 'All') ? '' : `AND header.status='${doc_status}'`;
+    const cycle_sql = (cycle === 'All') ? '' : `AND weights.cycle=${parseInt(cycle)}`;
+    const entity_sql = (entity.length === 0) ? '' : `AND entities.name LIKE '%${entity}%'`;
+    const doc_number_sql = (doc_number.length === 0) ? '' : `AND header.number=${parseInt(doc_number)}`;
+
+    const response = { success: false };
 
     try {
+
+        const build_document_objects = records => {
+            return new Promise((resolve, reject) => {
+                try {
+
+                    const documents = [];
+                    let current_document;
+
+                    for (const record of records) {
+
+                        if (current_document === record.id) continue;
+                        current_document = record.id;
+
+                        documents.push({
+                            weight_status: record.weight_status,
+                            weight_id: record.weight_id,
+                            cycle_name: record.cycle_name,
+                            primary_plates: record.primary_plates,
+                            driver: record.driver,
+                            number: record.number,
+                            date: record.date,
+                            doc_status: record.doc_status,
+                            entity: record.entity,
+                            branch: record.branch,
+                            document_total: record.document_total,
+                            containers: records
+                                .filter(row => row.id === current_document)
+                                .reduce((accumulator, currentRow) => accumulator += currentRow.container_amount, 0)
+                        });
+                        
+                    }
+
+                    return resolve(documents);
+                }
+                catch(e) { return reject(e) }
+            })
+        }
 
         const get_last_100_records_simple = () => {
             return new Promise((resolve, reject) => {
                 conn.query(`
-                    SELECT header.weight_id, weights.status AS weight_status, weights.cycle, cycles.name AS cycle_name, weights.primary_plates,
-                    header.number, header.status AS doc_status, entities.name AS entity, header.date, header.document_total, drivers.name AS driver,
-                    entity_branches.name AS branch
+                    SELECT header.weight_id, header.id, weights.status AS weight_status, weights.cycle, cycles.name AS cycle_name, 
+                    weights.primary_plates, header.number, header.status AS doc_status, entities.name AS entity, 
+                    header.date, header.document_total, drivers.name AS driver, body.container_amount, entity_branches.name AS branch
                     FROM documents_header header
                     INNER JOIN weights ON header.weight_id=weights.id
-                    LEFT OUTER JOIN entities ON header.client_entity=entities.id
                     INNER JOIN cycles ON weights.cycle=cycles.id
+                    INNER JOIN documents_body body ON header.id=body.document_id
+                    LEFT OUTER JOIN entities ON header.client_entity=entities.id
                     LEFT OUTER JOIN drivers ON weights.driver_id=drivers.id
                     LEFT OUTER JOIN entity_branches ON header.client_branch=entity_branches.id
-                    WHERE 1=1 ${doc_number_sql} ${weight_status_sql} ${doc_status_sql} ${cycle_sql} ${entity_sql}
-                    ORDER BY weights.id DESC, header.id LIMIT 100;
+                    WHERE (header.weight_id BETWEEN ${parseInt(min_weight)} AND ${parseInt(max_weight)})
+                    ${doc_number_sql} ${weight_status_sql} ${doc_status_sql} ${cycle_sql} ${entity_sql}
+                    ORDER BY weights.id DESC;
                 `, (error, results, fields) => {
                     if (error) return reject(error);
-                    temp.documents = results;
-                    return resolve()
+                    return resolve(results);
                 })
             })
         }
@@ -192,26 +229,26 @@ documents_router.post('/documents_generate_excel', userMiddleware.isLoggedIn, as
         const get_documents_simple = () => {
             return new Promise((resolve, reject) => {
                 conn.query(`
-                    SELECT header.weight_id, weights.status AS weight_status, weights.cycle, cycles.name AS cycle_name, weights.primary_plates,
-                    header.number, header.status AS doc_status, entities.name AS entity, header.date, header.document_total, drivers.name AS driver,
-                    entity_branches.name AS branch
+                    SELECT header.weight_id, header.id, weights.status AS weight_status, weights.cycle, cycles.name AS cycle_name, 
+                    weights.primary_plates, header.number, header.status AS doc_status, entities.name AS entity, header.date, 
+                    header.document_total, drivers.name AS driver, body.container_amount, entity_branches.name AS branch
                     FROM documents_header header
                     INNER JOIN weights ON header.weight_id=weights.id
-                    LEFT OUTER JOIN entities ON header.client_entity=entities.id
                     INNER JOIN cycles ON weights.cycle=cycles.id
+                    INNER JOIN documents_body body ON header.id=body.document_id
+                    LEFT OUTER JOIN entities ON header.client_entity=entities.id
                     LEFT OUTER JOIN drivers ON weights.driver_id=drivers.id
                     LEFT OUTER JOIN entity_branches ON header.client_branch=entity_branches.id
                     WHERE 1=1 ${doc_number_sql} ${weight_status_sql} ${doc_status_sql} ${cycle_sql} ${entity_sql} ${date_sql}
                     ORDER BY weights.id DESC, header.id;
                 `, (error, results, fields) => {
                     if (error) return reject(error);
-                    temp.documents = results;
-                    return resolve();
+                    return resolve(results);
                 })
             })
         }
 
-        const generate_excel_simple = () => {
+        const generate_excel_simple = data => {
             return new Promise(async (resolve, reject) => {
                 try {
 
@@ -220,7 +257,14 @@ documents_router.post('/documents_generate_excel', userMiddleware.isLoggedIn, as
 
                     const sheet = workbook.addWorksheet('Hoja1', {
                         pageSetup:{
-                            paperSize: 9
+                            paperSize: undefined,
+                            orientation: 'landscape',
+                            horizontalCentered: true,
+                            margins: {
+                                left: 0.3, right: 0.3,
+                                top: 0.5, bottom: 0.5,
+                                header: 0.3, footer: 0.3
+                            }
                         }
                     });
 
@@ -231,17 +275,19 @@ documents_router.post('/documents_generate_excel', userMiddleware.isLoggedIn, as
                         { header: 'CICLO', key: 'cycle' },
                         { header: 'VEHICULO', key: 'plates' },
                         { header: 'CHOFER', key: 'driver' },
+                        { header: 'N° DOC.', key: 'doc_number' },
                         { header: 'FECHA DOC.', key: 'doc_date' },
                         { header: 'ESTADO DOC.', key: 'doc_status' },
                         { header: 'ENTIDAD', key: 'entity' },
                         { header: 'SUCURSAL', key: 'branch' },
+                        { header: 'ENVASES', key: 'containers' },
                         { header: 'TOTAL DOC.', key: 'doc_total' }
                     ]
 
                     //FORMAT FIRST ROW
                     const header_row = sheet.getRow(1);
-                    for (let i = 1; i <= 11; i++) {
-                        header_row.border = {
+                    for (let i = 1; i <= sheet.columns.length; i++) {
+                        header_row.getCell(i).border = {
                             top: { style: 'thin' },
                             left: { style: 'thin' },
                             bottom: { style: 'thin' },
@@ -258,16 +304,29 @@ documents_router.post('/documents_generate_excel', userMiddleware.isLoggedIn, as
                         }
                     }
 
-                    const docs = temp.documents;
+
+                    const docs = await build_document_objects(data);
+                    let current_row = 1;
 
                     for (let i = 0; i < docs.length; i++) {
                         
+                        current_row++;
                         const data_row = sheet.getRow(i + 2);
 
                         let weight_status;
-                        if (docs[i].weight_status === 'T') weight_status = 'TERMINADO';
-                        else if (docs[i].weight_status === 'I') weight_status = 'INGRESADO';
-                        else if (docs[i].weight_status === 'N') weight_status = 'NULO';
+                        switch (docs[i].weight_status) {
+                            case "T":
+                                weight_status = 'TERMINADO';
+                                break;
+                            
+                            case "I":
+                                weight_status = 'INGRESADO';
+                                break;
+
+                            case "N":
+                                weight_status = 'NULO';
+                                break;
+                        }
 
                         data_row.getCell(1).value = i + 1;
                         data_row.getCell(2).value = weight_status;
@@ -275,29 +334,16 @@ documents_router.post('/documents_generate_excel', userMiddleware.isLoggedIn, as
                         data_row.getCell(4).value = docs[i].cycle_name;
                         data_row.getCell(5).value = docs[i].primary_plates;
                         data_row.getCell(6).value = docs[i].driver;
-                        data_row.getCell(7).value = docs[i].date
-                        data_row.getCell(8).value = (docs[i].doc_status === 'I') ? 'INGRESADO' : 'NULO';
-                        data_row.getCell(9).value = docs[i].entity;
-                        data_row.getCell(10).value = docs[i].branch;
-                        data_row.getCell(11).value = (docs[i].document_total === null)  ? 0 : parseInt(docs[i].document_total);
+                        data_row.getCell(7).value = docs[i].number;
+                        data_row.getCell(8).value = (docs[i] === null) ? '-' : new Date(Math.round(docs[i].date) + (1000 * 60 * 60 * 2));
+                        data_row.getCell(9).value = (docs[i].doc_status === 'I') ? 'INGRESADO' : 'NULO';
+                        data_row.getCell(10).value = docs[i].entity;
+                        data_row.getCell(11).value = docs[i].branch;
+                        data_row.getCell(12).value = docs[i].containers;
+                        data_row.getCell(13).value = (docs[i].document_total === null)  ? 0 : parseInt(docs[i].document_total);
 
-                        data_row.getCell(1).numFmt = '#,##0;[Red]#,##0';
-                        data_row.getCell(3).numFmt = '#,##0;[Red]#,##0';
-                        data_row.getCell(11).numFmt = '#,##0;[Red]#,##0';
-
-                        for (let j = 1; j <= 11; j++) {
-                            const active_cell = data_row.getCell(j);
-                            active_cell.font = {
-                                size: 11,
-                                name: font
-                            }
-
-                            active_cell.alignment = {
-                                vertical: 'middle',
-                                horizontal: 'center'
-                            }
-
-                            active_cell.border = {
+                        for (let j = 1; j <= sheet.columns.length; j++) {
+                            data_row.getCell(j).border = {
                                 top: { style: 'thin' },
                                 left: { style: 'thin' },
                                 bottom: { style: 'thin' },
@@ -306,16 +352,42 @@ documents_router.post('/documents_generate_excel', userMiddleware.isLoggedIn, as
                         }
                     }
 
-                    sheet.columns.forEach(column => {
+                    // SET FORMAT FOR COLUMNS
+                    sheet.getColumn(1).numFmt = '#,##0;[Red]#,##0';
+                    sheet.getColumn(3).numFmt = '#,##0;[Red]#,##0';
+                    sheet.getColumn(7).numFmt = '#,##0;[Red]#,##0';
+                    sheet.getColumn(8).numFmt = 'DD-MM-YYYY';
+                    sheet.getColumn(12).numFmt = '#,##0;[Red]#,##0';
+                    sheet.getColumn(13).numFmt = '$#,##0;[Red]-$#,##0';;
+
+                    //SET WIDTH FOR EACH COLUMN
+                    for (let j = 1; j <= sheet.columns.length; j++) {
+
+                        // CENTER ALL COLUMNS
+                        sheet.getColumn(j).alignment = {
+                            vertical: 'middle',
+                            horizontal: 'center'
+                        }
+
+                        sheet.getColumn(j).font = {
+                            size: 11,
+                            name: font
+                        }
+
                         let dataMax = 0;
-                        column.eachCell({ includeEmpty: false }, cell => {
-                            let columnLength = cell.value.length + 3;	
-                            if (columnLength > dataMax) {
-                                dataMax = columnLength;
-                            }
-                        });
-                        column.width = (dataMax < 5) ? 5 : dataMax;
-                    });
+                        for (let i = current_row - 1; i >= 1; i--) {
+    
+                            const this_row = sheet.getRow(i);
+                            const this_cell = this_row.getCell(j);
+
+                            if (this_cell.value === null) continue;
+    
+                            let columnLength = this_cell.value.length + 3;	
+                            if (columnLength > dataMax) dataMax = columnLength;
+                        }
+    
+                        sheet.getColumn(j).width = (dataMax < 5) ? 5 : dataMax; 
+                    }
 
                     sheet.removeConditionalFormatting();
 
@@ -332,7 +404,8 @@ documents_router.post('/documents_generate_excel', userMiddleware.isLoggedIn, as
             return new Promise((resolve, reject) => {
                 conn.query(`
                     SELECT header.id, weights.created AS weight_date, header.weight_id, weights.status AS weight_status, weights.cycle, cycles.name AS cycle_name, 
-                    weights.primary_plates, header.number AS doc_number, header.status AS doc_status, entities.name AS entity, entities.billing_type, header.date, 
+                    weights.primary_plates, header.number AS doc_number, header.status AS doc_status, entities.name AS entity, entities.billing_type, 
+                    header.date, 
                     header.document_total, drivers.name AS driver, entity_branches.name AS branch, containers.name AS container_name, body.container_amount, 
                     body.product_name, body.cut, body.kilos, body.informed_kilos, body.price, body.informed_kilos, documents_comments.comments
                     FROM documents_header header
@@ -359,8 +432,8 @@ documents_router.post('/documents_generate_excel', userMiddleware.isLoggedIn, as
             return new Promise((resolve, reject) => {
                 conn.query(`
                     SELECT header.id, weights.created AS weight_date, header.weight_id, weights.status AS weight_status, weights.cycle, cycles.name AS cycle_name, 
-                    weights.primary_plates, header.number AS doc_number, header.status AS doc_status, entities.name AS entity, entities.billing_type, header.date, 
-                    header.document_total, drivers.name AS driver, entity_branches.name AS branch, containers.name AS container_name, body.container_amount, 
+                    weights.primary_plates, header.number AS doc_number, header.status AS doc_status, entities.name AS entity, entities.billing_type, 
+                    header.date, header.document_total, drivers.name AS driver, entity_branches.name AS branch, containers.name AS container_name, body.container_amount, 
                     body.product_name, body.cut, body.kilos, body.informed_kilos, body.price, body.informed_kilos, documents_comments.comments
                     FROM documents_header header
                     INNER JOIN documents_body body ON header.id=body.document_id
@@ -443,7 +516,14 @@ documents_router.post('/documents_generate_excel', userMiddleware.isLoggedIn, as
 
                     const sheet = workbook.addWorksheet('Hoja1', {
                         pageSetup:{
-                            paperSize: 9
+                            paperSize: undefined,
+                            orientation: 'landscape',
+                            horizontalCentered: true,
+                            margins: {
+                                left: 0.3, right: 0.3,
+                                top: 0.5, bottom: 0.5,
+                                header: 0.3, footer: 0.3
+                            }
                         }
                     });
 
@@ -513,7 +593,8 @@ documents_router.post('/documents_generate_excel', userMiddleware.isLoggedIn, as
                             data_row.getCell(4).value = documents[i].cycle;
                             data_row.getCell(5).value = documents[i].plates;
                             data_row.getCell(6).value = documents[i].driver;
-                            data_row.getCell(7).value = documents[i].date;
+
+                            data_row.getCell(7).value = (documents[i] === null) ? '-' : new Date(Math.round(documents[i].date) + (1000 * 60 * 60 * 2));
                             data_row.getCell(8).value = documents[i].number;                           
                             data_row.getCell(9).value = documents[i].doc_status;
                             data_row.getCell(10).value = documents[i].entity;
@@ -525,22 +606,13 @@ documents_router.post('/documents_generate_excel', userMiddleware.isLoggedIn, as
                             data_row.getCell(15).value = (row.cut === null) ? '' : row.cut;
                             data_row.getCell(16).value = (row.price === null) ? '' : parseInt(row.price);
                             data_row.getCell(17).value = (row.kilos === null) ? '' : parseInt(row.kilos);
-                            data_row.getCell(18).value = (row.informed_kilos === null) ? '' : parseInt(row.informed_kilos);
+                            data_row.getCell(18).value = (row.informed_kilos === null) ? '' : parseFloat(row.informed_kilos);
 
                             //IF ENTITY GET BILLED FOR OUR KILOS THEN TOTAL FORMULA MULTITPLIES KILOS WITH PRICE. OTHERWISE IT MULTIPLIES INFORMED_KILOS WITH PRICE
-                            if (documents[i].internal_billing) data_row.getCell(19).value = { formula: `=P${current_row}*Q${current_row}`};
-                            else data_row.getCell(19).value = { formula: `=P${current_row}*R${current_row}`};
+                            if (documents[i].internal_billing) data_row.getCell(19).value = (row.kilos === null || row.price === null) ? '' : { formula: `=P${current_row}*Q${current_row}`};
+                            else data_row.getCell(19).value = (row.kilos === null || row.price === null) ? '' : { formula: `=P${current_row}*R${current_row}`};
 
                             data_row.getCell(20).value = documents[i].comments;
-
-                            data_row.getCell(2).numFmt = '#,##0;[Red]#,##0';
-                            data_row.getCell(3).numFmt = 'DD/MM/YYYY HH:MM:SS';
-                            data_row.getCell(8).numFmt = '#,##0;[Red]#,##0';
-                            data_row.getCell(13).numFmt = '#,##0;[Red]#,##0';
-                            data_row.getCell(16).numFmt = '$#,##0;[Red]-$#,##0';
-                            data_row.getCell(17).numFmt = '#,##0;[Red]#,##0';
-                            data_row.getCell(18).numFmt = '#,##0;[Red]#,##0';
-                            data_row.getCell(19).numFmt = '$#,##0;[Red]-$#,##0';
 
                             //FORMAT EACH CELL ROW
                             for (let j = 1; j <= 20; j++) {
@@ -549,10 +621,6 @@ documents_router.post('/documents_generate_excel', userMiddleware.isLoggedIn, as
                                     left: { style: 'thin' },
                                     bottom: { style: 'thin' },
                                     right: { style: 'thin' }
-                                }
-                                data_row.getCell(j).alignment = {
-                                    vertical: 'middle',
-                                    horizontal: 'center'
                                 }
                             }
 
@@ -603,6 +671,12 @@ documents_router.post('/documents_generate_excel', userMiddleware.isLoggedIn, as
                     //SET WIDTH FOR EACH COLUMN
                     for (let j = 1; j <= 20; j++) {
 
+                        // CENTER ALL COLUMNS
+                        sheet.getColumn(j).alignment = {
+                            vertical: 'middle',
+                            horizontal: 'center'
+                        }
+
                         let dataMax = 0;
                         for (let i = current_row - 1; i > 1; i--) {
     
@@ -620,8 +694,19 @@ documents_router.post('/documents_generate_excel', userMiddleware.isLoggedIn, as
                         sheet.getColumn(j).width = (dataMax < 5) ? 5 : dataMax; 
                     }
 
+                    sheet.getColumn(2).numFmt = '#,##0;[Red]#,##0';
+                    sheet.getColumn(3).numFmt = 'DD-MM-YYYY HH:MM:SS';
+                    sheet.getColumn(7).numFmt = 'DD-MM-YYYY';
+                    
+                    sheet.getColumn(8).numFmt = '#,##0;[Red]#,##0';
+                    sheet.getColumn(13).numFmt = '#,##0;[Red]#,##0';
+                    sheet.getColumn(16).numFmt = '$#,##0;[Red]-$#,##0';
+                    sheet.getColumn(17).numFmt = '#,##0;[Red]#,##0';
+                    sheet.getColumn(18).numFmt = '#,##0;[Red]#,##0';
+                    sheet.getColumn(19).numFmt = '$#,##0;[Red]-$#,##0';
+
                     sheet.getColumn(2).width = 12;
-                    sheet.getColumn(3).width = 21;
+                    sheet.getColumn(3).width = 25;
                     sheet.getColumn(20).width = 30;
 
                     sheet.removeConditionalFormatting();
@@ -651,21 +736,22 @@ documents_router.post('/documents_generate_excel', userMiddleware.isLoggedIn, as
             new_end_date = format_html_date(new Date());
         }
 
-        const date_sql = `AND (weights.created BETWEEN '${new_start_date} 00:00:00' AND '${new_end_date} 23:59:59')`;
+        const date_sql = (doc_number.length > 0) ? '' : `AND (weights.created BETWEEN '${new_start_date} 00:00:00' AND '${new_end_date} 23:59:59')`;
 
         if (type === 'simple') {
 
-            if (start_date.length === 0 && end_date.length === 0) await get_last_100_records_simple();
-            else await get_documents_simple();
+            const data = (
+                (start_date.length === 0 && end_date.length === 0) 
+                || 
+                (start_date.length === 0 && end_date.length === 0)
+            ) ? await get_last_100_records_simple() : await get_documents_simple();
 
-            if (start_date.length === 0 && end_date.length === 0) await get_last_100_records_simple();
-            else await get_documents_simple();
-
-            await generate_excel_simple();
+            await generate_excel_simple(data);
         }
 
         else {
-            const db_data = (start_date.length === 0 && end_date.length === 0) ? await get_last_100_records_detailed() : await get_documents_detailed();
+
+            const db_data = (start_date && end_date && start_date.length === 0 && end_date.length === 0) ? await get_last_100_records_detailed() : await get_documents_detailed();
             await generate_excel_detailed(db_data);
         }
 

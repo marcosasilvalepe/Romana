@@ -1,9 +1,11 @@
 const express = require('express');
 const products_router = express.Router();
 const conn = require('../config/db');
+const fs = require('fs');
+const path = require('path');
 const sharp = require('sharp');
 
-const { todays_date, userMiddleware, error_handler } = require('./routes_functions');
+const { todays_date, userMiddleware, error_handler, delay } = require('./routes_functions');
 
 /********************** PRODUCTS *********************/
 products_router.post('/get_products', userMiddleware.isLoggedIn, async (req, res) => {
@@ -108,10 +110,42 @@ products_router.post('/delete_product', userMiddleware.isLoggedIn, async (req, r
             )
         }
 
+        const remove_image = path => {
+            return new Promise((resolve, reject) => {
+                fs.unlink(path, error => {
+                    if (error) return reject(error);
+                    return resolve();
+                })
+            })
+        }
+
         const product_with_records = await check_product_records();
         if (product_with_records) throw 'Producto tiene registros en la base de datos.';
 
+        // TRY TO DELETE FILE
+        try {
+
+            const imagepath = await new Promise((resolve, reject) => {
+                conn.query(`SELECT image FROM products WHERE code=${conn.escape(product_code)};`, (error, results, fields) => {
+                    if (error) return reject(error);
+                    return resolve(results[0].image);
+                })
+            });
+
+            if (imagepath !== null) {
+
+                const filepath = path.join(process.cwd(), 'public', imagepath.slice(2, imagepath.length));
+                console.log(filepath);
+
+                await remove_image(filepath);
+
+            }
+
+        }
+        catch(e) { console.log(`Something went wrong trying to delete file. ${e}`) }
+
         await delete_product();
+
         response.success = true;
     }
     catch(e) { 
@@ -149,7 +183,7 @@ products_router.post('/create_save_product', userMiddleware.isLoggedIn, async (r
                     INSERT INTO products (code, name, type, created, created_by)
                     VALUES (
                         ${conn.escape(code).toUpperCase()},
-                        '${type + ' ' + name}',
+                        '${type + ' ' + name.replace(new RegExp(type, 'gmi'), '').trim()}',
                         '${type}',
                         '${todays_date()}',
                         ${req.userData.userId}
@@ -209,30 +243,6 @@ products_router.post('/create_save_product', userMiddleware.isLoggedIn, async (r
     finally { res.json(response) }
 })
 
-products_router.post('/upload_product_image', userMiddleware.isLoggedIn, async (req, res) => {
-
-    const 
-    query = new URLSearchParams(req.url),
-    image_name = query.get('/upload_product_image?image_name'),
-    response = { success: false }
-
-    try {
-
-        req.on('data', async chunk => {
-            fs.appendFileSync(`./temp/${image_name}`, chunk);
-        });
-
-        response.success = true;
-        
-    }
-    catch(e) { 
-        response.error = e; 
-        console.log(`Error uploading product image. ${e}`);
-        error_handler(`Endpoint: /upload_product_image -> User Name: ${req.userData.userName}\r\n${e}`);
-    }
-    finally { res.json(response) }
-})
-
 products_router.post('/save_product_image', userMiddleware.isLoggedIn, async (req, res) => {
 
     const
@@ -241,7 +251,6 @@ products_router.post('/save_product_image', userMiddleware.isLoggedIn, async (re
     temp = { resized: false },
     response = { success: false }
 
-    console.log(image_name, file_extension)
     try {
 
         const check_files = () => {
@@ -279,7 +288,6 @@ products_router.post('/save_product_image', userMiddleware.isLoggedIn, async (re
             })
         }
 
-        
         const resize_image = () => {
             return new Promise(async (resolve, reject) => {
                 try {
@@ -307,7 +315,6 @@ products_router.post('/save_product_image', userMiddleware.isLoggedIn, async (re
             })
         }
         
-
         const move_product_image = () => {
             return new Promise((resolve, reject) => {
                 const 
@@ -334,29 +341,14 @@ products_router.post('/save_product_image', userMiddleware.isLoggedIn, async (re
         }
 
         let file_exists = await check_files();
-        console.log(file_exists)
-        
         if (file_exists) await remove_image(`./public/images/grapes/${temp.file}`);
 
         let image_size = await get_image_size();
-        console.log(image_size)
-
         
         await resize_image();
         image_size = await get_image_size();
-        console.log(image_size);
-        
-
-        /*
-        while (image_size > 100000) {
-            await resize_image();
-            image_size = await get_image_size();
-            console.log(image_size);
-        }
-        */
         
         await move_product_image();
-        
         await update_db();
 
         response.image_name = `${product_code}.${file_extension}`;
@@ -369,6 +361,37 @@ products_router.post('/save_product_image', userMiddleware.isLoggedIn, async (re
         error_handler(`Endpoint: /save_product_image -> User Name: ${req.userData.userName}\r\n${e}`);
     }
     finally { res.json(response) }
-})
+});
+
+products_router.post('/upload_products_image', userMiddleware.isLoggedIn, express.raw({ type: 'application/octet-stream', limit: '10mb' }), async (req, res) => {
+
+    const response = { success: false };
+
+    try {
+
+        const buffer = req.body;
+
+        const isJPEG = buffer[0] === 0xFF && buffer[1] === 0xD8;
+        const isPNG = buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4E && buffer[3] === 0x47;
+        const isGIF = buffer[0] === 0x47 && buffer[1] === 0x49 && buffer[2] === 0x46;
+        const isWebP = buffer[8] === 0x57 && buffer[9] === 0x45 && buffer[10] === 0x42 && buffer[11] === 0x50;
+
+        let extension;
+        if (isJPEG) extension = 'jpg';
+        else if (isPNG) extension = 'png';
+        else if (isGIF) extension = 'gif';
+        else if (isWebP) extension = 'webp';
+        else throw 'File is not an image';
+
+        response.filename = `image-${Date.now()}.${extension}`;
+        const filePath = path.join(process.cwd(), 'temp', response.filename);
+
+        fs.writeFileSync(filePath, buffer);
+        response.success = true;
+
+    }
+    catch(e) { response.error = e }
+    finally { res.json(response) }
+});
 
 module.exports = { products_router }

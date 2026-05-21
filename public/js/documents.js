@@ -34,6 +34,12 @@ document.querySelector('#documents__doc-number').addEventListener('keyup', async
 
     const data = get_documents_filters();
 
+    if (data.doc_number.length === 0) {
+        documents_search_with_filters();
+        return;
+    }
+
+
     try {
 
         check_loader();
@@ -357,8 +363,11 @@ const documents_search_with_filters = () => {
     return new Promise(async (resolve, reject) => {
         try {
 
-            const data = get_documents_filters();
             check_loader();
+
+            const data = get_documents_filters();
+
+            console.log(data)
             
             const
             get_documents = await fetch('/documents_get_docs_from_filters', {
@@ -380,23 +389,30 @@ const documents_search_with_filters = () => {
     
             document.getElementById('documents__start-date').value = response.date.start;
             document.getElementById('documents__end-date').value = response.date.end;
-            
-            check_loader()
 
+            check_loader();
             return resolve();
-
         }
-        catch(error) {
-            error_handler('Error al buscar documentos por ciclo', error);
-            check_loader()
-            return reject(error)
-        }
+        catch(error) { check_loader(); return reject(error) }
     })
 }
 
 const documents_search_by_date = e => {
-    if (e.target.value.length < 10) return;
-    debounce(documents_search_with_filters(), 750);
+    
+    if (e.key !== 'Enter') return;
+    if (!validate_date(e.target.value)) return;
+    
+    const year = parseInt(e.target.value.split('-')[0]);
+
+    console.log(year)
+
+    if (year < 2019) {
+        error_handler('Error al buscar documentos por fecha.', 'Año no puede ser menor a 2019.');
+        return;
+    }
+
+    try { documents_search_with_filters() }
+    catch(error) { error_handler('No se pudo cargar los documentos.', error) }
 }
 
 (async () => {
@@ -417,8 +433,8 @@ const documents_search_by_date = e => {
         finished_documents.documents = response.docs;
         await documents_create_trs(finished_documents.documents);
 
-        document.querySelector('#documents__start-date').addEventListener('input', documents_search_by_date);
-        document.querySelector('#documents__end-date').addEventListener('input', documents_search_by_date);
+        document.querySelector('#documents__start-date').addEventListener('keydown', documents_search_by_date);
+        document.querySelector('#documents__end-date').addEventListener('keydown', documents_search_by_date);
         
         document.getElementById('documents__entity').addEventListener('keydown', e => {
             if (e.key !== 'Enter') return;

@@ -42,7 +42,7 @@ home_router.get('/grapes_data', userMiddleware.isLoggedIn, async (req, res) => {
                     INNER JOIN documents_header header ON body.document_id=header.id
                     INNER JOIN weights ON header.weight_id=weights.id
                     WHERE body.product_code='${code}' AND body.cut='${cut}' AND weights.status='T' AND weights.cycle=${response.cycle}
-                    AND (header.status='I' OR header.status='T')
+                    AND (header.status='I' OR header.status='T') AND header.type=2
                     AND (body.status='I' OR body.status='T') 
                     AND (
                         weights.created BETWEEN 
@@ -205,21 +205,59 @@ home_router.post('/get_products_by_date', userMiddleware.isLoggedIn, async (req,
 
     try {
 
-        const get_kilos = (code, cut) => {
+        const process_products = results => {
             return new Promise((resolve, reject) => {
-                conn.query(`
-                    SELECT SUM(body.kilos) AS kilos 
-                    FROM documents_body body
-                    INNER JOIN documents_header header ON body.document_id=header.id
-                    INNER JOIN weights ON header.weight_id=weights.id
-                    WHERE body.product_code='${code}' AND cut='${cut}' AND weights.status='T' AND weights.cycle=${conn.escape(cycle)}
-                    AND (header.status='I' OR header.status='T') 
-                    AND (body.status='I' OR body.status='T') 
-                    AND (weights.created BETWEEN '${start_date} 00:00:00' AND '${end_date} 23:59:59');
-                `, (error, results, fields) => {
-                    if (error || results.length === 0) return reject(error);
-                    return resolve(results[0].kilos);
-                })
+                try {
+
+                    const products = [];
+                    let current_product;
+
+                    for (let i = 0; i < results.length; i++) {
+
+                        if (current_product === results[i].code) continue;
+                        current_product = results[i].code;
+
+                        const product = {
+                            code: results[i].code,
+                            name: results[i].name,
+                            type: results[i].type,
+                            color: results[i].color,
+                            image: results[i].image,
+                            total: 0,
+                            kilos: {
+                                packing: 0,
+                                parron: 0
+                            }
+                        }
+
+                        //SUM KILOS
+                        for (let j = i; j < results.length; j++) {
+
+                            if (results[j].code !== product.code) break;
+                            
+                            if (results[j].cycle === 1 || results[j].cycle === 3) {
+
+                                if (results[j].cut === 'Packing') product.kilos.packing += results[j].kilos;
+                                else product.kilos.parron += results[j].kilos;
+                            }
+
+                            else {
+                                if (results[j].cut === 'Packing') product.kilos.packing -= results[j].kilos;
+                                else product.kilos.parron -= results[j].kilos;
+                            }
+
+                        }
+
+                        product.total = product.kilos.packing + product.kilos.parron;
+                        response.total.packing += product.kilos.packing;
+                        response.total.parron += product.kilos.parron;
+                        
+                        products.push(product);
+                    }
+
+                    return resolve(products);
+                }
+                catch(e) { return reject(e) }
             })
         }
     
@@ -227,7 +265,7 @@ home_router.post('/get_products_by_date', userMiddleware.isLoggedIn, async (req,
             return new Promise((resolve, reject) => {
                 conn.query(`
                     SELECT products.code, products.name, products.type, products.color, products.image,
-                    body.cut, body.kilos
+                    body.cut, body.kilos, weights.cycle
                     FROM documents_body body
                     INNER JOIN products ON body.product_code=products.code
                     INNER JOIN documents_header header ON body.document_id=header.id
@@ -236,90 +274,16 @@ home_router.post('/get_products_by_date', userMiddleware.isLoggedIn, async (req,
                     products.type=${conn.escape(product_type)} AND (header.status='I' OR header.status='T') 
                     AND (body.status='I' OR body.status='T')
                     AND (weights.created BETWEEN '${start_date} 00:00:00' AND '${end_date} 23:59:59')
-                    AND body.product_code IS NOT NULL AND header.type <> 3
+                    AND header.client_entity <> 148 AND header.client_entity <> 149 AND header.client_entity <> 153 
+                    AND header.client_entity <> 183 AND header.client_entity <> 234 AND header.client_entity <> 245
+                    AND header.type=2 AND body.product_code IS NOT NULL
                     ORDER BY products.name ASC;
                 `, async (error, results, fields) => {
                         
                     if (error) return reject(error);
+                    response.products = await process_products(results);
 
-                    const products_array = [];
-
-                    let current_index = 0;
-
-                    for (let product of results) {
-
-                        if (products_array.includes(product.code)) continue;
-                        products_array.push(product.code);
-
-                        const this_product = {
-                            code: product.code,
-                            color: product.color,
-                            image: product.image,
-                            kilos: {
-                                packing: 0,
-                                parron: 0
-                            },
-                            name: product.name,
-                            type: product.type
-                        }
-
-                        //SUM PACKING
-                        for (let j = 0; j < results.length; j++) {
-                            if (results[j].code !== this_product.code || results[j].cut !== 'Packing') continue;
-                            this_product.kilos.packing += results[j].kilos;
-                        }
-
-                        //SUM PARRON
-                        for (let j = 0; j < results.length; j++) {
-                            if (results[j].code !== this_product.code || results[j].cut !== 'Parron') continue;
-                            this_product.kilos.parron += results[j].kilos;
-                        }
-
-                        this_product.total = this_product.kilos.packing + this_product.kilos.parron;
-                        response.total.packing += this_product.kilos.packing;
-                        response.total.parron += this_product.kilos.parron;
-
-                        response.products.push(this_product)
-
-                    }
-
-                    /*
-
-                    response.products = results;
-                    for (let i = 0; i < response.products.length; i++) {
-
-                        const 
-                        packing = 1 * await get_kilos(response.products[i].code, 'Packing'),
-                        parron = 1 * await get_kilos(response.products[i].code, 'Parron');
-
-                        response.products[i].total = packing + parron;
-                        response.products[i].kilos = { packing: packing, parron: parron };
-                        response.total.packing += packing;
-                        response.total.parron += parron;
-                    }
-                    */
                     return resolve();
-                })
-            })
-        }
-
-        const get_warehouse_kilos = (target_cycle, code, cut) => {
-            return new Promise((resolve, reject) => {
-                const cycle_sql = (target_cycle === 1) ? 'AND (weights.cycle=1 OR weights.cycle=3)' : `AND weights.cycle=${target_cycle}`;
-                conn.query(`
-                    SELECT SUM(body.kilos) AS kilos
-                    FROM documents_body body
-                    INNER JOIN documents_header header ON body.document_id=header.id
-                    INNER JOIN weights ON header.weight_id=weights.id
-                    INNER JOIN products ON body.product_code=products.code
-                    WHERE body.product_code='${code}' AND cut='${cut}'
-                    AND weights.status='T' AND products.type=${conn.escape(product_type)}
-                    ${cycle_sql} AND (header.status='I' OR header.status='T')
-                    AND (body.status='I' OR body.status='T') AND header.type <> 3
-                    AND (weights.created BETWEEN '${start_date} 00:00:00' AND '${end_date} 23:59:59');
-                `, (error, results, fields) => {
-                    if (error || results.length === 0) return reject(error);
-                    return resolve(1 * results[0].kilos);
                 })
             })
         }
@@ -327,7 +291,8 @@ home_router.post('/get_products_by_date', userMiddleware.isLoggedIn, async (req,
         const get_warehouse_receptions = () => {
             return new Promise((resolve, reject) => {
                 conn.query(`
-                    SELECT products.code, products.name, products.type, products.color, products.image
+                    SELECT products.code, products.name, products.type, products.color, products.image,
+                    body.kilos, body.cut, weights.cycle
                     FROM documents_body body
                     INNER JOIN products ON body.product_code=products.code
                     INNER JOIN documents_header header ON body.document_id=header.id
@@ -337,24 +302,13 @@ home_router.post('/get_products_by_date', userMiddleware.isLoggedIn, async (req,
                     AND (header.status='I' OR header.status='T') 
                     AND (body.status='I' OR body.status='T') AND header.type <> 3
                     AND (weights.created BETWEEN '${start_date} 00:00:00' AND '${end_date} 23:59:59')
-                    GROUP BY products.name ORDER BY products.name ASC;
+                    ORDER BY products.name ASC;
                 `, async (error, results, fields) => {
+
                     if (error) return reject(error);
 
-                    response.products = results;
+                    response.products = await process_products(results);
 
-                    for (let i = 0; i < response.products.length; i++) {
-                        
-                        const 
-                        packing = await get_warehouse_kilos(1, response.products[i].code, 'Packing'),
-                        parron = await get_warehouse_kilos(1, response.products[i].code, 'Parron');
-
-                        response.products[i].total = packing + parron;
-                        response.products[i].kilos = { packing, parron };
-                        response.total.packing += packing;
-                        response.total.parron += parron;
-                    }
-                    
                     return resolve();
                 })
             })
@@ -363,7 +317,8 @@ home_router.post('/get_products_by_date', userMiddleware.isLoggedIn, async (req,
         const get_warehouse_stock = () => {
             return new Promise((resolve, reject) => {
                 conn.query(`
-                    SELECT products.code, products.name, products.type, products.color, products.image
+                    SELECT products.code, products.name, products.type, products.color, products.image,
+                    body.kilos, body.cut, weights.cycle
                     FROM documents_body body
                     INNER JOIN products ON body.product_code=products.code
                     INNER JOIN documents_header header ON body.document_id=header.id
@@ -371,31 +326,16 @@ home_router.post('/get_products_by_date', userMiddleware.isLoggedIn, async (req,
                     WHERE weights.status='T' AND products.type=${conn.escape(product_type)}
                     AND (header.status='I' OR header.status='T') 
                     AND (body.status='I' OR body.status='T')
-                    AND (weights.created BETWEEN '${start_date} 00:00:00' AND '${end_date} 23:59:59')
-                    GROUP BY products.name 
+                    AND header.client_entity <> 148 AND header.client_entity <> 149 AND header.client_entity <> 153 
+                    AND header.client_entity <> 183 AND header.client_entity <> 234 AND header.client_entity <> 245
+                    AND header.type=2 AND (weights.created BETWEEN '${start_date} 00:00:00' AND '${end_date} 23:59:59')
+                    AND weights.cycle <= 2 AND (body.status='T' OR body.status='I')
                     ORDER BY products.name ASC;
                 `, async (error, results, fields) => {
+
                     if (error) return reject(error);
 
-                    response.products = results;
-
-                    for (let row of response.products) {
-
-                        const 
-                        reception_packing = await get_warehouse_kilos(1, row.code, 'Packing'),
-                        reception_parron = await get_warehouse_kilos(1, row.code, 'Parron'),
-                        dispatch_packing = await get_warehouse_kilos(2, row.code, 'Packing'),
-                        dispatch_parron = await get_warehouse_kilos(2, row.code, 'Parron'),
-                        packing = (reception_packing - dispatch_packing),
-                        parron = (reception_parron - dispatch_parron);
-
-                        row.total = packing + parron;
-                        row.kilos = { packing, parron };
-                        response.total.packing += packing;
-                        response.total.parron += parron;
-
-                    }
-
+                    response.products = await process_products(results);
                     return resolve();
                 })
             })
@@ -403,7 +343,10 @@ home_router.post('/get_products_by_date', userMiddleware.isLoggedIn, async (req,
 
         if (!validate_date(start_date) || !validate_date(end_date)) throw 'Fecha inválida.';
 
+        // GETS PRODUCTS FOR WAREHOUSE RECEPTIONS
         if (cycle === 3) await get_warehouse_receptions();
+
+        // GETS PRODUCTS FOR WHATS LEFT IN STOCK
         else if (cycle === 0) await get_warehouse_stock();
         else await get_product_varietes();
 
@@ -502,7 +445,7 @@ home_router.post('/get_product_documents', userMiddleware.isLoggedIn, async (req
 
     const
     { client_id, product_code, cycle, start_date, end_date } = req.body,
-    cycle_sql = (parseInt(cycle) === 1) ? `(weights.cycle=1 OR weights.cycle=3)` : `weights.cycle=${parseInt(cycle)}`,
+    cycle_sql = (parseInt(cycle) === 1 || parseInt(cycle) === 3) ? `(weights.cycle=1 OR weights.cycle=3)` : `weights.cycle=${parseInt(cycle)}`,
     response = { 
         data: [],
         success: false 

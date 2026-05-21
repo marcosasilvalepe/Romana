@@ -22,21 +22,21 @@ async function error_handler(custom_msg, msg) {
 	console.log(msg);
 	if (typeof msg === 'object') {
 		if (msg === null) msg = 'msg is null';
+		else if (msg.name !== undefined) msg = msg.name;
 		else if (msg.sqlMessage !== undefined) msg = msg.sqlMessage;
 		else msg = msg.toString();
 	}
 
-	const
-	menu_icon = document.getElementById('menu-errors'),
-	error_div = document.getElementById('error-section'),
-	container = document.getElementById('error-container'),
-	error_container = document.createElement('div'),
-	now = new Date().toLocaleString('es-CL').split(' ')[1],
-	time = document.createElement('h4'),
-	custom_div = document.createElement('div'),
-	custom_p = document.createElement('p'),
-	msg_div = document.createElement('div'),
-	msg_p = document.createElement('p');
+	const menu_icon = document.getElementById('menu-errors');
+	const error_div = document.getElementById('error-section');
+	const container = document.getElementById('error-container');
+	const error_container = document.createElement('div');
+	const now = new Date().toLocaleString('es-CL').split(' ')[1];
+	const time = document.createElement('h4');
+	const custom_div = document.createElement('div');
+	const custom_p = document.createElement('p');
+	const msg_div = document.createElement('div');
+	const msg_p = document.createElement('p');
 
 	error_container.className = 'error-container';
 	error_container.append(time, custom_div, msg_div);
@@ -159,6 +159,40 @@ function delay(delayValue) { return new Promise(resolve => setTimeout(resolve, d
 /*** NUMBER FORMATER ***/
 function thousand_separator(num) { 
 	return num.toString().replace(/(\d)(?=(\d{3})+(?!\d))/g, '$1.') 
+}
+
+function thousand_formatter(number) {
+	try {
+
+		number = Number(number);
+	
+		// Ensure two decimal places for consistency
+		const formattedNumber = number.toFixed(1);
+
+		// Separate integer and decimal parts
+		const [integerPart, decimalPart] = formattedNumber.split(".");
+
+		// Check if there's a decimal point
+		if (decimalPart !== '0') {
+	
+		  // Add thousand separators to the integer part
+		  const formattedIntegerPart = integerPart.replace(
+			/(\d)(?=(\d{3})+(?!\d))/g,
+			"$1."
+		  );
+	
+		  // Combine formatted parts with a comma
+		  return `${formattedIntegerPart},${decimalPart}`;
+		}
+		
+		else {
+		  // No decimal, just add thousand separators and remove the trailing ".00"
+		  return formattedNumber.replace(/(\d)(?=(\d{3})+(?!\d))/g, "$1.")
+			.replace(/\.0$/, "");
+		}
+	  } catch (error) {
+		return "Invalid number";
+	  }
 }
 
 /*** FADE OUT FUNCTION ***/
@@ -294,7 +328,6 @@ function check_loader() {
 			`;
 			
 			document.body.prepend(loader)
-
 		}
 
 		return resolve();

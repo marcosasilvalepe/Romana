@@ -1,7 +1,3 @@
-#analytics > nav {
-  height: 35px;
-}
-
 @media (max-width: 576px) {
   #analytics > nav {
       height: 30px;
@@ -23,15 +19,15 @@
 #analytics__main-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  grid-template-rows: repeat(3, 1fr);
+  grid-template-rows: repeat(4, 1fr);
   column-gap: 70px;
-  row-gap: 70px;
+  row-gap: 40px;
   align-items: center;
   padding: 10px 0;
 }
 
 @media only screen and (min-width: 768px) and (max-width: 1280px) {
-  
+
   #analytics__main-grid {
     height: auto !important;
   }
@@ -87,6 +83,11 @@
 }
 
 #analytics__main-grid .card .new-weight-icon .fa-users {
+  font-size: 20px;
+  margin: auto 23px 25px auto;
+}
+
+#analytics__main-grid .card .new-weight-icon .fa-chart-line {
   font-size: 20px;
   margin: auto 23px 25px auto;
 }
@@ -316,7 +317,7 @@
 }
 
 .analytics__entities-stock-movements .table .tr {
-  grid-template-columns: 36px 100px 100px 120px 100px 140px 230px 1fr 120px;
+  grid-template-columns: 36px 100px 100px 100px 120px 100px 140px 230px 1fr 120px;
 }
 
 .analytics__entities-stock-movements .td.internal-entity,
@@ -532,4 +533,27 @@
   margin: auto;
   font-size: 11px;
   text-shadow: 1px 1px 1px rgba(0, 0, 0, .6);
+}
+
+/******************* INTERNAL ENTITIES *****************/
+#analytics__internal-entities {
+  width: 100%;
+  height: 100%;
+  display: flex;
+}
+
+#analytics__internal-entities .grid {
+  width: 100%;
+  height: 100%;
+  margin: auto;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  row-gap: 15px;
+  column-gap: 15px;
+}
+
+#analytics__internal-entities .chart-wrapper {
+  border: 1px solid rgba(255, 255, 255, .3);
+  padding: 5px;
+  background-color: rgba(255, 255, 255, .95);
 }

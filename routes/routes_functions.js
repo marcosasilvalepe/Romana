@@ -34,13 +34,17 @@ const userMiddleware = {
 }
 
 const todays_date = () => {
-    const 
-    now = new Date(),
-    year = now.getFullYear(),
-    month = (now.getMonth() + 1 < 10) ? '0' + (now.getMonth() + 1) : now.getMonth() + 1,
-    day = (now.getDate() < 10) ? '0' + now.getDate() : now.getDate(),
-    hour = now.toLocaleString('es-CL').split(' ')[1];
-    return year + '-' + month + '-' + day + ' ' + hour;
+    
+    const now = new Date();
+    
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    const seconds = String(now.getSeconds()).padStart(2, '0');
+    
+    return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
 }
 
 const validate_rut = rut => {
@@ -144,4 +148,48 @@ const error_handler = msg => {
     })
 }
 
-module.exports = { delay, get_cookie, userMiddleware, todays_date, validate_rut, format_rut, format_date, validate_date, format_html_date, set_to_monday, error_handler, jwt_auth_secret, jwt_refresh_secret, socket_domain }
+function formatMySQLDate(mysqlDateString) {
+	const date = new Date(mysqlDateString);
+  
+	const day = String(date.getDate()).padStart(2, '0');
+	const month = String(date.getMonth() + 1).padStart(2, '0'); // Months are 0-based
+	const year = date.getFullYear();
+	const hours = String(date.getHours()).padStart(2, '0');
+	const minutes = String(date.getMinutes()).padStart(2, '0');
+	const seconds = String(date.getSeconds()).padStart(2, '0');
+  
+	return `${day}-${month}-${year} ${hours}:${minutes}:${seconds}`;
+}
+
+function excel_date(str) {
+
+	const date = (str === undefined) ? new Date() : new Date(str);
+  
+	const day = String(date.getDate()).padStart(2, '0');
+	const month = String(date.getMonth() + 1).padStart(2, '0'); // Months are 0-based
+	const year = date.getFullYear();
+	const hours = String(date.getHours()).padStart(2, '0');
+	const minutes = String(date.getMinutes()).padStart(2, '0');
+	const seconds = String(date.getSeconds()).padStart(2, '0');
+  
+	return `${day}-${month}-${year} ${hours}:${minutes}:${seconds}`;
+}
+
+module.exports = { 
+    delay, 
+    get_cookie, 
+    userMiddleware, 
+    todays_date, 
+    validate_rut, 
+    format_rut, 
+    format_date, 
+    validate_date, 
+    format_html_date, 
+    set_to_monday, 
+    error_handler, 
+    jwt_auth_secret, 
+    jwt_refresh_secret, 
+    socket_domain, 
+    formatMySQLDate,
+    excel_date
+}

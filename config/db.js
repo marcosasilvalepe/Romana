@@ -6,7 +6,7 @@ const conn = mysql.createPool({
     connectionLimit: 15, 
     host: "localhost", 
     user: "root", 
-    password: "M@r$l1985_:)", 
+    password: "m@r$l1985_:)", 
     database: "romana", 
     multipleStatements: true 
 });
